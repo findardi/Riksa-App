@@ -27,9 +27,10 @@ func main() {
 	defer db.Close()
 
 	otpSecret := config.GetEnv("OTP_SECRET", "")
+	jwtSecret := config.GetEnv("JWT_SECRET", "")
 	addr := config.GetEnv("ADDR", ":8181")
 
-	if err := app.New(db, otpSecret, addr).Run(); err != nil {
+	if err := app.New(db, otpSecret, addr, jwtSecret).Run(); err != nil {
 		log.Fatal(err)
 	}
 }

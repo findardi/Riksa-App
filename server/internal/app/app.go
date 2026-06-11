@@ -13,6 +13,7 @@ import (
 	"github.com/findardi/Wadi/server/internal/auth"
 	"github.com/findardi/Wadi/server/internal/platform/otp"
 	"github.com/findardi/Wadi/server/internal/platform/response"
+	"github.com/findardi/Wadi/server/internal/platform/token"
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -22,10 +23,11 @@ type App struct {
 	addr   string
 }
 
-func New(pool *pgxpool.Pool, otpSecret, addr string) *App {
+func New(pool *pgxpool.Pool, otpSecret, addr, jwtSecret string) *App {
 	otpGen := otp.New(otpSecret)
+	jwtGen := token.New(jwtSecret)
 
-	authModule := auth.NewModule(pool, otpGen)
+	authModule := auth.NewModule(pool, otpGen, jwtGen)
 
 	r := chi.NewRouter()
 	registerGlobalMiddleware(r)

@@ -9,25 +9,29 @@ import (
 
 	"github.com/findardi/Wadi/server/internal/auth/dto"
 	authdb "github.com/findardi/Wadi/server/internal/auth/repository/sqlc"
+	"github.com/findardi/Wadi/server/internal/platform/token"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"golang.org/x/crypto/bcrypt"
 )
 
 var (
-	ErrEmailUnique    = errors.New("email already registered")
-	ErrUsernameUnique = errors.New("username already registered")
+	ErrEmailUnique        = errors.New("email already registered")
+	ErrUsernameUnique     = errors.New("username already registered")
+	ErrInvalidCredentials = errors.New("invalid email/username or password")
 )
 
 type AuthService struct {
 	repo UserRepository
 	otp  OTPService
+	jwt  JWTService
 }
 
-func NewAuthService(repo UserRepository, otp OTPService) *AuthService {
+func NewAuthService(repo UserRepository, otp OTPService, jwt JWTService) *AuthService {
 	return &AuthService{
 		repo: repo,
 		otp:  otp,
+		jwt:  jwt,
 	}
 }
 
@@ -95,6 +99,59 @@ func (s *AuthService) RegisterUser(ctx context.Context, req dto.RegisterRequest)
 	return dto.RegisterResponse{
 		ID:       uuidString(user.ID),
 		Username: deref(user.Username),
+	}, nil
+}
+
+func (s *AuthService) LoginUser(ctx context.Context, req dto.LoginRequest) (dto.LoginResponse, error) {
+	var user authdb.User
+	var err error
+
+	switch {
+	case req.Email != "":
+		email := strings.ToLower(strings.TrimSpace(req.Email))
+		user, err = s.repo.GetUserByEmail(ctx, email)
+	case req.Username != "":
+		username := strings.TrimSpace(req.Username)
+		user, err = s.repo.GetUserByUsername(ctx, &username)
+	default:
+		return dto.LoginResponse{}, ErrInvalidCredentials
+	}
+
+	if errors.Is(err, pgx.ErrNoRows) {
+		return dto.LoginResponse{}, ErrInvalidCredentials
+	}
+	if err != nil {
+		return dto.LoginResponse{}, fmt.Errorf("get user: %w", err)
+	}
+
+	// User SSO without password
+	if user.PasswordHash == nil {
+		return dto.LoginResponse{}, ErrInvalidCredentials
+	}
+
+	if err := bcrypt.CompareHashAndPassword([]byte(*user.PasswordHash), []byte(req.Password)); err != nil {
+		return dto.LoginResponse{}, ErrInvalidCredentials
+	}
+
+	claims := token.JwtClaims{
+		ID:       uuidString(user.ID),
+		Username: deref(user.Username),
+		Status:   user.Status,
+	}
+
+	accessToken, err := s.jwt.CreateToken(claims, token.TokenType("token_login"))
+	if err != nil {
+		return dto.LoginResponse{}, fmt.Errorf("create access token: %w", err)
+	}
+
+	refreshToken, err := s.jwt.CreateToken(claims, token.TokenType("token_refresh"))
+	if err != nil {
+		return dto.LoginResponse{}, fmt.Errorf("create refresh token: %w", err)
+	}
+
+	return dto.LoginResponse{
+		Token:        accessToken,
+		RefreshToken: refreshToken,
 	}, nil
 }
 

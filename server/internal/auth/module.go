@@ -12,9 +12,9 @@ type Module struct {
 	handler *handler.AuthHandler
 }
 
-func NewModule(pool *pgxpool.Pool, otp service.OTPService) *Module {
+func NewModule(pool *pgxpool.Pool, otp service.OTPService, jwt service.JWTService) *Module {
 	r := repository.New(pool)
-	s := service.NewAuthService(r, otp)
+	s := service.NewAuthService(r, otp, jwt)
 	h := handler.NewAuthHandler(s)
 
 	return &Module{
@@ -25,5 +25,6 @@ func NewModule(pool *pgxpool.Pool, otp service.OTPService) *Module {
 func (m *Module) RegisterRoutes(r chi.Router) {
 	r.Route("/auth", func(r chi.Router) {
 		r.Post("/register", m.handler.Register)
+		r.Post("/login", m.handler.Login)
 	})
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 
 	authdb "github.com/findardi/Wadi/server/internal/auth/repository/sqlc"
+	"github.com/findardi/Wadi/server/internal/platform/token"
 )
 
 type UserRepository interface {
@@ -18,4 +19,9 @@ type OTPService interface {
 	Generate() string
 	Hash(code string) string
 	Compare(hash, code string) bool
+}
+
+type JWTService interface {
+	CreateToken(claims token.JwtClaims, tokenType token.TokenType) (string, error)
+	VerifyingToken(tokenString string) error
 }
