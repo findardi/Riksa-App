@@ -1,7 +1,6 @@
 package dto
 
 type RegisterRequest struct {
-	Name     string `json:"name" validate:"required,min=1,max=255"`
 	Email    string `json:"email" validate:"required,email"`
 	Username string `json:"username" validate:"required,min=6,max=255"`
 	Password string `json:"password" validate:"required,min=6,max=255"`

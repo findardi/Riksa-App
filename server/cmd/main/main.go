@@ -2,9 +2,9 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
 
+	"github.com/findardi/Wadi/server/internal/app"
 	"github.com/findardi/Wadi/server/internal/platform/config"
 	"github.com/findardi/Wadi/server/internal/platform/database"
 )
@@ -26,5 +26,10 @@ func main() {
 
 	defer db.Close()
 
-	fmt.Print("Koneksi aman")
+	otpSecret := config.GetEnv("OTP_SECRET", "")
+	addr := config.GetEnv("ADDR", ":8181")
+
+	if err := app.New(db, otpSecret, addr).Run(); err != nil {
+		log.Fatal(err)
+	}
 }
