@@ -11,6 +11,41 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const createUserToken = `-- name: CreateUserToken :one
+insert into user_tokens 
+    (user_id, type, code_hash, expires_at)
+values
+    ($1, $2, $3, $4)
+returning id, user_id, type, code_hash, expires_at, used_at, created_at
+`
+
+type CreateUserTokenParams struct {
+	UserID    pgtype.UUID        `json:"user_id"`
+	Type      string             `json:"type"`
+	CodeHash  string             `json:"code_hash"`
+	ExpiresAt pgtype.Timestamptz `json:"expires_at"`
+}
+
+func (q *Queries) CreateUserToken(ctx context.Context, arg CreateUserTokenParams) (UserToken, error) {
+	row := q.db.QueryRow(ctx, createUserToken,
+		arg.UserID,
+		arg.Type,
+		arg.CodeHash,
+		arg.ExpiresAt,
+	)
+	var i UserToken
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Type,
+		&i.CodeHash,
+		&i.ExpiresAt,
+		&i.UsedAt,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const getValidUserToken = `-- name: GetValidUserToken :one
 select id, user_id, type, code_hash, expires_at, used_at, created_at from user_tokens
 where user_id = $1
