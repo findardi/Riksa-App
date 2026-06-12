@@ -37,6 +37,7 @@ func (m *Module) RegisterRoutes(r chi.Router) {
 			r.Use(m.mw.RequireAuth)
 			r.Post("/resend-otp", m.handler.ResendOTP)
 			r.Post("/verify-email", m.handler.VerifyAccount)
+			r.Post("/logout", m.handler.Logout)
 		})
 	})
 }

@@ -173,9 +173,27 @@ func (q *Queries) GetUsersByStatus(ctx context.Context, status string) ([]User, 
 	return items, nil
 }
 
+const updatePassword = `-- name: UpdatePassword :exec
+update users set
+    password_hash = $2,
+    updated_at = now()
+where id = $1
+`
+
+type UpdatePasswordParams struct {
+	ID           pgtype.UUID `json:"id"`
+	PasswordHash *string     `json:"password_hash"`
+}
+
+func (q *Queries) UpdatePassword(ctx context.Context, arg UpdatePasswordParams) error {
+	_, err := q.db.Exec(ctx, updatePassword, arg.ID, arg.PasswordHash)
+	return err
+}
+
 const updateStatus = `-- name: UpdateStatus :one
 update users set
-    status = $2
+    status = $2,
+    updated_at = now()
 where id = $1
 returning id, email, username, password_hash, email_verified_at, status, created_at, updated_at
 `

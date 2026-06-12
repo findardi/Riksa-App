@@ -16,3 +16,8 @@ type LoginRequest struct {
 	Email    string `json:"email" validate:"required_without=Username,omitempty,email"`
 	Password string `json:"password" validate:"required"`
 }
+
+type LogoutRequest struct {
+	UserID       string `json:"-"`
+	RefreshToken string `json:"refresh_token" validate:"required"`
+}

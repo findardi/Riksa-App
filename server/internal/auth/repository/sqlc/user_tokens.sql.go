@@ -46,19 +46,69 @@ func (q *Queries) CreateUserToken(ctx context.Context, arg CreateUserTokenParams
 	return i, err
 }
 
+const deleteExpiredUserTokens = `-- name: DeleteExpiredUserTokens :exec
+delete from user_tokens
+where user_id = $1 and expires_at < now()
+`
+
+func (q *Queries) DeleteExpiredUserTokens(ctx context.Context, userID pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, deleteExpiredUserTokens, userID)
+	return err
+}
+
+const deleteTokensByType = `-- name: DeleteTokensByType :exec
+delete from user_tokens
+where user_id = $1 and type = $2
+`
+
+type DeleteTokensByTypeParams struct {
+	UserID pgtype.UUID `json:"user_id"`
+	Type   string      `json:"type"`
+}
+
+func (q *Queries) DeleteTokensByType(ctx context.Context, arg DeleteTokensByTypeParams) error {
+	_, err := q.db.Exec(ctx, deleteTokensByType, arg.UserID, arg.Type)
+	return err
+}
+
 const deleteUserToken = `-- name: DeleteUserToken :exec
 delete from user_tokens
-where code_hash = $1 and user_id = $2
+where code_hash = $1 and user_id = $2 and type = $3
 `
 
 type DeleteUserTokenParams struct {
 	CodeHash string      `json:"code_hash"`
 	UserID   pgtype.UUID `json:"user_id"`
+	Type     string      `json:"type"`
 }
 
 func (q *Queries) DeleteUserToken(ctx context.Context, arg DeleteUserTokenParams) error {
-	_, err := q.db.Exec(ctx, deleteUserToken, arg.CodeHash, arg.UserID)
+	_, err := q.db.Exec(ctx, deleteUserToken, arg.CodeHash, arg.UserID, arg.Type)
 	return err
+}
+
+const getRefreshToken = `-- name: GetRefreshToken :one
+select id, user_id, type, code_hash, expires_at, used_at, created_at from user_tokens
+where code_hash = $1
+ and type = 'refresh'
+ and used_at is null
+ and expires_at > now()
+limit 1
+`
+
+func (q *Queries) GetRefreshToken(ctx context.Context, codeHash string) (UserToken, error) {
+	row := q.db.QueryRow(ctx, getRefreshToken, codeHash)
+	var i UserToken
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Type,
+		&i.CodeHash,
+		&i.ExpiresAt,
+		&i.UsedAt,
+		&i.CreatedAt,
+	)
+	return i, err
 }
 
 const getValidUserToken = `-- name: GetValidUserToken :one

@@ -5,6 +5,7 @@ import (
 
 	authdb "github.com/findardi/Wadi/server/internal/auth/repository/sqlc"
 	"github.com/findardi/Wadi/server/internal/platform/token"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type UserRepository interface {
@@ -20,6 +21,7 @@ type UserRepository interface {
 	UpdateUserToken(ctx context.Context, arg authdb.UpdateUserTokenParams) (authdb.UserToken, error)
 
 	DeleteUserToken(ctx context.Context, arg authdb.DeleteUserTokenParams) error
+	DeleteExpiredUserTokens(ctx context.Context, userID pgtype.UUID) error
 
 	ExecTx(ctx context.Context, fn func(q *authdb.Queries) error) error
 }

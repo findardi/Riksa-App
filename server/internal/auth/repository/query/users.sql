@@ -33,6 +33,13 @@ returning *;
 
 -- name: UpdateStatus :one
 update users set
-    status = $2
+    status = $2,
+    updated_at = now()
 where id = $1
 returning *;
+
+-- name: UpdatePassword :exec
+update users set
+    password_hash = $2,
+    updated_at = now()
+where id = $1;

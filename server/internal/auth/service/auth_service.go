@@ -147,8 +147,22 @@ func (s *AuthService) LoginUser(ctx context.Context, req dto.LoginRequest) (dto.
 		return dto.LoginResponse{}, fmt.Errorf("create access token: %w", err)
 	}
 
-	refreshToken, err := s.jwt.CreateToken(claims, token.TokenType("token_refresh"))
-	if err != nil {
+	// delete unused token
+	if err := s.repo.DeleteExpiredUserTokens(ctx, user.ID); err != nil {
+		return dto.LoginResponse{}, fmt.Errorf("cleanup expired tokens: %w", err)
+	}
+
+	refreshToken := s.otp.Generate()
+
+	if _, err = s.repo.CreateUserToken(ctx, authdb.CreateUserTokenParams{
+		UserID:   user.ID,
+		Type:     "refresh",
+		CodeHash: s.otp.Hash(refreshToken),
+		ExpiresAt: pgtype.Timestamptz{
+			Time:  time.Now().Add(24 * time.Hour),
+			Valid: true,
+		},
+	}); err != nil {
 		return dto.LoginResponse{}, fmt.Errorf("create refresh token: %w", err)
 	}
 
@@ -233,6 +247,7 @@ func (s *AuthService) VerifyEmail(ctx context.Context, req dto.VerifyOtpRequest)
 		if err := q.DeleteUserToken(ctx, authdb.DeleteUserTokenParams{
 			CodeHash: otp.CodeHash,
 			UserID:   user.ID,
+			Type:     "email_verification",
 		}); err != nil {
 			return fmt.Errorf("delete token: %w", err)
 		}
@@ -240,6 +255,23 @@ func (s *AuthService) VerifyEmail(ctx context.Context, req dto.VerifyOtpRequest)
 	})
 	if err != nil {
 		return fmt.Errorf("verify tx: %w", err)
+	}
+
+	return nil
+}
+
+func (s *AuthService) LogoutUser(ctx context.Context, req dto.LogoutRequest) error {
+	var uid pgtype.UUID
+	if err := uid.Scan(req.UserID); err != nil {
+		return fmt.Errorf("parse user id: %w", err)
+	}
+
+	if err := s.repo.DeleteUserToken(ctx, authdb.DeleteUserTokenParams{
+		CodeHash: s.otp.Hash(req.RefreshToken),
+		UserID:   uid,
+		Type:     "refresh",
+	}); err != nil {
+		return fmt.Errorf("delete refresh token: %w", err)
 	}
 
 	return nil
