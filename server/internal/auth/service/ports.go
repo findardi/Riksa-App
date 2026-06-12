@@ -40,3 +40,7 @@ type JWTService interface {
 	CreateToken(claims token.JwtClaims, tokenType token.TokenType) (string, error)
 	VerifyToken(tokenString string) (*token.JwtClaims, error)
 }
+
+type MailService interface {
+	Send(ctx context.Context, to, subject, body string) error
+}

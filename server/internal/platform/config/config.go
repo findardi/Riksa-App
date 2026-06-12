@@ -23,6 +23,14 @@ type DatabaseConfig struct {
 	ConnMaxIdleTime time.Duration
 }
 
+type MailConfig struct {
+	Host string
+	Port int
+	User string
+	Pass string
+	From string
+}
+
 func LoadEnvFile(path string) error {
 	f, err := os.Open(path)
 	if err != nil {

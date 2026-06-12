@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"strings"
 	"time"
 
@@ -28,13 +29,15 @@ type AuthService struct {
 	repo UserRepository
 	otp  OTPService
 	jwt  JWTService
+	mail MailService
 }
 
-func NewAuthService(repo UserRepository, otp OTPService, jwt JWTService) *AuthService {
+func NewAuthService(repo UserRepository, otp OTPService, jwt JWTService, mail MailService) *AuthService {
 	return &AuthService{
 		repo: repo,
 		otp:  otp,
 		jwt:  jwt,
+		mail: mail,
 	}
 }
 
@@ -94,15 +97,24 @@ func (s *AuthService) RegisterUser(ctx context.Context, req dto.RegisterRequest)
 		return dto.RegisterResponse{}, fmt.Errorf("register tx: %w", err)
 	}
 
-	// TODO: kirim OTP ke email SETELAH commit (di luar transaksi).
-	// if err := s.mailer.SendVerificationOTP(ctx, email, code); err != nil { ... }
-	// TODO: delete log when email already implementasi
-	fmt.Println("Code:", code)
+	s.sendEmailAsync(email, "Verify your email",
+		fmt.Sprintf("Your verification code is: %s (valid for 5 minutes)", code))
 
 	return dto.RegisterResponse{
 		ID:       uuidString(user.ID),
 		Username: deref(user.Username),
 	}, nil
+}
+
+// sendEmailAsync fires the email in the background; request ctx would be cancelled, so use Background.
+func (s *AuthService) sendEmailAsync(to, subject, body string) {
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		defer cancel()
+		if err := s.mail.Send(ctx, to, subject, body); err != nil {
+			log.Printf("send email to %s failed: %v", to, err)
+		}
+	}()
 }
 
 func (s *AuthService) LoginUser(ctx context.Context, req dto.LoginRequest) (dto.LoginResponse, error) {
@@ -204,8 +216,8 @@ func (s *AuthService) ResendOTP(ctx context.Context, email string) error {
 		return fmt.Errorf("update otp: %w", err)
 	}
 
-	// TODO: kirim OTP ke email. TODO: hapus log saat mailer siap.
-	fmt.Println("Code:", code)
+	s.sendEmailAsync(email, "Verify your email",
+		fmt.Sprintf("Your verification code is: %s (valid for 5 minutes)", code))
 
 	return nil
 }

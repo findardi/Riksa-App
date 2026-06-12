@@ -11,8 +11,10 @@ import (
 	"time"
 
 	"github.com/findardi/Wadi/server/internal/auth"
+	"github.com/findardi/Wadi/server/internal/platform/config"
 	"github.com/findardi/Wadi/server/internal/platform/otp"
 	"github.com/findardi/Wadi/server/internal/platform/response"
+	"github.com/findardi/Wadi/server/internal/platform/sender"
 	"github.com/findardi/Wadi/server/internal/platform/token"
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -27,7 +29,10 @@ func New(pool *pgxpool.Pool, otpSecret, addr, jwtSecret string) *App {
 	otpGen := otp.New(otpSecret)
 	jwtGen := token.New(jwtSecret)
 
-	authModule := auth.NewModule(pool, otpGen, jwtGen)
+	mailCfg, _ := config.LoadMailConfig()
+	mailer := sender.New(mailCfg)
+
+	authModule := auth.NewModule(pool, otpGen, jwtGen, mailer)
 
 	r := chi.NewRouter()
 	registerGlobalMiddleware(r)

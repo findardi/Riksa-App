@@ -35,9 +35,9 @@ func (s userStatusReader) UserStatus(ctx context.Context, userID string) (string
 	return user.Status, nil
 }
 
-func NewModule(pool *pgxpool.Pool, otp service.OTPService, jwt service.JWTService) *Module {
+func NewModule(pool *pgxpool.Pool, otp service.OTPService, jwt service.JWTService, mail service.MailService) *Module {
 	r := repository.New(pool)
-	s := service.NewAuthService(r, otp, jwt)
+	s := service.NewAuthService(r, otp, jwt, mail)
 	h := handler.NewAuthHandler(s)
 	mw := middleware.New(jwt, userStatusReader{repo: r})
 
