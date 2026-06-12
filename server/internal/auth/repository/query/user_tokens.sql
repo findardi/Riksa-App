@@ -42,3 +42,12 @@ where user_id = $1 and type = $2;
 -- name: DeleteExpiredUserTokens :exec
 delete from user_tokens
 where user_id = $1 and expires_at < now();
+
+-- name: GetTokenByCodeAndUser :one
+select * from user_tokens
+where code_hash = $1
+ and type = $2
+ and user_id = $3
+ and used_at is null
+ and expires_at > now()
+limit 1;

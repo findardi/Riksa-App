@@ -31,6 +31,10 @@ func (m *Module) RegisterRoutes(r chi.Router) {
 		// publik
 		r.Post("/register", m.handler.Register)
 		r.Post("/login", m.handler.Login)
+		r.Post("/refresh", m.handler.RefreshToken)
+		r.Post("/forgot-password", m.handler.ForgotPassword)
+		r.Post("/reset-password", m.handler.ResetPassword)
+		r.Post("/validation-otp", m.handler.CheckOTP)
 
 		// protected
 		r.Group(func(r chi.Router) {

@@ -111,6 +111,37 @@ func (q *Queries) GetRefreshToken(ctx context.Context, codeHash string) (UserTok
 	return i, err
 }
 
+const getTokenByCodeAndUser = `-- name: GetTokenByCodeAndUser :one
+select id, user_id, type, code_hash, expires_at, used_at, created_at from user_tokens
+where code_hash = $1
+ and type = $2
+ and user_id = $3
+ and used_at is null
+ and expires_at > now()
+limit 1
+`
+
+type GetTokenByCodeAndUserParams struct {
+	CodeHash string      `json:"code_hash"`
+	Type     string      `json:"type"`
+	UserID   pgtype.UUID `json:"user_id"`
+}
+
+func (q *Queries) GetTokenByCodeAndUser(ctx context.Context, arg GetTokenByCodeAndUserParams) (UserToken, error) {
+	row := q.db.QueryRow(ctx, getTokenByCodeAndUser, arg.CodeHash, arg.Type, arg.UserID)
+	var i UserToken
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Type,
+		&i.CodeHash,
+		&i.ExpiresAt,
+		&i.UsedAt,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const getValidUserToken = `-- name: GetValidUserToken :one
 select id, user_id, type, code_hash, expires_at, used_at, created_at from user_tokens
 where user_id = $1

@@ -17,6 +17,7 @@ type Querier interface {
 	DeleteTokensByType(ctx context.Context, arg DeleteTokensByTypeParams) error
 	DeleteUserToken(ctx context.Context, arg DeleteUserTokenParams) error
 	GetRefreshToken(ctx context.Context, codeHash string) (UserToken, error)
+	GetTokenByCodeAndUser(ctx context.Context, arg GetTokenByCodeAndUserParams) (UserToken, error)
 	GetUserByEmail(ctx context.Context, email string) (User, error)
 	GetUserById(ctx context.Context, id pgtype.UUID) (User, error)
 	GetUserByUsername(ctx context.Context, username *string) (User, error)

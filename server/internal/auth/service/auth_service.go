@@ -21,6 +21,7 @@ var (
 	ErrInvalidCredentials   = errors.New("invalid email/username or password")
 	ErrInvalidCodeOTP       = errors.New("invalid or expired OTP code")
 	ErrEmailAlreadyVerified = errors.New("email already verified")
+	ErrInvalidRefreshToken  = errors.New("invalid or expired refresh token")
 )
 
 type AuthService struct {
@@ -152,7 +153,10 @@ func (s *AuthService) LoginUser(ctx context.Context, req dto.LoginRequest) (dto.
 		return dto.LoginResponse{}, fmt.Errorf("cleanup expired tokens: %w", err)
 	}
 
-	refreshToken := s.otp.Generate()
+	refreshToken, err := s.otp.GenerateRefreshToken()
+	if err != nil {
+		return dto.LoginResponse{}, fmt.Errorf("generate refresh token :%w", err)
+	}
 
 	if _, err = s.repo.CreateUserToken(ctx, authdb.CreateUserTokenParams{
 		UserID:   user.ID,
@@ -272,6 +276,196 @@ func (s *AuthService) LogoutUser(ctx context.Context, req dto.LogoutRequest) err
 		Type:     "refresh",
 	}); err != nil {
 		return fmt.Errorf("delete refresh token: %w", err)
+	}
+
+	return nil
+}
+
+func (s *AuthService) RefreshToken(ctx context.Context, req dto.RefreshTokenRequest) (dto.LoginResponse, error) {
+	old, err := s.repo.GetRefreshToken(ctx, s.otp.Hash(req.RefreshToken))
+	if errors.Is(err, pgx.ErrNoRows) {
+		return dto.LoginResponse{}, ErrInvalidRefreshToken
+	}
+	if err != nil {
+		return dto.LoginResponse{}, fmt.Errorf("get refresh token: %w", err)
+	}
+
+	user, err := s.repo.GetUserById(ctx, old.UserID)
+	if err != nil {
+		return dto.LoginResponse{}, fmt.Errorf("get user: %w", err)
+	}
+
+	accessToken, err := s.jwt.CreateToken(token.JwtClaims{
+		ID:       uuidString(user.ID),
+		Username: deref(user.Username),
+		Email:    user.Email,
+		Status:   user.Status,
+	}, token.TokenType("token_login"))
+	if err != nil {
+		return dto.LoginResponse{}, fmt.Errorf("create access token: %w", err)
+	}
+
+	newRefresh, err := s.otp.GenerateRefreshToken()
+	if err != nil {
+		return dto.LoginResponse{}, fmt.Errorf("generate refresh token: %w", err)
+	}
+
+	err = s.repo.ExecTx(ctx, func(q *authdb.Queries) error {
+		if err := q.DeleteUserToken(ctx, authdb.DeleteUserTokenParams{
+			CodeHash: old.CodeHash,
+			UserID:   user.ID,
+			Type:     "refresh",
+		}); err != nil {
+			return fmt.Errorf("delete old refresh: %w", err)
+		}
+
+		if _, err := q.CreateUserToken(ctx, authdb.CreateUserTokenParams{
+			UserID:   user.ID,
+			Type:     "refresh",
+			CodeHash: s.otp.Hash(newRefresh),
+			ExpiresAt: pgtype.Timestamptz{
+				Time:  time.Now().Add(24 * time.Hour),
+				Valid: true,
+			},
+		}); err != nil {
+			return fmt.Errorf("create new refresh: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return dto.LoginResponse{}, fmt.Errorf("rotate refresh tx: %w", err)
+	}
+
+	return dto.LoginResponse{
+		Token:        accessToken,
+		RefreshToken: newRefresh,
+	}, nil
+}
+
+func (s *AuthService) ForgotPassword(ctx context.Context, req dto.ForgotPasswordRequest) error {
+	email := strings.ToLower(strings.TrimSpace(req.Email))
+
+	user, err := s.repo.GetUserByEmail(ctx, email)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil // anti-enumeration: do not reveal missing email
+	}
+	if err != nil {
+		return fmt.Errorf("get user: %w", err)
+	}
+
+	code := s.otp.Generate()
+	err = s.repo.ExecTx(ctx, func(q *authdb.Queries) error {
+		if err := q.DeleteTokensByType(ctx, authdb.DeleteTokensByTypeParams{
+			UserID: user.ID,
+			Type:   "password_reset",
+		}); err != nil {
+			return fmt.Errorf("clear old reset token: %w", err)
+		}
+
+		if _, err := q.CreateUserToken(ctx, authdb.CreateUserTokenParams{
+			UserID:   user.ID,
+			Type:     "password_reset",
+			CodeHash: s.otp.Hash(code),
+			ExpiresAt: pgtype.Timestamptz{
+				Time:  time.Now().Add(15 * time.Minute),
+				Valid: true,
+			},
+		}); err != nil {
+			return fmt.Errorf("create reset token: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return fmt.Errorf("forgot password tx: %w", err)
+	}
+
+	fmt.Println("Reset Code:", code)
+	return nil
+}
+
+func (s *AuthService) ResetPassword(ctx context.Context, req dto.ResetPasswordRequest) error {
+	email := strings.ToLower(strings.TrimSpace(req.Email))
+
+	user, err := s.repo.GetUserByEmail(ctx, email)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return ErrInvalidCodeOTP
+	}
+	if err != nil {
+		return fmt.Errorf("get user: %w", err)
+	}
+
+	otp, err := s.repo.GetValidUserToken(ctx, authdb.GetValidUserTokenParams{
+		UserID: user.ID,
+		Type:   "password_reset",
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return ErrInvalidCodeOTP
+	}
+	if err != nil {
+		return fmt.Errorf("get reset token: %w", err)
+	}
+
+	if !s.otp.Compare(otp.CodeHash, req.Code) {
+		return ErrInvalidCodeOTP
+	}
+
+	hash, err := bcrypt.GenerateFromPassword([]byte(req.NewPassword), 12)
+	if err != nil {
+		return fmt.Errorf("hash password: %w", err)
+	}
+	hashPassword := string(hash)
+
+	err = s.repo.ExecTx(ctx, func(q *authdb.Queries) error {
+		if err := q.UpdatePassword(ctx, authdb.UpdatePasswordParams{
+			ID:           user.ID,
+			PasswordHash: &hashPassword,
+		}); err != nil {
+			return fmt.Errorf("update password: %w", err)
+		}
+
+		if err := q.DeleteTokensByType(ctx, authdb.DeleteTokensByTypeParams{
+			UserID: user.ID,
+			Type:   "password_reset",
+		}); err != nil {
+			return fmt.Errorf("delete reset token: %w", err)
+		}
+
+		// revoke all sessions on password change
+		if err := q.DeleteTokensByType(ctx, authdb.DeleteTokensByTypeParams{
+			UserID: user.ID,
+			Type:   "refresh",
+		}); err != nil {
+			return fmt.Errorf("revoke sessions: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return fmt.Errorf("reset password tx: %w", err)
+	}
+
+	return nil
+}
+
+func (s *AuthService) ValidateOTP(ctx context.Context, req dto.ValidateOtpRequest) error {
+	email := strings.ToLower(strings.TrimSpace(req.Email))
+
+	user, err := s.repo.GetUserByEmail(ctx, email)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return ErrInvalidCodeOTP
+	}
+	if err != nil {
+		return fmt.Errorf("get user: %w", err)
+	}
+
+	if _, err := s.repo.GetTokenByCodeAndUser(ctx, authdb.GetTokenByCodeAndUserParams{
+		CodeHash: s.otp.Hash(req.Code),
+		UserID:   user.ID,
+		Type:     "password_reset",
+	}); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrInvalidCodeOTP
+		}
+		return fmt.Errorf("get reset token: %w", err)
 	}
 
 	return nil

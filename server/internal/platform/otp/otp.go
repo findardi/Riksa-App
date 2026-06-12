@@ -4,6 +4,7 @@ import (
 	"crypto/hmac"
 	"crypto/rand"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"fmt"
 	"math/big"
@@ -36,4 +37,13 @@ func (g *Generator) Hash(code string) string {
 
 func (g *Generator) Compare(hash, code string) bool {
 	return hmac.Equal([]byte(hash), []byte(g.Hash(code)))
+}
+
+func (g *Generator) GenerateRefreshToken() (string, error) {
+	b := make([]byte, 32)
+	if _, err := rand.Read(b); err != nil {
+		return "", err
+	}
+
+	return base64.RawURLEncoding.EncodeToString(b), nil
 }
