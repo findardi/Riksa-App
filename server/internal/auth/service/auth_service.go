@@ -471,6 +471,26 @@ func (s *AuthService) ValidateOTP(ctx context.Context, req dto.ValidateOtpReques
 	return nil
 }
 
+func (s *AuthService) GetMe(ctx context.Context, userID string) (dto.UserResponse, error) {
+	var uid pgtype.UUID
+	if err := uid.Scan(userID); err != nil {
+		return dto.UserResponse{}, fmt.Errorf("parse user id: %w", err)
+	}
+
+	user, err := s.repo.GetUserById(ctx, uid)
+	if err != nil {
+		return dto.UserResponse{}, fmt.Errorf("get user: %w", err)
+	}
+
+	return dto.UserResponse{
+		ID:            uuidString(user.ID),
+		Email:         user.Email,
+		Username:      deref(user.Username),
+		Status:        user.Status,
+		EmailVerified: user.EmailVerifiedAt.Valid,
+	}, nil
+}
+
 func uuidString(u pgtype.UUID) string {
 	v, err := u.Value()
 	if err != nil || v == nil {

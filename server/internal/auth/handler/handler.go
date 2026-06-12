@@ -273,3 +273,20 @@ func (h *AuthHandler) CheckOTP(w http.ResponseWriter, r *http.Request) {
 
 	response.Success(w, http.StatusOK, "success validation otp", nil)
 }
+
+func (h *AuthHandler) GetMe(w http.ResponseWriter, r *http.Request) {
+	claims, ok := middleware.ClaimsFromContext(r.Context())
+	if !ok {
+		response.Error(w, http.StatusUnauthorized, "unauthorized", nil)
+		return
+	}
+
+	res, err := h.svc.GetMe(r.Context(), claims.ID)
+	if err != nil {
+		log.Printf("get me internal error: %v", err)
+		response.Error(w, http.StatusInternalServerError, "internal server error", nil)
+		return
+	}
+
+	response.Success(w, http.StatusOK, "success", res)
+}
