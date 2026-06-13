@@ -11,20 +11,26 @@
 		hint?: string;
 		autocomplete?: HTMLInputAttributes['autocomplete'];
 		required?: boolean;
+		autofocus?: boolean;
 	};
 
 	let {
 		id,
 		name,
 		label,
-		value = '',
+		value = $bindable(''),
 		error,
 		hint,
 		autocomplete = 'current-password',
-		required = false
+		required = false,
+		autofocus = false
 	}: Props = $props();
 
 	let show = $state(false);
+	let inputEl = $state<HTMLInputElement>();
+	$effect(() => {
+		if (autofocus) inputEl?.focus();
+	});
 
 	const describedBy = $derived(
 		[error ? `${id}-error` : null, hint && !error ? `${id}-hint` : null]
@@ -35,13 +41,17 @@
 
 <div class="flex flex-col gap-1.5">
 	<label class="text-sm font-medium" for={id}>{label}</label>
-	<label class="input w-full focus-within:outline-none" class:input-error={!!error}>
+	<label
+		class="input w-full focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-primary"
+		class:input-error={!!error}
+	>
 		<input
+			bind:this={inputEl}
 			{id}
 			{name}
 			{required}
 			{autocomplete}
-			{value}
+			bind:value
 			type={show ? 'text' : 'password'}
 			class="grow text-left focus:outline-none"
 			aria-invalid={error ? 'true' : undefined}

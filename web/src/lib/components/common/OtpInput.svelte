@@ -1,11 +1,20 @@
 <script lang="ts">
+	import { t } from '$lib/i18n';
+
 	type Props = {
 		value?: string;
 		length?: number;
 		disabled?: boolean;
 		invalid?: boolean;
+		autofocus?: boolean;
 	};
-	let { value = $bindable(''), length = 6, disabled = false, invalid = false }: Props = $props();
+	let {
+		value = $bindable(''),
+		length = 6,
+		disabled = false,
+		invalid = false,
+		autofocus = false
+	}: Props = $props();
 
 	let els: HTMLInputElement[] = [];
 	// svelte-ignore state_referenced_locally
@@ -13,6 +22,10 @@
 
 	$effect(() => {
 		value = chars.join('');
+	});
+
+	$effect(() => {
+		if (autofocus) els[0]?.focus();
 	});
 
 	function onInput(i: number, e: Event) {
@@ -42,7 +55,7 @@
 	}
 </script>
 
-<div class="flex justify-center gap-2" role="group" aria-label="Kode OTP">
+<div class="flex justify-center gap-2" role="group" aria-label={t('otp.group')}>
 	{#each chars as ch, i (i)}
 		<input
 			bind:this={els[i]}
@@ -51,7 +64,7 @@
 			inputmode="numeric"
 			autocomplete={i === 0 ? 'one-time-code' : 'off'}
 			maxlength="1"
-			aria-label={`Digit ${i + 1}`}
+			aria-label={t('otp.digit', { n: i + 1 })}
 			class="input w-12 px-0 text-center font-mono text-lg focus:outline-none"
 			class:input-error={invalid}
 			oninput={(e) => onInput(i, e)}

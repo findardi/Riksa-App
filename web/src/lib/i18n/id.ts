@@ -63,7 +63,9 @@ export const id = {
 	'password.show': 'Tampilkan kata sandi',
 	'password.hide': 'Sembunyikan kata sandi',
 
-	'forgot.password.title': 'Lupa password Wadi',
+	'otp.group': 'Kode OTP',
+	'otp.digit': 'Digit ke-{n}',
+
 	// Field-level validation (client + mapped from backend)
 	'err.required': 'Wajib diisi',
 	'err.email': 'Format email tidak valid',
@@ -77,9 +79,7 @@ export const id = {
 	'err.usernameTaken': 'Username sudah dipakai.',
 	'err.network': 'Tidak dapat terhubung ke server. Coba lagi.',
 	'err.generic': 'Terjadi kesalahan. Coba lagi sebentar.',
-	'err.invalidOtp': 'Kode OTP salah atau kedaluwarsa.',
-
-	'click.here': 'Tekan sini'
+	'err.invalidOtp': 'Kode OTP salah atau kedaluwarsa.'
 } as const;
 
 export type Dict = typeof id;

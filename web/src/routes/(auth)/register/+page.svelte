@@ -33,7 +33,7 @@
 			method="POST"
 			action="?/check"
 			novalidate
-			class="flex flex-col gap-[1.1rem]"
+			class="flex flex-col gap-[1.1rem] text-left"
 			use:enhance={() => {
 				checking = true;
 				return async ({ result, update }) => {
@@ -50,6 +50,7 @@
 				label={t('register.email')}
 				autocomplete="email"
 				inputmode="email"
+				autofocus
 				bind:value={email}
 				error={form?.fieldErrors?.email}
 			/>
@@ -59,7 +60,7 @@
 		</form>
 	{:else}
 		<!-- Step 2 — locked email + username + password -->
-		<div class="flex flex-col gap-1.5">
+		<div class="flex flex-col gap-1.5 text-left">
 			<div
 				class="flex items-center justify-between gap-3 rounded-(--radius-field) border border-base-content/10 bg-base-100 px-3 py-2.5"
 			>
@@ -83,7 +84,7 @@
 			method="POST"
 			action="?/register"
 			novalidate
-			class="flex flex-col gap-[1.1rem]"
+			class="flex flex-col gap-[1.1rem] text-left"
 			use:enhance={() => {
 				submitting = true;
 				return async ({ update }) => {
@@ -99,6 +100,7 @@
 				label={t('register.username')}
 				autocomplete="username"
 				hint={t('register.usernameHint')}
+				autofocus
 				bind:value={username}
 				error={form?.fieldErrors?.username}
 			/>

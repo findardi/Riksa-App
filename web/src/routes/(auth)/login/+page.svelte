@@ -8,9 +8,6 @@
 	let { form }: { form: ActionData } = $props();
 	let submitting = $state(false);
 
-	let failedAttempts = $state(0);
-	const FORGOT_THRESHOLD = 3;
-
 	const registered = $derived(page.url.searchParams.get('registered') === '1');
 	const wasReset = $derived(page.url.searchParams.get('reset') === '1');
 </script>
@@ -38,12 +35,10 @@
 	<form
 		method="POST"
 		novalidate
-		class="flex flex-col gap-[1.1rem]"
+		class="flex flex-col gap-[1.1rem] text-left"
 		use:enhance={() => {
 			submitting = true;
-			return async ({ result, update }) => {
-				if (result.type === 'failure' && result.status === 401) failedAttempts += 1;
-				else if (result.type === 'redirect' || result.type === 'success') failedAttempts = 0;
+			return async ({ update }) => {
 				await update();
 				submitting = false;
 			};
@@ -54,6 +49,7 @@
 			name="identifier"
 			label={t('login.identifier')}
 			autocomplete="username"
+			autofocus
 			value={form?.values?.identifier ?? ''}
 			error={form?.fieldErrors?.identifier}
 		/>
@@ -70,20 +66,14 @@
 	</form>
 
 	<div class="flex flex-col items-center gap-2 text-center">
+		<a href="/forgot-password" class="text-sm font-medium text-primary hover:underline">
+			{t('login.forgot')}
+		</a>
 		<p class="text-[0.9375rem] text-muted">
 			{t('nav.toRegister')}
 			<a href="/register" class="font-medium text-primary hover:underline"
 				>{t('nav.toRegisterCta')}</a
 			>
 		</p>
-
-		{#if failedAttempts >= FORGOT_THRESHOLD}
-			<p class="text-sm text-muted">
-				{t('login.forgot')}
-				<a href="/forgot-password" class="font-medium text-primary hover:underline"
-					>{t('click.here')}</a
-				>
-			</p>
-		{/if}
 	</div>
 </section>

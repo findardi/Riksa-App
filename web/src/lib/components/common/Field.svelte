@@ -14,6 +14,7 @@
 		inputmode?: HTMLInputAttributes['inputmode'];
 		required?: boolean;
 		mono?: boolean;
+		autofocus?: boolean;
 	};
 
 	let {
@@ -28,8 +29,15 @@
 		autocomplete,
 		inputmode,
 		required = false,
-		mono = false
+		mono = false,
+		autofocus = false
 	}: Props = $props();
+
+	let inputEl = $state<HTMLInputElement>();
+	// Focus on mount when requested (step changes, primary field).
+	$effect(() => {
+		if (autofocus) inputEl?.focus();
+	});
 
 	const describedBy = $derived(
 		[error ? `${id}-error` : null, hint && !error ? `${id}-hint` : null]
@@ -41,6 +49,7 @@
 <div class="flex flex-col gap-1.5">
 	<label class="text-sm font-medium" for={id}>{label}</label>
 	<input
+		bind:this={inputEl}
 		{id}
 		{name}
 		{type}
@@ -49,7 +58,7 @@
 		{autocomplete}
 		{inputmode}
 		bind:value
-		class="input w-full text-left focus:outline-none"
+		class="input w-full text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
 		class:input-error={!!error}
 		class:font-mono={mono}
 		aria-invalid={error ? 'true' : undefined}

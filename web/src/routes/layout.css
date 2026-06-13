@@ -72,4 +72,12 @@
 	::selection {
 		background-color: color-mix(in oklch, var(--color-primary) 18%, transparent);
 	}
+	/* Consistent on-brand keyboard focus for text links and bare buttons.
+	   DaisyUI `.btn` and `.input` keep their own focus treatment. */
+	a:focus-visible,
+	button:not(.btn):focus-visible {
+		outline: 2px solid var(--color-primary);
+		outline-offset: 2px;
+		border-radius: 3px;
+	}
 }

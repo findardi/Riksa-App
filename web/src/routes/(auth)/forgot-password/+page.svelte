@@ -17,6 +17,11 @@
 	let resetting = $state(false);
 	let justResent = $state(false);
 
+	let newPassword = $state('');
+	let confirmPassword = $state('');
+	// Live mismatch check — surfaced before the round-trip to the server.
+	const passwordsMismatch = $derived(confirmPassword.length > 0 && newPassword !== confirmPassword);
+
 	let secondsLeft = $state(0);
 	let timer: ReturnType<typeof setInterval> | undefined;
 
@@ -46,7 +51,11 @@
 			{t('forgot.title')}
 		</h1>
 		<p class="mt-1.5 text-[0.9375rem] text-muted">
-			{verified ? t('reset.subtitle', { email }) : sent ? '' : t('forgot.subtitle')}
+			{verified
+				? t('reset.subtitle', { email })
+				: sent
+					? t('forgot.otpSubtitle', { email })
+					: t('forgot.subtitle')}
 		</p>
 	</header>
 
@@ -59,7 +68,7 @@
 			method="POST"
 			action="?/send"
 			novalidate
-			class="flex flex-col gap-[1.1rem]"
+			class="flex flex-col gap-[1.1rem] text-left"
 			use:enhance={() => {
 				sending = true;
 				return async ({ result, update }) => {
@@ -79,6 +88,7 @@
 				label={t('forgot.email')}
 				autocomplete="email"
 				inputmode="email"
+				autofocus
 				bind:value={email}
 				error={form?.fieldErrors?.email}
 			/>
@@ -86,6 +96,12 @@
 				{sending ? t('forgot.sending') : t('forgot.send')}
 			</Button>
 		</form>
+		<div class="flex flex-col items-center gap-2 text-center">
+			<p class="text-[0.9375rem] text-muted">
+				{t('nav.toLogin')}
+				<a href="/login" class="font-medium text-primary hover:underline">{t('nav.toLoginCta')}</a>
+			</p>
+		</div>
 	{:else if !verified}
 		<!-- Step 2 — OTP -->
 		{#if form?.message}
@@ -96,7 +112,7 @@
 
 		<div class="flex flex-col gap-3">
 			<span class="text-sm font-medium">{t('forgot.otpTitle')}</span>
-			<OtpInput bind:value={otp} invalid={!!form?.fieldErrors?.code} />
+			<OtpInput bind:value={otp} invalid={!!form?.fieldErrors?.code} autofocus />
 			{#if form?.fieldErrors?.code}
 				<p class="text-sm text-error">{form.fieldErrors.code}</p>
 			{/if}
@@ -185,7 +201,7 @@
 			method="POST"
 			action="?/reset"
 			novalidate
-			class="flex flex-col gap-[1.1rem]"
+			class="flex flex-col gap-[1.1rem] text-left"
 			use:enhance={() => {
 				resetting = true;
 				return async ({ result, update }) => {
@@ -210,6 +226,8 @@
 				label={t('reset.newPassword')}
 				autocomplete="new-password"
 				hint={t('reset.passwordHint')}
+				autofocus
+				bind:value={newPassword}
 				error={form?.fieldErrors?.password}
 			/>
 			<PasswordField
@@ -217,9 +235,10 @@
 				name="confirm"
 				label={t('reset.confirmPassword')}
 				autocomplete="new-password"
-				error={form?.fieldErrors?.confirm}
+				bind:value={confirmPassword}
+				error={passwordsMismatch ? t('reset.mismatch') : form?.fieldErrors?.confirm}
 			/>
-			<Button type="submit" full loading={resetting}>
+			<Button type="submit" full loading={resetting} disabled={passwordsMismatch}>
 				{resetting ? t('reset.submitting') : t('reset.submit')}
 			</Button>
 		</form>
