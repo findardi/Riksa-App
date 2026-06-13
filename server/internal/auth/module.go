@@ -60,6 +60,7 @@ func (m *Module) RegisterRoutes(r chi.Router) {
 		r.Post("/forgot-password", m.handler.ForgotPassword)
 		r.Post("/reset-password", m.handler.ResetPassword)
 		r.Post("/validation-otp", m.handler.CheckOTP)
+		r.Post("/check-email", m.handler.CheckEmail)
 
 		// protected
 		r.Group(func(r chi.Router) {
