@@ -379,7 +379,7 @@ func (s *AuthService) ForgotPassword(ctx context.Context, req dto.ForgotPassword
 			Type:     "password_reset",
 			CodeHash: s.otp.Hash(code),
 			ExpiresAt: pgtype.Timestamptz{
-				Time:  time.Now().Add(15 * time.Minute),
+				Time:  time.Now().Add(5 * time.Minute),
 				Valid: true,
 			},
 		}); err != nil {
@@ -391,7 +391,9 @@ func (s *AuthService) ForgotPassword(ctx context.Context, req dto.ForgotPassword
 		return fmt.Errorf("forgot password tx: %w", err)
 	}
 
-	fmt.Println("Reset Code:", code)
+	s.sendEmailAsync(email, "Reset Password",
+		fmt.Sprintf("Your verification code is: %s (valid for 5 minutes)", code))
+
 	return nil
 }
 
@@ -478,6 +480,18 @@ func (s *AuthService) ValidateOTP(ctx context.Context, req dto.ValidateOtpReques
 			return ErrInvalidCodeOTP
 		}
 		return fmt.Errorf("get reset token: %w", err)
+	}
+
+	return nil
+}
+
+func (s *AuthService) CheckEmail(ctx context.Context, req dto.ForgotPasswordRequest) error {
+	email := strings.ToLower(strings.TrimSpace(req.Email))
+
+	if _, err := s.repo.GetUserByEmail(ctx, email); err == nil {
+		return ErrEmailUnique
+	} else if !errors.Is(err, pgx.ErrNoRows) {
+		return fmt.Errorf("check email: %w", err)
 	}
 
 	return nil

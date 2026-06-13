@@ -274,6 +274,34 @@ func (h *AuthHandler) CheckOTP(w http.ResponseWriter, r *http.Request) {
 	response.Success(w, http.StatusOK, "success validation otp", nil)
 }
 
+func (h *AuthHandler) CheckEmail(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, MaxBodyBytes)
+
+	var req dto.ForgotPasswordRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid body request", nil)
+		return
+	}
+
+	if errs := validation.Validate(&req); errs != nil {
+		response.Error(w, http.StatusBadRequest, "validation failed", errs)
+		return
+	}
+
+	if err := h.svc.CheckEmail(r.Context(), req); err != nil {
+		switch {
+		case errors.Is(err, service.ErrEmailUnique):
+			response.Error(w, http.StatusBadRequest, err.Error(), nil)
+		default:
+			log.Printf("validate otp internal error: %v", err)
+			response.Error(w, http.StatusInternalServerError, "internal server error", nil)
+		}
+		return
+	}
+
+	response.Success(w, http.StatusOK, "success check email", nil)
+}
+
 func (h *AuthHandler) GetMe(w http.ResponseWriter, r *http.Request) {
 	claims, ok := middleware.ClaimsFromContext(r.Context())
 	if !ok {
