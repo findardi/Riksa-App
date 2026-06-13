@@ -1,3 +1,75 @@
 @import 'tailwindcss';
-@plugin '@tailwindcss/forms';
-@plugin '@tailwindcss/typography';
+
+/* DaisyUI v5 — only our brand theme, always light (no dark surprise). */
+@plugin 'daisyui' {
+	themes: false;
+}
+
+/* "Wadi" theme — "The Clean Room". Palette + sharp radii from DESIGN.md. */
+@plugin 'daisyui/theme' {
+	name: 'wadi';
+	default: true;
+	prefersdark: false;
+	color-scheme: 'light';
+
+	/* Surfaces — cool near-white */
+	--color-base-100: oklch(0.997 0.002 220); /* cards, inputs */
+	--color-base-200: oklch(0.985 0.004 220); /* page bg */
+	--color-base-300: oklch(0.965 0.006 225); /* brand rail / panels */
+	--color-base-content: oklch(0.22 0.02 235); /* ink */
+
+	/* Primary — slate-teal. One Voice Rule: ≤10% of any screen. */
+	--color-primary: oklch(0.48 0.105 215);
+	--color-primary-content: oklch(0.99 0.002 220);
+	--color-secondary: oklch(0.48 0.105 215);
+	--color-secondary-content: oklch(0.99 0.002 220);
+	--color-accent: oklch(0.52 0.11 155);
+	--color-accent-content: oklch(0.99 0.002 220);
+	--color-neutral: oklch(0.22 0.02 235);
+	--color-neutral-content: oklch(0.99 0.002 220);
+
+	/* Semantic */
+	--color-info: oklch(0.48 0.105 215);
+	--color-info-content: oklch(0.99 0.002 220);
+	--color-success: oklch(0.52 0.11 155);
+	--color-success-content: oklch(0.99 0.002 220);
+	--color-warning: oklch(0.72 0.14 75);
+	--color-warning-content: oklch(0.24 0.03 75);
+	--color-error: oklch(0.5 0.19 25);
+	--color-error-content: oklch(0.99 0.002 220);
+
+	/* Sharp over soft */
+	--radius-selector: 6px;
+	--radius-field: 6px;
+	--radius-box: 8px;
+	--size-selector: 0.25rem;
+	--size-field: 0.25rem;
+	--border: 1px;
+
+	/* Flat by default — no decorative depth or noise */
+	--depth: 0;
+	--noise: 0;
+}
+
+@theme {
+	--font-sans: 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
+	--font-mono: 'JetBrains Mono Variable', ui-monospace, 'SF Mono', monospace;
+	/* Secondary text — kept explicit for ≥4.5:1 (don't rely on faded opacity). */
+	--color-muted: oklch(0.48 0.02 235);
+}
+
+@layer base {
+	html {
+		color-scheme: light;
+	}
+	body {
+		background-color: var(--color-base-200);
+		color: var(--color-base-content);
+		font-family: var(--font-sans);
+		-webkit-font-smoothing: antialiased;
+		text-rendering: optimizeLegibility;
+	}
+	::selection {
+		background-color: color-mix(in oklch, var(--color-primary) 18%, transparent);
+	}
+}
