@@ -1,10 +1,7 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { page } from '$app/state';
-	import Field from '$lib/components/Field.svelte';
-	import PasswordField from '$lib/components/PasswordField.svelte';
-	import Button from '$lib/components/Button.svelte';
-	import Alert from '$lib/components/Alert.svelte';
+	import { Field, PasswordField, Button, Alert } from '$lib/components/common';
 	import { t } from '$lib/i18n';
 	import type { ActionData } from './$types';
 

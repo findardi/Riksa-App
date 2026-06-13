@@ -1,0 +1,68 @@
+import { t } from '$lib/i18n';
+import type { ApiResult, LoginData, LoginPayload, RegisterData, RegisterPayload } from '$lib/types';
+import { API_URL, post } from './client';
+import {
+	stubCheckEmail,
+	stubForgotPassword,
+	stubLogin,
+	stubRegister,
+	stubResetPassword,
+	stubValidateOtp
+} from './auth.stub';
+
+export async function registerUser(p: RegisterPayload): Promise<ApiResult<RegisterData>> {
+	if (!API_URL) return stubRegister(p);
+	return post<RegisterData>('/auth/register', p);
+}
+
+export async function loginUser(p: LoginPayload): Promise<ApiResult<LoginData>> {
+	if (!API_URL) return stubLogin(p);
+	// Backend accepts email OR username (required_without).
+	const body = p.identifier.includes('@')
+		? { email: p.identifier, password: p.password }
+		: { username: p.identifier, password: p.password };
+	return post<LoginData>('/auth/login', body);
+}
+
+// Early-warning email availability check (step 1 of register).
+// 200 → available; 400 (ErrEmailUnique) → taken; 400 validation → bad format.
+export async function checkEmailAvailable(
+	email: string
+): Promise<{ available: boolean; emailError?: string }> {
+	if (!API_URL) return stubCheckEmail(email);
+	const res = await post<null>('/auth/check-email', { email });
+	if (res.ok) return { available: true };
+	if (res.fieldErrors.email) return { available: false, emailError: res.fieldErrors.email };
+	if (res.status === 400) return { available: false, emailError: t('err.emailTaken') };
+	return { available: false, emailError: res.message };
+}
+
+// Request a password-reset OTP. Anti-enumeration: backend always 200 regardless
+// of whether the email exists, so we surface only network/format problems.
+export async function forgotPassword(email: string): Promise<{ sent: boolean; error?: string }> {
+	if (!API_URL) return stubForgotPassword();
+	const res = await post<null>('/auth/forgot-password', { email });
+	if (res.ok) return { sent: true };
+	if (res.status === 0) return { sent: false, error: res.message }; // network only
+	return { sent: true }; // hide any other backend signal (anti-enum)
+}
+
+// Step 2 — validate the reset OTP (read-only check).
+export async function validateOtp(email: string, code: string): Promise<{ valid: boolean }> {
+	if (!API_URL) return stubValidateOtp(code);
+	const res = await post<null>('/auth/validation-otp', { email, code });
+	return { valid: res.ok };
+}
+
+// Step 3 — set the new password using the verified OTP.
+export async function resetPassword(
+	email: string,
+	code: string,
+	newPassword: string
+): Promise<{ ok: true } | { ok: false; invalidCode: boolean; message: string }> {
+	if (!API_URL) return stubResetPassword(email, code, newPassword);
+	const res = await post<null>('/auth/reset-password', { email, code, new_password: newPassword });
+	if (res.ok) return { ok: true };
+	// Password format is validated client-side, so a 400 here means the code is bad/expired.
+	return { ok: false, invalidCode: res.status === 400, message: t('err.invalidOtp') };
+}

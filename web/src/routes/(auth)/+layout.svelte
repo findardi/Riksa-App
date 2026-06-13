@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
-	import Brand from '$lib/components/Brand.svelte';
+	import { Brand } from '$lib/components/common';
 	import { t } from '$lib/i18n';
 
 	let { children }: { children: Snippet } = $props();

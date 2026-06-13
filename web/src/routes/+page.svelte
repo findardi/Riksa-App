@@ -1,6 +1,5 @@
 <script lang="ts">
-	import Brand from '$lib/components/Brand.svelte';
-	import Button from '$lib/components/Button.svelte';
+	import { Brand, Button } from '$lib/components/common';
 </script>
 
 <svelte:head><title>Wadi</title></svelte:head>
