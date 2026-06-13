@@ -1,0 +1,85 @@
+// Bahasa Indonesia — default locale. Add en.ts and register it in index.ts to expand.
+export const id = {
+	'brand.name': 'Wadi',
+	'brand.tagline': 'Ruang data aman untuk dokumen deal Anda.',
+	'brand.reassure.title': 'Dibangun untuk dokumen rahasia',
+	'brand.reassure.body':
+		'Akses terkontrol dan teraudit. Setiap berkas, izin, dan aktivitas tercatat — Anda selalu tahu siapa mengakses apa.',
+
+	'nav.toLogin': 'Sudah punya akun?',
+	'nav.toLoginCta': 'Masuk',
+	'nav.toRegister': 'Belum punya akun?',
+	'nav.toRegisterCta': 'Buat akun',
+
+	'login.title': 'Masuk ke Wadi',
+	'login.subtitle': 'Lanjutkan ke ruang data Anda.',
+	'login.identifier': 'Email atau username',
+	'login.password': 'Kata sandi',
+	'login.submit': 'Masuk',
+	'login.submitting': 'Memproses…',
+	'login.registered': 'Akun berhasil dibuat. Silakan masuk.',
+	'login.reset': 'Kata sandi berhasil diatur ulang. Silakan masuk.',
+	'login.forgot': 'Lupa kata sandi?',
+
+	'register.title': 'Buat akun Wadi',
+	'register.subtitle': 'Mulai kelola ruang data Anda dalam hitungan menit.',
+	'register.email': 'Email',
+	'register.username': 'Username',
+	'register.password': 'Kata sandi',
+	'register.passwordHint': 'Minimal 6 karakter.',
+	'register.usernameHint': 'Minimal 6 karakter.',
+	'register.submit': 'Buat akun',
+	'register.submitting': 'Membuat akun…',
+	'register.emailContinue': 'Lanjutkan',
+	'register.checking': 'Memeriksa…',
+	'register.changeEmail': 'Ubah',
+	'register.emailOk': 'Email tersedia — lengkapi data akun Anda.',
+
+	'forgot.title': 'Lupa kata sandi',
+	'forgot.subtitle': 'Masukkan email akun Anda. Kami kirim kode untuk mengatur ulang kata sandi.',
+	'forgot.email': 'Email',
+	'forgot.send': 'Kirim kode',
+	'forgot.sending': 'Mengirim…',
+	'forgot.sent': 'Kode OTP telah dikirim ke email Anda.',
+	'forgot.otpTitle': 'Masukkan kode 6 digit',
+	'forgot.otpSubtitle': 'Kami mengirim kode ke {email}.',
+	'forgot.expiresIn': 'Kode kedaluwarsa dalam {time}',
+	'forgot.expired': 'Kode kedaluwarsa.',
+	'forgot.resend': 'Kirim ulang',
+	'forgot.resent': 'Kode dikirim ulang.',
+	'forgot.changeEmail': 'Ubah email',
+	'forgot.verify': 'Verifikasi kode',
+	'forgot.verifying': 'Memverifikasi…',
+	'forgot.back': 'Kembali ke halaman masuk',
+
+	'reset.subtitle': 'Buat kata sandi baru untuk {email}.',
+	'reset.newPassword': 'Kata sandi baru',
+	'reset.confirmPassword': 'Konfirmasi kata sandi',
+	'reset.passwordHint': 'Minimal 6 karakter.',
+	'reset.submit': 'Simpan kata sandi baru',
+	'reset.submitting': 'Menyimpan…',
+	'reset.mismatch': 'Konfirmasi kata sandi tidak cocok.',
+
+	'password.show': 'Tampilkan kata sandi',
+	'password.hide': 'Sembunyikan kata sandi',
+
+	'forgot.password.title': 'Lupa password Wadi',
+	// Field-level validation (client + mapped from backend)
+	'err.required': 'Wajib diisi',
+	'err.email': 'Format email tidak valid',
+	'err.min': 'Minimal {n} karakter',
+	'err.max': 'Maksimal {n} karakter',
+	'err.identifierRequired': 'Masukkan email atau username',
+
+	// Form-level
+	'err.invalidCredentials': 'Email/username atau kata sandi salah.',
+	'err.emailTaken': 'Email sudah terdaftar.',
+	'err.usernameTaken': 'Username sudah dipakai.',
+	'err.network': 'Tidak dapat terhubung ke server. Coba lagi.',
+	'err.generic': 'Terjadi kesalahan. Coba lagi sebentar.',
+	'err.invalidOtp': 'Kode OTP salah atau kedaluwarsa.',
+
+	'click.here': 'Tekan sini'
+} as const;
+
+export type Dict = typeof id;

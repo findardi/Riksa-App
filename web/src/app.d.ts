@@ -3,7 +3,10 @@
 declare global {
 	namespace App {
 		// interface Error {}
-		// interface Locals {}
+		interface Locals {
+			/** Raw access token from the httpOnly session cookie, or null. */
+			session: string | null;
+		}
 		// interface PageData {}
 		// interface PageState {}
 		// interface Platform {}
