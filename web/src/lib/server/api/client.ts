@@ -5,13 +5,22 @@ import type { ApiResult, Envelope, FieldError } from '$lib/types';
 // Shared HTTP layer for every feature's API module.
 export const API_URL = env.AUTH_API_URL?.replace(/\/$/, '');
 
-export async function post<T>(path: string, body: unknown): Promise<ApiResult<T>> {
+// `token` attaches `Authorization: Bearer` for JWT-protected endpoints.
+async function request<T>(
+	method: 'GET' | 'POST',
+	path: string,
+	body: unknown,
+	token?: string
+): Promise<ApiResult<T>> {
+	const headers: Record<string, string> = { 'content-type': 'application/json' };
+	if (token) headers.authorization = `Bearer ${token}`;
+
 	let res: Response;
 	try {
 		res = await fetch(`${API_URL}${path}`, {
-			method: 'POST',
-			headers: { 'content-type': 'application/json' },
-			body: JSON.stringify(body)
+			method,
+			headers,
+			body: body === undefined ? undefined : JSON.stringify(body)
 		});
 	} catch {
 		return { ok: false, status: 0, message: t('err.network'), fieldErrors: {} };
@@ -35,6 +44,11 @@ export async function post<T>(path: string, body: unknown): Promise<ApiResult<T>
 		fieldErrors: translateFieldErrors(env.errors)
 	};
 }
+
+export const post = <T>(path: string, body: unknown, token?: string) =>
+	request<T>('POST', path, body, token);
+
+export const get = <T>(path: string, token?: string) => request<T>('GET', path, undefined, token);
 
 function translateFieldErrors(errs?: FieldError[] | null): Record<string, string> {
 	const out: Record<string, string> = {};

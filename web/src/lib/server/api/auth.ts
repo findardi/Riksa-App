@@ -1,13 +1,23 @@
 import { t } from '$lib/i18n';
-import type { ApiResult, LoginData, LoginPayload, RegisterData, RegisterPayload } from '$lib/types';
-import { API_URL, post } from './client';
+import type {
+	ApiResult,
+	LoginData,
+	LoginPayload,
+	MeData,
+	RegisterData,
+	RegisterPayload
+} from '$lib/types';
+import { API_URL, get, post } from './client';
 import {
 	stubCheckEmail,
 	stubForgotPassword,
+	stubGetMe,
 	stubLogin,
 	stubRegister,
+	stubResendOtp,
 	stubResetPassword,
-	stubValidateOtp
+	stubValidateOtp,
+	stubVerifyEmail
 } from './auth.stub';
 
 export async function registerUser(p: RegisterPayload): Promise<ApiResult<RegisterData>> {
@@ -45,6 +55,46 @@ export async function forgotPassword(email: string): Promise<{ sent: boolean; er
 	if (res.ok) return { sent: true };
 	if (res.status === 0) return { sent: false, error: res.message }; // network only
 	return { sent: true }; // hide any other backend signal (anti-enum)
+}
+
+// Current authenticated user (JWT-protected). Returns null on any failure so
+// callers can treat "no valid session" uniformly.
+export async function getMe(token: string): Promise<MeData | null> {
+	if (!API_URL) return stubGetMe(token);
+	const res = await get<MeData>('/auth/me', token);
+	return res.ok ? res.data : null;
+}
+
+// Verify the account email with the 6-digit OTP (JWT-protected; identity from claims).
+export async function verifyEmail(
+	token: string,
+	code: string
+): Promise<{ ok: true } | { ok: false; invalidCode: boolean; message: string }> {
+	if (!API_URL) return stubVerifyEmail(token, code);
+	const res = await post<null>('/auth/verify-email', { code }, token);
+	if (res.ok) return { ok: true };
+	// Code is the only client input, so a 400/401 means the code is bad/expired.
+	return {
+		ok: false,
+		invalidCode: res.status === 400 || res.status === 401,
+		message: t('err.invalidOtp')
+	};
+}
+
+// Revoke the current device's refresh token server-side (JWT-protected, idempotent).
+// Best-effort: the cookie is cleared by the caller regardless of the outcome.
+export async function logoutUser(token: string, refreshToken: string): Promise<void> {
+	if (!API_URL) return;
+	await post<null>('/auth/logout', { refresh_token: refreshToken }, token);
+}
+
+// Re-send the email-verification OTP (JWT-protected).
+export async function resendOtp(token: string): Promise<{ sent: boolean; error?: string }> {
+	if (!API_URL) return stubResendOtp();
+	const res = await post<null>('/auth/resend-otp', {}, token);
+	if (res.ok) return { sent: true };
+	if (res.status === 0) return { sent: false, error: res.message }; // network only
+	return { sent: true }; // anti-enumeration: hide other backend signals
 }
 
 // Step 2 — validate the reset OTP (read-only check).

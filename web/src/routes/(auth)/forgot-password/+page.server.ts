@@ -1,15 +1,12 @@
 import { fail, redirect } from '@sveltejs/kit';
-import type { Actions, PageServerLoad } from './$types';
+import type { Actions } from './$types';
 import { forgotPassword, validateOtp, resetPassword } from '$lib/server/api';
 import { t } from '$lib/i18n';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const OTP_RE = /^\d{6}$/;
 
-export const load: PageServerLoad = async ({ locals }) => {
-	if (locals.session) redirect(303, '/');
-};
-
+// Redirect for already-authenticated users is handled by (auth)/+layout.server.ts.
 export const actions: Actions = {
 	// Step 1 — send (and resend) the reset OTP. Anti-enumeration: always "sent".
 	send: async ({ request }) => {

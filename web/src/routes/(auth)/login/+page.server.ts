@@ -1,13 +1,10 @@
 import { fail, redirect } from '@sveltejs/kit';
-import type { Actions, PageServerLoad } from './$types';
+import type { Actions } from './$types';
 import { loginUser } from '$lib/server/api';
 import { setSession } from '$lib/server/session';
 import { t } from '$lib/i18n';
 
-export const load: PageServerLoad = async ({ locals }) => {
-	if (locals.session) redirect(303, '/');
-};
-
+// Redirect for already-authenticated users is handled by (auth)/+layout.server.ts.
 export const actions: Actions = {
 	default: async ({ request, cookies }) => {
 		const data = await request.formData();

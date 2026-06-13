@@ -1,5 +1,13 @@
 import { t } from '$lib/i18n';
-import type { ApiResult, LoginData, LoginPayload, RegisterData, RegisterPayload } from '$lib/types';
+import type {
+	AccountStatus,
+	ApiResult,
+	LoginData,
+	LoginPayload,
+	MeData,
+	RegisterData,
+	RegisterPayload
+} from '$lib/types';
 
 // In-memory backend used when AUTH_API_URL is unset (local dev / no backend).
 
@@ -8,13 +16,18 @@ interface StubUser {
 	email: string;
 	username: string;
 	password: string;
+	status: AccountStatus;
 }
 
-// Seed account so login works out of the box in stub mode.
+// Seed account so login works out of the box in stub mode (already verified).
 const users: StubUser[] = [
-	{ id: 'usr_demo', email: 'demo@wadi.app', username: 'demowadi', password: 'secret123' }
+	{ id: 'usr_demo', email: 'demo@wadi.app', username: 'demowadi', password: 'secret123', status: 'active' }
 ];
 let seq = 1;
+
+// Stub access tokens are `stub.access.<userId>` (see stubLogin).
+const userFromToken = (token: string) =>
+	users.find((u) => u.id === token.replace('stub.access.', ''));
 
 const settle = () => new Promise((r) => setTimeout(r, 450));
 
@@ -43,7 +56,8 @@ export async function stubRegister(p: RegisterPayload): Promise<ApiResult<Regist
 		id: `usr_${++seq}`,
 		email: p.email,
 		username: p.username,
-		password: p.password
+		password: p.password,
+		status: 'pending'
 	};
 	users.push(u);
 	return {
@@ -97,4 +111,27 @@ export async function stubLogin(p: LoginPayload): Promise<ApiResult<LoginData>> 
 		message: 'login success',
 		data: { token: `stub.access.${u.id}`, refresh_token: `stub.refresh.${u.id}` }
 	};
+}
+
+export async function stubGetMe(token: string): Promise<MeData | null> {
+	const u = userFromToken(token);
+	if (!u) return null;
+	return { id: u.id, email: u.email, username: u.username, status: u.status };
+}
+
+export async function stubVerifyEmail(
+	token: string,
+	code: string
+): Promise<{ ok: true } | { ok: false; invalidCode: boolean; message: string }> {
+	await settle();
+	const u = userFromToken(token);
+	if (!u) return { ok: false, invalidCode: false, message: t('err.generic') };
+	if (code !== STUB_OTP) return { ok: false, invalidCode: true, message: t('err.invalidOtp') };
+	u.status = 'active';
+	return { ok: true };
+}
+
+export async function stubResendOtp(): Promise<{ sent: boolean; error?: string }> {
+	await settle();
+	return { sent: true };
 }

@@ -26,3 +26,7 @@ export function clearSession(cookies: Cookies): void {
 export function getAccessToken(cookies: Cookies): string | null {
 	return cookies.get(ACCESS) ?? null;
 }
+
+export function getRefreshToken(cookies: Cookies): string | null {
+	return cookies.get(REFRESH) ?? null;
+}

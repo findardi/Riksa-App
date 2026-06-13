@@ -21,3 +21,14 @@ export interface LoginData {
 	token: string;
 	refresh_token: string;
 }
+
+/** Account status — `pending` until email is verified, then `active`. */
+export type AccountStatus = 'pending' | 'active';
+
+/** Current authenticated user, from GET /auth/me. */
+export interface MeData {
+	id: string;
+	email: string;
+	username: string;
+	status: AccountStatus;
+}

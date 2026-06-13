@@ -19,6 +19,7 @@ export const id = {
 	'login.submitting': 'Memproses…',
 	'login.registered': 'Akun berhasil dibuat. Silakan masuk.',
 	'login.reset': 'Kata sandi berhasil diatur ulang. Silakan masuk.',
+	'login.verified': 'Email berhasil diverifikasi. Silakan masuk kembali.',
 	'login.forgot': 'Lupa kata sandi?',
 
 	'register.title': 'Buat akun Wadi',
@@ -59,6 +60,19 @@ export const id = {
 	'reset.submit': 'Simpan kata sandi baru',
 	'reset.submitting': 'Menyimpan…',
 	'reset.mismatch': 'Konfirmasi kata sandi tidak cocok.',
+
+	'verify.title': 'Verifikasi email Anda',
+	'verify.subtitle': 'Masukkan kode 6 digit yang kami kirim ke {email}.',
+	'verify.otpTitle': 'Kode verifikasi',
+	'verify.sent': 'Kode verifikasi telah dikirim ke email Anda.',
+	'verify.submit': 'Verifikasi',
+	'verify.verifying': 'Memverifikasi…',
+	'verify.noCode': 'Tidak menerima kode?',
+	'verify.resend': 'Kirim ulang',
+	'verify.resending': 'Mengirim…',
+	'verify.resendIn': 'Kirim ulang ({s}d)',
+	'verify.resent': 'Kode dikirim ulang.',
+	'verify.logout': 'Keluar',
 
 	'password.show': 'Tampilkan kata sandi',
 	'password.hide': 'Sembunyikan kata sandi',

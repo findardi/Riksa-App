@@ -10,6 +10,7 @@
 
 	const registered = $derived(page.url.searchParams.get('registered') === '1');
 	const wasReset = $derived(page.url.searchParams.get('reset') === '1');
+	const verified = $derived(page.url.searchParams.get('verified') === '1');
 </script>
 
 <svelte:head><title>{t('login.title')} · Wadi</title></svelte:head>
@@ -27,6 +28,9 @@
 	{/if}
 	{#if wasReset && !form?.message}
 		<Alert variant="success">{t('login.reset')}</Alert>
+	{/if}
+	{#if verified && !form?.message}
+		<Alert variant="success">{t('login.verified')}</Alert>
 	{/if}
 	{#if form?.message}
 		<Alert variant="error">{form.message}</Alert>

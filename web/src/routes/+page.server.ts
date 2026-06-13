@@ -1,15 +1,18 @@
 import { redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
-import { clearSession } from '$lib/server/session';
+import { logoutUser } from '$lib/server/api';
+import { clearSession, getRefreshToken } from '$lib/server/session';
 
 export const load: PageServerLoad = async ({ locals }) => {
-	if (!locals.session) redirect(303, '/login');
+	if (!locals.user) redirect(303, '/login');
+	// VDR gate: unverified accounts cannot reach app features.
+	if (locals.user.status === 'pending') redirect(303, '/verify-email');
 };
 
 export const actions: Actions = {
-	// Local sign-out (clears the cookie). Backend POST /auth/logout wiring is a
-	// follow-up pass — out of this craft's login+register scope.
-	logout: async ({ cookies }) => {
+	logout: async ({ locals, cookies }) => {
+		const refresh = getRefreshToken(cookies);
+		if (locals.session && refresh) await logoutUser(locals.session, refresh);
 		clearSession(cookies);
 		redirect(303, '/login');
 	}
