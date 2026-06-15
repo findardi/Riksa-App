@@ -13,6 +13,7 @@ import {
 	stubForgotPassword,
 	stubGetMe,
 	stubLogin,
+	stubRefresh,
 	stubRegister,
 	stubResendOtp,
 	stubResetPassword,
@@ -55,6 +56,14 @@ export async function forgotPassword(email: string): Promise<{ sent: boolean; er
 	if (res.ok) return { sent: true };
 	if (res.status === 0) return { sent: false, error: res.message }; // network only
 	return { sent: true }; // hide any other backend signal (anti-enum)
+}
+
+// Exchange a refresh token for a fresh access+refresh pair (PUBLIC; identity from
+// the refresh token itself). Backend rotates: old refresh deleted, new one issued.
+export async function refreshSession(refreshToken: string): Promise<LoginData | null> {
+	if (!API_URL) return stubRefresh(refreshToken);
+	const res = await post<LoginData>('/auth/refresh', { refresh_token: refreshToken });
+	return res.ok ? res.data : null;
 }
 
 // Current authenticated user (JWT-protected). Returns null on any failure so

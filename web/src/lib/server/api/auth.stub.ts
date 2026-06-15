@@ -113,6 +113,13 @@ export async function stubLogin(p: LoginPayload): Promise<ApiResult<LoginData>> 
 	};
 }
 
+export async function stubRefresh(refreshToken: string): Promise<LoginData | null> {
+	const u = users.find((x) => x.id === refreshToken.replace('stub.refresh.', ''));
+	if (!u) return null;
+	// Stub tokens don't rotate; real backend returns fresh, rotated tokens.
+	return { token: `stub.access.${u.id}`, refresh_token: `stub.refresh.${u.id}` };
+}
+
 export async function stubGetMe(token: string): Promise<MeData | null> {
 	const u = userFromToken(token);
 	if (!u) return null;
