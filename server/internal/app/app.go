@@ -13,6 +13,7 @@ import (
 	"github.com/findardi/Wadi/server/internal/auth"
 	"github.com/findardi/Wadi/server/internal/platform/config"
 	"github.com/findardi/Wadi/server/internal/platform/otp"
+	"github.com/findardi/Wadi/server/internal/platform/ratelimit"
 	"github.com/findardi/Wadi/server/internal/platform/response"
 	"github.com/findardi/Wadi/server/internal/platform/sender"
 	"github.com/findardi/Wadi/server/internal/platform/token"
@@ -31,8 +32,9 @@ func New(pool *pgxpool.Pool, otpSecret, addr, jwtSecret string) *App {
 
 	mailCfg, _ := config.LoadMailConfig()
 	mailer := sender.New(mailCfg)
+	limiter := ratelimit.NewMemory()
 
-	authModule := auth.NewModule(pool, otpGen, jwtGen, mailer)
+	authModule := auth.NewModule(pool, otpGen, jwtGen, mailer, limiter)
 
 	r := chi.NewRouter()
 	registerGlobalMiddleware(r)
