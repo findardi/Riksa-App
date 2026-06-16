@@ -72,6 +72,12 @@ func (m *Middleware) RequireAuth(next http.Handler) http.Handler {
 			return
 		}
 
+		// only access tokens may pass; reject anything not minted as token_login
+		if claims.Typ != token.TokenLogin {
+			response.Error(w, http.StatusUnauthorized, "invalid token type", nil)
+			return
+		}
+
 		ctx := context.WithValue(r.Context(), claimsKey, claims)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})

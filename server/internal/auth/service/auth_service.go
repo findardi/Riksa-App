@@ -28,6 +28,13 @@ var (
 	ErrRefreshReuseDetected   = errors.New("refresh token reuse detected")
 )
 
+// tokenTTL maps a user_tokens.type to its lifetime.
+var tokenTTL = map[string]time.Duration{
+	"email_verification": 5 * time.Minute,
+	"password_reset":     5 * time.Minute,
+	"refresh":            24 * time.Hour,
+}
+
 type AuthService struct {
 	repo UserRepository
 	otp  OTPService
@@ -86,7 +93,7 @@ func (s *AuthService) RegisterUser(ctx context.Context, req dto.RegisterRequest)
 			Type:     "email_verification",
 			CodeHash: s.otp.Hash(code),
 			ExpiresAt: pgtype.Timestamptz{
-				Time:  time.Now().Add(5 * time.Minute),
+				Time:  time.Now().Add(tokenTTL["email_verification"]),
 				Valid: true,
 			},
 		}); err != nil {
@@ -175,7 +182,7 @@ func (s *AuthService) ResendOTP(ctx context.Context, email string) error {
 		Type:     "email_verification",
 		CodeHash: s.otp.Hash(code),
 		ExpiresAt: pgtype.Timestamptz{
-			Time:  time.Now().Add(5 * time.Minute),
+			Time:  time.Now().Add(tokenTTL["email_verification"]),
 			Valid: true,
 		},
 	}); err != nil {
@@ -315,7 +322,7 @@ func (s *AuthService) RefreshToken(ctx context.Context, req dto.RefreshTokenRequ
 			Type:     "refresh",
 			CodeHash: s.otp.Hash(newRefresh),
 			ExpiresAt: pgtype.Timestamptz{
-				Time:  time.Now().Add(24 * time.Hour),
+				Time:  time.Now().Add(tokenTTL["refresh"]),
 				Valid: true,
 			},
 		}); err != nil {
@@ -358,7 +365,7 @@ func (s *AuthService) ForgotPassword(ctx context.Context, req dto.ForgotPassword
 			Type:     "password_reset",
 			CodeHash: s.otp.Hash(code),
 			ExpiresAt: pgtype.Timestamptz{
-				Time:  time.Now().Add(5 * time.Minute),
+				Time:  time.Now().Add(tokenTTL["password_reset"]),
 				Valid: true,
 			},
 		}); err != nil {
@@ -546,7 +553,7 @@ func (s *AuthService) issueToken(ctx context.Context, user authdb.User) (dto.Log
 		Type:     "refresh",
 		CodeHash: s.otp.Hash(refreshToken),
 		ExpiresAt: pgtype.Timestamptz{
-			Time:  time.Now().Add(24 * time.Hour),
+			Time:  time.Now().Add(tokenTTL["refresh"]),
 			Valid: true,
 		},
 	}); err != nil {

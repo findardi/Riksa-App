@@ -30,6 +30,10 @@ func main() {
 	jwtSecret := config.GetEnv("JWT_SECRET", "")
 	addr := config.GetEnv("ADDR", ":8181")
 
+	if otpSecret == "" || jwtSecret == "" {
+		log.Fatal("OTP_SECRET and JWT_SECRET must be set")
+	}
+
 	if err := app.New(db, otpSecret, addr, jwtSecret).Run(); err != nil {
 		log.Fatal(err)
 	}

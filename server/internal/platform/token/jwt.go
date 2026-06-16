@@ -34,6 +34,7 @@ type JwtClaims struct {
 	Username string
 	Email    string
 	Status   string
+	Typ      string
 }
 
 func (g *Generator) CreateToken(claims JwtClaims, tokenType TokenType) (string, error) {
@@ -42,6 +43,7 @@ func (g *Generator) CreateToken(claims JwtClaims, tokenType TokenType) (string, 
 		"username": claims.Username,
 		"status":   claims.Status,
 		"email":    claims.Email,
+		"typ":      string(tokenType),
 		"exp":      time.Now().Add(TokenTTL[tokenType]).Unix(),
 	})
 
@@ -78,10 +80,12 @@ func (g *Generator) VerifyToken(tokenString string) (*JwtClaims, error) {
 	username, _ := claims["username"].(string)
 	status, _ := claims["status"].(string)
 	email, _ := claims["email"].(string)
+	typ, _ := claims["typ"].(string)
 	return &JwtClaims{
 		ID:       id,
 		Username: username,
 		Email:    email,
 		Status:   status,
+		Typ:      typ,
 	}, nil
 }
