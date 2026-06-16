@@ -40,3 +40,7 @@ type ResetPasswordRequest struct {
 	Code        string `json:"code" validate:"required,len=6,numeric"`
 	NewPassword string `json:"new_password" validate:"required,min=6,max=255"`
 }
+
+type SSOExchangeRequest struct {
+	Code string `json:"code" validate:"required"`
+}

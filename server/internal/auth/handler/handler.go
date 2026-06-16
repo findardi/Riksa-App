@@ -9,8 +9,10 @@ import (
 	"github.com/findardi/Wadi/server/internal/auth/dto"
 	"github.com/findardi/Wadi/server/internal/auth/service"
 	"github.com/findardi/Wadi/server/internal/platform/middleware"
+	"github.com/findardi/Wadi/server/internal/platform/oauth"
 	"github.com/findardi/Wadi/server/internal/platform/response"
 	"github.com/findardi/Wadi/server/internal/platform/validation"
+	"github.com/go-chi/chi/v5"
 )
 
 const (
@@ -18,12 +20,14 @@ const (
 )
 
 type AuthHandler struct {
-	svc *service.AuthService
+	svc       *service.AuthService
+	providers map[string]oauth.Provider
 }
 
-func NewAuthHandler(svc *service.AuthService) *AuthHandler {
+func NewAuthHandler(svc *service.AuthService, providers map[string]oauth.Provider) *AuthHandler {
 	return &AuthHandler{
-		svc: svc,
+		svc:       svc,
+		providers: providers,
 	}
 }
 
@@ -317,4 +321,72 @@ func (h *AuthHandler) GetMe(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response.Success(w, http.StatusOK, "success", res)
+}
+
+func (h *AuthHandler) SSOAuthUrl(w http.ResponseWriter, r *http.Request) {
+	p, ok := h.providers[chi.URLParam(r, "provider")]
+	if !ok {
+		response.Error(w, http.StatusNotFound, "unknown provider", nil)
+		return
+	}
+
+	state := r.URL.Query().Get("state")
+	if state == "" {
+		response.Error(w, http.StatusBadRequest, "missing state", nil)
+		return
+	}
+
+	response.Success(w, http.StatusOK, "success", map[string]string{
+		"url": p.AuthCodeURL(state),
+	})
+}
+
+func (h *AuthHandler) SSOExchange(w http.ResponseWriter, r *http.Request) {
+	provider := chi.URLParam(r, "provider")
+	p, ok := h.providers[provider]
+	if !ok {
+		response.Error(w, http.StatusNotFound, "unknown provider", nil)
+		return
+	}
+
+	r.Body = http.MaxBytesReader(w, r.Body, MaxBodyBytes)
+
+	var req dto.SSOExchangeRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid body request", nil)
+		return
+	}
+
+	if errs := validation.Validate(&req); errs != nil {
+		response.Error(w, http.StatusBadRequest, "validation failed", errs)
+		return
+	}
+
+	identity, err := p.Identity(r.Context(), req.Code)
+	if err != nil {
+		log.Printf("sso identity error: %v", err)
+		response.Error(w, http.StatusBadGateway, "failed to fetch identity from provider", nil)
+		return
+	}
+
+	res, err := h.svc.SSOLogin(r.Context(), provider, service.SSOIdentity{
+		ProviderUID:   identity.ProviderUID,
+		Email:         identity.Email,
+		EmailVerified: identity.EmailVerified,
+		Username:      identity.Username,
+	})
+	if err != nil {
+		switch {
+		case errors.Is(err, service.ErrEmailAlreadyRegistered):
+			response.Error(w, http.StatusConflict, err.Error(), nil)
+		case errors.Is(err, service.ErrSSOEmailMissing):
+			response.Error(w, http.StatusBadRequest, err.Error(), nil)
+		default:
+			log.Printf("sso login internal error: %v", err)
+			response.Error(w, http.StatusInternalServerError, "internal server error", nil)
+		}
+		return
+	}
+
+	response.Success(w, http.StatusOK, "login success", res)
 }

@@ -7,7 +7,41 @@ package authdb
 
 import (
 	"context"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
+
+const createUserIdentity = `-- name: CreateUserIdentity :one
+insert into user_identities (user_id, provider, provider_uid, email)
+values ($1, $2, $3, $4)
+returning id, user_id, provider, provider_uid, email, created_at
+`
+
+type CreateUserIdentityParams struct {
+	UserID      pgtype.UUID `json:"user_id"`
+	Provider    string      `json:"provider"`
+	ProviderUid string      `json:"provider_uid"`
+	Email       *string     `json:"email"`
+}
+
+func (q *Queries) CreateUserIdentity(ctx context.Context, arg CreateUserIdentityParams) (UserIdentity, error) {
+	row := q.db.QueryRow(ctx, createUserIdentity,
+		arg.UserID,
+		arg.Provider,
+		arg.ProviderUid,
+		arg.Email,
+	)
+	var i UserIdentity
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Provider,
+		&i.ProviderUid,
+		&i.Email,
+		&i.CreatedAt,
+	)
+	return i, err
+}
 
 const getUserIdentity = `-- name: GetUserIdentity :one
 select id, user_id, provider, provider_uid, email, created_at from user_identities

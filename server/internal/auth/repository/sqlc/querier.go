@@ -12,6 +12,7 @@ import (
 
 type Querier interface {
 	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
+	CreateUserIdentity(ctx context.Context, arg CreateUserIdentityParams) (UserIdentity, error)
 	CreateUserToken(ctx context.Context, arg CreateUserTokenParams) (UserToken, error)
 	DeleteExpiredUserTokens(ctx context.Context, userID pgtype.UUID) error
 	DeleteTokensByType(ctx context.Context, arg DeleteTokensByTypeParams) error

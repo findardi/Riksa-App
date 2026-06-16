@@ -9,28 +9,6 @@ import (
 	"time"
 )
 
-type DatabaseConfig struct {
-	Host     string
-	Port     int
-	User     string
-	Password string
-	Name     string
-	SSLMode  string
-
-	MaxOpenConns    int
-	MaxIdleConns    int
-	ConnMaxLifeTime time.Duration
-	ConnMaxIdleTime time.Duration
-}
-
-type MailConfig struct {
-	Host string
-	Port int
-	User string
-	Pass string
-	From string
-}
-
 func LoadEnvFile(path string) error {
 	f, err := os.Open(path)
 	if err != nil {

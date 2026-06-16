@@ -12,6 +12,7 @@ import (
 
 	"github.com/findardi/Wadi/server/internal/auth"
 	"github.com/findardi/Wadi/server/internal/platform/config"
+	"github.com/findardi/Wadi/server/internal/platform/oauth"
 	"github.com/findardi/Wadi/server/internal/platform/otp"
 	"github.com/findardi/Wadi/server/internal/platform/ratelimit"
 	"github.com/findardi/Wadi/server/internal/platform/response"
@@ -34,7 +35,13 @@ func New(pool *pgxpool.Pool, otpSecret, addr, jwtSecret string) *App {
 	mailer := sender.New(mailCfg)
 	limiter := ratelimit.NewMemory()
 
-	authModule := auth.NewModule(pool, otpGen, jwtGen, mailer, limiter)
+	ghCfg := config.LoadOAuth("OAUTH_GITHUB")
+	ggCfg := config.LoadOAuth("OAUTH_GOOGLE")
+	providers := map[string]oauth.Provider{
+		"github": oauth.NewGithub(ghCfg.ClientID, ghCfg.ClientSecret, ghCfg.RedirectURL),
+		"google": oauth.NewGoogle(ggCfg.ClientID, ggCfg.ClientSecret, ggCfg.RedirectURL),
+	}
+	authModule := auth.NewModule(pool, otpGen, jwtGen, mailer, limiter, providers)
 
 	r := chi.NewRouter()
 	registerGlobalMiddleware(r)

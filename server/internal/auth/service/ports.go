@@ -15,9 +15,11 @@ type UserRepository interface {
 	GetValidUserToken(ctx context.Context, arg authdb.GetValidUserTokenParams) (authdb.UserToken, error)
 	GetRefreshToken(ctx context.Context, codeHash string) (authdb.UserToken, error)
 	GetTokenByCodeAndUser(ctx context.Context, arg authdb.GetTokenByCodeAndUserParams) (authdb.UserToken, error)
+	GetUserIdentity(ctx context.Context, arg authdb.GetUserIdentityParams) (authdb.UserIdentity, error)
 
 	CreateUser(ctx context.Context, arg authdb.CreateUserParams) (authdb.User, error)
 	CreateUserToken(ctx context.Context, arg authdb.CreateUserTokenParams) (authdb.UserToken, error)
+	CreateUserIdentity(ctx context.Context, arg authdb.CreateUserIdentityParams) (authdb.UserIdentity, error)
 
 	UpdateStatus(ctx context.Context, arg authdb.UpdateStatusParams) (authdb.User, error)
 	UpdateUser(ctx context.Context, arg authdb.UpdateUserParams) (authdb.User, error)

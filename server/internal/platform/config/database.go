@@ -6,6 +6,20 @@ import (
 	"time"
 )
 
+type DatabaseConfig struct {
+	Host     string
+	Port     int
+	User     string
+	Password string
+	Name     string
+	SSLMode  string
+
+	MaxOpenConns    int
+	MaxIdleConns    int
+	ConnMaxLifeTime time.Duration
+	ConnMaxIdleTime time.Duration
+}
+
 func LoadDatabaseConfig() (DatabaseConfig, error) {
 	port, err := GetEnvInt("DB_PORT", 5432)
 	if err != nil {

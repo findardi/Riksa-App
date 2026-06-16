@@ -9,6 +9,7 @@ import (
 	"github.com/findardi/Wadi/server/internal/auth/repository"
 	"github.com/findardi/Wadi/server/internal/auth/service"
 	"github.com/findardi/Wadi/server/internal/platform/middleware"
+	"github.com/findardi/Wadi/server/internal/platform/oauth"
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -36,10 +37,10 @@ func (s userStatusReader) UserStatus(ctx context.Context, userID string) (string
 	return user.Status, nil
 }
 
-func NewModule(pool *pgxpool.Pool, otp service.OTPService, jwt service.JWTService, mail service.MailService, limiter middleware.RateStore) *Module {
+func NewModule(pool *pgxpool.Pool, otp service.OTPService, jwt service.JWTService, mail service.MailService, limiter middleware.RateStore, providers map[string]oauth.Provider) *Module {
 	r := repository.New(pool)
 	s := service.NewAuthService(r, otp, jwt, mail)
-	h := handler.NewAuthHandler(s)
+	h := handler.NewAuthHandler(s, providers)
 	mw := middleware.New(jwt, userStatusReader{repo: r}, limiter)
 
 	return &Module{
@@ -89,6 +90,8 @@ func (m *Module) RegisterRoutes(r chi.Router) {
 		r.With(m.mw.RateLimit(cooldown("forgot-password", middleware.KeyFromJSONField("email")))).
 			Post("/forgot-password", m.handler.ForgotPassword)
 
+		r.Get("/sso/{provider}/url", m.handler.SSOAuthUrl)
+		r.Post("/sso/{provider}/exchange", m.handler.SSOExchange)
 		// protected
 		r.Group(func(r chi.Router) {
 			r.Use(m.mw.RequireAuth)

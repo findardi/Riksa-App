@@ -1,5 +1,13 @@
 package config
 
+type MailConfig struct {
+	Host string
+	Port int
+	User string
+	Pass string
+	From string
+}
+
 func LoadMailConfig() (MailConfig, error) {
 	port, err := GetEnvInt("SMTP_PORT", 587)
 	if err != nil {
