@@ -25,6 +25,7 @@ var (
 	ErrInvalidRefreshToken    = errors.New("invalid or expired refresh token")
 	ErrEmailAlreadyRegistered = errors.New("email already registered, please login with password")
 	ErrSSOEmailMissing        = errors.New("no verified email available from provider")
+	ErrRefreshReuseDetected   = errors.New("refresh token reuse detected")
 )
 
 type AuthService struct {
@@ -267,6 +268,22 @@ func (s *AuthService) RefreshToken(ctx context.Context, req dto.RefreshTokenRequ
 		return dto.LoginResponse{}, fmt.Errorf("get refresh token: %w", err)
 	}
 
+	// reuse detection: a consumed token replayed → revoke all refresh tokens (per-user)
+	if old.UsedAt.Valid {
+		if err := s.repo.DeleteTokensByType(ctx, authdb.DeleteTokensByTypeParams{
+			UserID: old.UserID,
+			Type:   "refresh",
+		}); err != nil {
+			return dto.LoginResponse{}, fmt.Errorf("revoke refresh tokens: %w", err)
+		}
+		return dto.LoginResponse{}, ErrRefreshReuseDetected
+	}
+
+	// never used but past expiry → just invalid
+	if !old.ExpiresAt.Valid || old.ExpiresAt.Time.Before(time.Now()) {
+		return dto.LoginResponse{}, ErrInvalidRefreshToken
+	}
+
 	user, err := s.repo.GetUserById(ctx, old.UserID)
 	if err != nil {
 		return dto.LoginResponse{}, fmt.Errorf("get user: %w", err)
@@ -288,12 +305,9 @@ func (s *AuthService) RefreshToken(ctx context.Context, req dto.RefreshTokenRequ
 	}
 
 	err = s.repo.ExecTx(ctx, func(q *authdb.Queries) error {
-		if err := q.DeleteUserToken(ctx, authdb.DeleteUserTokenParams{
-			CodeHash: old.CodeHash,
-			UserID:   user.ID,
-			Type:     "refresh",
-		}); err != nil {
-			return fmt.Errorf("delete old refresh: %w", err)
+		// soft-consume: keep the row (marked used) so a replay is detectable until expiry
+		if err := q.MarkRefreshTokenUsed(ctx, old.ID); err != nil {
+			return fmt.Errorf("mark old refresh used: %w", err)
 		}
 
 		if _, err := q.CreateUserToken(ctx, authdb.CreateUserTokenParams{

@@ -26,6 +26,8 @@ type UserRepository interface {
 	UpdateUserToken(ctx context.Context, arg authdb.UpdateUserTokenParams) (authdb.UserToken, error)
 
 	DeleteUserToken(ctx context.Context, arg authdb.DeleteUserTokenParams) error
+	DeleteTokensByType(ctx context.Context, arg authdb.DeleteTokensByTypeParams) error
+	MarkRefreshTokenUsed(ctx context.Context, id pgtype.UUID) error
 	DeleteExpiredUserTokens(ctx context.Context, userID pgtype.UUID) error
 
 	ExecTx(ctx context.Context, fn func(q *authdb.Queries) error) error

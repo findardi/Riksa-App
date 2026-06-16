@@ -91,8 +91,6 @@ const getRefreshToken = `-- name: GetRefreshToken :one
 select id, user_id, type, code_hash, expires_at, used_at, created_at from user_tokens
 where code_hash = $1
  and type = 'refresh'
- and used_at is null
- and expires_at > now()
 limit 1
 `
 
@@ -170,6 +168,16 @@ func (q *Queries) GetValidUserToken(ctx context.Context, arg GetValidUserTokenPa
 		&i.CreatedAt,
 	)
 	return i, err
+}
+
+const markRefreshTokenUsed = `-- name: MarkRefreshTokenUsed :exec
+update user_tokens set used_at = now()
+where id = $1 and type = 'refresh'
+`
+
+func (q *Queries) MarkRefreshTokenUsed(ctx context.Context, id pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, markRefreshTokenUsed, id)
+	return err
 }
 
 const updateUserToken = `-- name: UpdateUserToken :one

@@ -189,6 +189,9 @@ func (h *AuthHandler) RefreshToken(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case errors.Is(err, service.ErrInvalidRefreshToken):
 			response.Error(w, http.StatusUnauthorized, "invalid or expired refresh token", nil)
+		case errors.Is(err, service.ErrRefreshReuseDetected):
+			log.Printf("SECURITY: refresh token reuse detected for revoked session")
+			response.Error(w, http.StatusUnauthorized, "invalid or expired refresh token", nil)
 		default:
 			log.Printf("refresh token internal error: %v", err)
 			response.Error(w, http.StatusInternalServerError, "internal server error", nil)

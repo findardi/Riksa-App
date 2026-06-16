@@ -31,9 +31,11 @@ where code_hash = $1 and user_id = $2 and type = $3;
 select * from user_tokens
 where code_hash = $1
  and type = 'refresh'
- and used_at is null
- and expires_at > now()
 limit 1;
+
+-- name: MarkRefreshTokenUsed :exec
+update user_tokens set used_at = now()
+where id = $1 and type = 'refresh';
 
 -- name: DeleteTokensByType :exec
 delete from user_tokens

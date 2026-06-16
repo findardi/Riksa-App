@@ -1,6 +1,7 @@
 import type { Handle } from '@sveltejs/kit';
 import { clearSession, getAccessToken, getRefreshToken, setSession } from '$lib/server/session';
 import { getMe, refreshSession } from '$lib/server/api';
+import { refreshSinleFlight } from '$lib/server/refresh-lock';
 
 export const handle: Handle = async ({ event, resolve }) => {
 	const refresh = getRefreshToken(event.cookies);
@@ -11,7 +12,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 	// Access token missing/expired but a refresh token exists → rotate transparently
 	// so the session survives the 15m access TTL up to the 30d refresh TTL.
 	if (!user && refresh) {
-		const next = await refreshSession(refresh);
+		const next = await refreshSinleFlight(refresh);
 		if (next) {
 			setSession(event.cookies, next);
 			token = next.token;

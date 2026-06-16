@@ -26,6 +26,7 @@ type Querier interface {
 	GetUsersById(ctx context.Context, dollar_1 []pgtype.UUID) ([]User, error)
 	GetUsersByStatus(ctx context.Context, status string) ([]User, error)
 	GetValidUserToken(ctx context.Context, arg GetValidUserTokenParams) (UserToken, error)
+	MarkRefreshTokenUsed(ctx context.Context, id pgtype.UUID) error
 	UpdatePassword(ctx context.Context, arg UpdatePasswordParams) error
 	UpdateStatus(ctx context.Context, arg UpdateStatusParams) (User, error)
 	UpdateUser(ctx context.Context, arg UpdateUserParams) (User, error)
