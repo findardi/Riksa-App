@@ -1,0 +1,23 @@
+package service
+
+import (
+	"context"
+
+	workspacedb "github.com/findardi/Wadi/server/internal/workspace/repository/sqlc"
+	"github.com/jackc/pgx/v5/pgtype"
+)
+
+type WorkspaceRepository interface {
+	CreateWorkspace(ctx context.Context, arg workspacedb.CreateWorkspaceParams) (workspacedb.Workspace, error)
+
+	DeleteWorkspace(ctx context.Context, id pgtype.UUID) error
+
+	GetWorkspaceBySlugAndOwner(ctx context.Context, arg workspacedb.GetWorkspaceBySlugAndOwnerParams) (workspacedb.Workspace, error)
+	GetWorkspacesByOwner(ctx context.Context, ownerID pgtype.UUID) ([]workspacedb.Workspace, error)
+	GetWorkspaceByID(ctx context.Context, id pgtype.UUID) (workspacedb.Workspace, error)
+
+	UpdateWorkspace(ctx context.Context, arg workspacedb.UpdateWorkspaceParams) (workspacedb.Workspace, error)
+	UpdateWorkspaceStatus(ctx context.Context, arg workspacedb.UpdateWorkspaceStatusParams) error
+
+	ExecTx(ctx context.Context, fn func(*workspacedb.Queries) error) error
+}

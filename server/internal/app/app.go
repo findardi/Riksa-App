@@ -18,6 +18,7 @@ import (
 	"github.com/findardi/Wadi/server/internal/platform/response"
 	"github.com/findardi/Wadi/server/internal/platform/sender"
 	"github.com/findardi/Wadi/server/internal/platform/token"
+	"github.com/findardi/Wadi/server/internal/workspace"
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -42,6 +43,7 @@ func New(pool *pgxpool.Pool, otpSecret, addr, jwtSecret string) *App {
 		"google": oauth.NewGoogle(ggCfg.ClientID, ggCfg.ClientSecret, ggCfg.RedirectURL),
 	}
 	authModule := auth.NewModule(pool, otpGen, jwtGen, mailer, limiter, providers)
+	workspaceModule := workspace.NewModule(pool, jwtGen)
 
 	r := chi.NewRouter()
 	registerGlobalMiddleware(r)
@@ -51,6 +53,7 @@ func New(pool *pgxpool.Pool, otpSecret, addr, jwtSecret string) *App {
 	})
 
 	authModule.RegisterRoutes(r)
+	workspaceModule.RegisterRoutes(r)
 
 	return &App{
 		router: r,
