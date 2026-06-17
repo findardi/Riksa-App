@@ -90,11 +90,40 @@ export const id = {
 	'app.menu.open': 'Buka menu navigasi',
 	'app.account.signedInAs': 'Masuk sebagai',
 	'app.account.logout': 'Keluar',
-	'app.empty.title': 'Belum ada ruang data',
-	'app.empty.body':
+
+	// Workspaces (ruang data)
+	'ws.title': 'Ruang data',
+	'ws.create': 'Buat ruang data',
+	'ws.count': '{n} ruang data',
+	'ws.limitReached': 'Anda sudah mencapai batas 3 ruang data sebagai pemilik.',
+	'ws.created': 'Ruang data "{name}" dibuat.',
+	'ws.loadError': 'Gagal memuat ruang data. Coba muat ulang halaman.',
+	'ws.empty.title': 'Belum ada ruang data',
+	'ws.empty.body':
 		'Buat ruang data pertama untuk mulai membagikan dokumen dengan akses terkontrol dan teraudit.',
-	'app.empty.create': 'Buat ruang data',
-	'app.empty.guestHint': 'Diundang ke sebuah ruang? Ruang itu akan otomatis muncul di sini.',
+	'ws.dialog.title': 'Buat ruang data',
+	'ws.dialog.subtitle': 'Beri nama ruang data Anda.',
+	'ws.dialog.reassure':
+		'Privat secara default — akses terkontrol dan teraudit. Anda mengundang anggota setelahnya.',
+	'ws.field.name': 'Nama',
+	'ws.field.namePlaceholder': 'mis. Project Falcon',
+	'ws.field.description': 'Deskripsi',
+	'ws.field.descriptionHint': 'Opsional — ringkas tujuan ruang data ini.',
+	'ws.field.descriptionPlaceholder': 'Opsional',
+	'ws.dialog.cancel': 'Batal',
+	'ws.dialog.submit': 'Buat',
+	'ws.dialog.submitting': 'Membuat…',
+	'ws.err.nameTaken': 'Nama ruang data sudah dipakai.',
+	'ws.err.nameInvalid': 'Nama harus mengandung huruf atau angka.',
+	'ws.err.limit': 'Maksimal 3 ruang data per akun.',
+
+	// Home (post-login landing)
+	'home.welcome': 'Selamat datang, {name}',
+	'home.welcomeGeneric': 'Selamat datang di Wadi',
+	'home.subtitle': 'Buka ruang data untuk melanjutkan, atau buat yang baru.',
+	'home.quickActions': 'Aksi cepat',
+	'home.action.workspaces': 'Ruang data',
+	'home.action.workspacesDesc': 'Kelola dan buat ruang data Anda',
 
 	'password.show': 'Tampilkan kata sandi',
 	'password.hide': 'Sembunyikan kata sandi',

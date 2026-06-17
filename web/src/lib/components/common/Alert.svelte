@@ -3,17 +3,19 @@
 
 	type Props = {
 		variant?: 'error' | 'success';
+		/** `center` suits standalone auth cards; `start` reads better inside a left-aligned form. */
+		align?: 'center' | 'start';
 		children: Snippet;
 	};
-	let { variant = 'error', children }: Props = $props();
+	let { variant = 'error', align = 'center', children }: Props = $props();
 
 	const variantClass = $derived(variant === 'error' ? 'alert-error' : 'alert-success');
+	const alignClass = $derived(
+		align === 'center' ? 'justify-center text-center' : 'justify-start text-left'
+	);
 </script>
 
-<div
-	role="alert"
-	class="wadi-alert-in alert alert-soft {variantClass} justify-center text-center text-sm"
->
+<div role="alert" class="wadi-alert-in alert alert-soft {variantClass} {alignClass} text-sm">
 	{@render children()}
 </div>
 

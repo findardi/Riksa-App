@@ -7,3 +7,4 @@ export { default as Field } from './Field.svelte';
 export { default as OtpInput } from './OtpInput.svelte';
 export { default as PasswordField } from './PasswordField.svelte';
 export { default as SsoButtons } from './SsoButtons.svelte';
+export { default as TextareaField } from './TextareaField.svelte';

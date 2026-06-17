@@ -100,7 +100,7 @@
 						class="flex w-full items-center gap-2 rounded-field px-3 py-2 text-left text-sm text-base-content hover:bg-base-content/5"
 					>
 						<svg
-							class="h-[18px] w-[18px] flex-none"
+							class="h-4.5 w-4.5 flex-none"
 							viewBox="0 0 24 24"
 							fill="none"
 							stroke="currentColor"

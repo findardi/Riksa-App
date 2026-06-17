@@ -7,16 +7,16 @@
 
 <nav class="flex h-full flex-col gap-1 p-3" aria-label="Navigasi utama">
 	<a
-		href="/"
+		href="/workspace"
 		class="flex items-center gap-3 rounded-field px-3 py-2 text-[0.9375rem] font-medium transition-colors {isActive(
-			'/'
+			'/workspace'
 		)
 			? 'bg-primary/10 text-primary'
 			: 'text-base-content hover:bg-base-content/5'}"
-		aria-current={isActive('/') ? 'page' : undefined}
+		aria-current={isActive('/workspace') ? 'page' : undefined}
 	>
 		<svg
-			class="h-[18px] w-[18px] flex-none"
+			class="h-4.5 w-4.5 flex-none"
 			viewBox="0 0 24 24"
 			fill="none"
 			stroke="currentColor"
@@ -41,7 +41,7 @@
 		class="flex cursor-not-allowed items-center gap-3 rounded-field px-3 py-2 text-[0.9375rem] font-medium text-muted/70"
 	>
 		<svg
-			class="h-[18px] w-[18px] flex-none"
+			class="h-4.5 w-4.5 flex-none"
 			viewBox="0 0 24 24"
 			fill="none"
 			stroke="currentColor"
@@ -68,7 +68,7 @@
 		class="flex cursor-not-allowed items-center gap-3 rounded-field px-3 py-2 text-[0.9375rem] font-medium text-muted/70"
 	>
 		<svg
-			class="h-[18px] w-[18px] flex-none"
+			class="h-4.5 w-4.5 flex-none"
 			viewBox="0 0 24 24"
 			fill="none"
 			stroke="currentColor"
