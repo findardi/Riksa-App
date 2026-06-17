@@ -81,6 +81,21 @@ export const id = {
 	'verify.resent': 'Kode dikirim ulang.',
 	'verify.logout': 'Keluar',
 
+	// App shell (post-login, level-0 / user-scoped)
+	'app.nav.rooms': 'Ruang data',
+	'app.nav.invitations': 'Undangan',
+	'app.nav.settings': 'Pengaturan',
+	'app.nav.soon': 'Segera',
+	'app.search.placeholder': 'Cari…',
+	'app.menu.open': 'Buka menu navigasi',
+	'app.account.signedInAs': 'Masuk sebagai',
+	'app.account.logout': 'Keluar',
+	'app.empty.title': 'Belum ada ruang data',
+	'app.empty.body':
+		'Buat ruang data pertama untuk mulai membagikan dokumen dengan akses terkontrol dan teraudit.',
+	'app.empty.create': 'Buat ruang data',
+	'app.empty.guestHint': 'Diundang ke sebuah ruang? Ruang itu akan otomatis muncul di sini.',
+
 	'password.show': 'Tampilkan kata sandi',
 	'password.hide': 'Sembunyikan kata sandi',
 
