@@ -31,7 +31,7 @@
 		<!-- SSO first: one tap, no password. Avoids creating a password account that
 		     would later clash with the same SSO email (backend rejects with 409). -->
 		<SsoButtons />
-		<div class="divider text-xs text-muted">{t('login.orEmail')}</div>
+		<div class="divider text-xs text-muted">{t('login.or')}</div>
 
 		<!-- Step 1 — email only -->
 		<form
