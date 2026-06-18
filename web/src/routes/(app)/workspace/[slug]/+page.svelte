@@ -171,7 +171,7 @@
 					value={s}
 					disabled={current || pendingStatus !== null}
 					aria-pressed={current}
-					class="inline-flex items-center gap-1.5 rounded-[4px] px-3 py-1.5 text-sm font-medium transition-colors {current
+					class="inline-flex items-center gap-1.5 rounded-sm px-3 py-1.5 text-sm font-medium transition-colors {current
 						? 'bg-primary/10 text-primary'
 						: 'text-muted hover:bg-base-content/5 hover:text-base-content disabled:cursor-not-allowed disabled:text-muted/60 disabled:hover:bg-transparent disabled:hover:text-muted/60'}"
 				>
