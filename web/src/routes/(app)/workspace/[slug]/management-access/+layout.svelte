@@ -11,7 +11,9 @@
 		{ href: `${base}/role`, label: t('ma.role') },
 		{ href: `${base}/group`, label: t('ma.group') }
 	]);
-	const isActive = (href: string) => page.url.pathname === href;
+	// Active for the tab's own route and any of its sub-routes (e.g. role/new).
+	const isActive = (href: string) =>
+		page.url.pathname === href || page.url.pathname.startsWith(`${href}/`);
 </script>
 
 <div class="mx-auto w-full max-w-4xl px-6 py-8">
