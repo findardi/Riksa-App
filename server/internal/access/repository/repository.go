@@ -4,31 +4,32 @@ import (
 	"context"
 	"fmt"
 
-	workspacedb "github.com/findardi/Wadi/server/internal/workspace/repository/sqlc"
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	accessdb "github.com/findardi/Wadi/server/internal/access/repository/sqlc"
 )
 
 type Repository struct {
-	*workspacedb.Queries
+	*accessdb.Queries
 	pool *pgxpool.Pool
 }
 
 func New(pool *pgxpool.Pool) *Repository {
 	return &Repository{
-		Queries: workspacedb.New(pool),
+		Queries: accessdb.New(pool),
 		pool:    pool,
 	}
 }
 
-func (r *Repository) ExecTx(ctx context.Context, fn func(*workspacedb.Queries, pgx.Tx) error) error {
+// ExecTx running fn in one transaction
+func (r *Repository) ExecTx(ctx context.Context, fn func(*accessdb.Queries) error) error {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("begin tx: %w", err)
 	}
 	defer tx.Rollback(ctx)
 
-	if err := fn(r.Queries.WithTx(tx), tx); err != nil {
+	if err := fn(r.Queries.WithTx(tx)); err != nil {
 		return err
 	}
 

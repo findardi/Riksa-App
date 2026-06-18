@@ -28,16 +28,17 @@ var (
 	ErrInvalidStatus         = errors.New("invalid workspace status")
 )
 
-// slugInvalidChars matches runs of non url-safe chars; compiled once.
 var slugInvalidChars = regexp.MustCompile(`[^a-z0-9]+`)
 
 type WorkspaceService struct {
-	repo WorkspaceRepository
+	repo   WorkspaceRepository
+	access AccessService
 }
 
-func NewWorkspaceService(repo WorkspaceRepository) *WorkspaceService {
+func NewWorkspaceService(repo WorkspaceRepository, access AccessService) *WorkspaceService {
 	return &WorkspaceService{
-		repo: repo,
+		repo:   repo,
+		access: access,
 	}
 }
 
@@ -72,8 +73,6 @@ func isValidStatus(status string) bool {
 	return false
 }
 
-// isUniqueViolation reports whether err is a Postgres unique violation (23505)
-// on the given constraint.
 func isUniqueViolation(err error, constraint string) bool {
 	var pgErr *pgconn.PgError
 	if errors.As(err, &pgErr) {
@@ -101,7 +100,6 @@ func (s *WorkspaceService) CreateWorkspace(ctx context.Context, req dto.Workspac
 		return dto.WorkspaceResponse{}, ErrWorkspaceExceedLimits
 	}
 
-	// reject duplicate slug per owner (DB unique constraint is the backstop)
 	if _, err := s.repo.GetWorkspaceBySlugAndOwner(ctx, workspacedb.GetWorkspaceBySlugAndOwnerParams{
 		OwnerID: uid,
 		Slug:    slug,
@@ -114,15 +112,28 @@ func (s *WorkspaceService) CreateWorkspace(ctx context.Context, req dto.Workspac
 		desc = &req.Description
 	}
 
-	workspace, err := s.repo.CreateWorkspace(ctx, workspacedb.CreateWorkspaceParams{
-		OwnerID:     uid,
-		Name:        req.Name,
-		Slug:        slug,
-		Description: desc,
-		Status:      StatusPrepare,
+	var workspace workspacedb.Workspace
+	err = s.repo.ExecTx(ctx, func(q *workspacedb.Queries, tx pgx.Tx) error {
+		w, err := q.CreateWorkspace(ctx, workspacedb.CreateWorkspaceParams{
+			OwnerID:     uid,
+			Name:        req.Name,
+			Slug:        slug,
+			Description: desc,
+			Status:      StatusPrepare,
+		})
+		if err != nil {
+			return fmt.Errorf("create workspace: %w", err)
+		}
+
+		if err := s.access.ProvisionWorkspace(ctx, tx, w.ID, uid); err != nil {
+			return fmt.Errorf("provision workspace access: %w", err)
+		}
+
+		workspace = w
+		return nil
 	})
 	if err != nil {
-		return dto.WorkspaceResponse{}, fmt.Errorf("create workspace: %w", err)
+		return dto.WorkspaceResponse{}, err
 	}
 
 	return dto.WorkspaceResponse{

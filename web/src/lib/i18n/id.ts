@@ -127,7 +127,7 @@ export const id = {
 	'ws.section.overview': 'Ikhtisar',
 	'ws.section.documents': 'Dokumen',
 	'ws.section.activity': 'Aktivitas',
-	'ws.section.people': 'Anggota',
+	'ws.section.access': 'Manajemen Akses',
 
 	// Workspace status (lifecycle)
 	'ws.status.label': 'Status',
@@ -186,7 +186,83 @@ export const id = {
 	'err.usernameTaken': 'Username sudah dipakai.',
 	'err.network': 'Tidak dapat terhubung ke server. Coba lagi.',
 	'err.generic': 'Terjadi kesalahan. Coba lagi sebentar.',
-	'err.invalidOtp': 'Kode OTP salah atau kedaluwarsa.'
+	'err.invalidOtp': 'Kode OTP salah atau kedaluwarsa.',
+
+	// management access
+	'ma.title': 'Manajemen akses',
+	'ma.desc': 'Kelola anggota, peran, dan grup ruang ini.',
+	'ma.member': 'Anggota',
+	'ma.role': 'Peran',
+	'ma.group': 'Grup',
+
+	// roles
+	'role.count': '{n} peran',
+	'role.new': 'Buat peran',
+	'role.system': 'Sistem',
+	'role.permCount': '{n} izin',
+	'role.permAll': 'Akses penuh',
+	'role.permNone': 'Tanpa izin',
+	'role.view': 'Lihat',
+	'role.edit': 'Ubah',
+	'role.delete': 'Hapus',
+	'role.back': 'Kembali ke Peran',
+	'role.empty.title': 'Belum ada peran kustom',
+	'role.empty.body': 'Peran sistem sudah tersedia. Buat peran kustom untuk menyesuaikan izin tim.',
+	// system role display names (seeded names are technical: owner/admin/…)
+	'role.sys.owner': 'Pemilik',
+	'role.sys.admin': 'Admin',
+	'role.sys.contributor': 'Kontributor',
+	'role.sys.viewer': 'Pembaca',
+	'role.sys.guest': 'Tamu',
+	// editor
+	'role.create.title': 'Buat peran',
+	'role.create.desc': 'Beri nama peran dan pilih izin yang dicakupnya.',
+	'role.edit.title': 'Ubah peran',
+	'role.view.title': 'Detail peran',
+	'role.view.systemNote': 'Peran sistem tidak dapat diubah atau dihapus.',
+	'role.field.name': 'Nama peran',
+	'role.field.namePlaceholder': 'mis. Analis keuangan',
+	'role.field.permissions': 'Izin',
+	'role.field.permissionsHint': 'Pilih minimal satu izin.',
+	'role.selectAll': 'Pilih semua',
+	'role.selected': '{n} dipilih',
+	'role.create.submit': 'Buat peran',
+	'role.create.submitting': 'Membuat…',
+	'role.save': 'Simpan perubahan',
+	'role.saving': 'Menyimpan…',
+	'role.cancel': 'Batal',
+	// delete confirm
+	'role.delete.title': 'Hapus peran',
+	'role.delete.warning': 'Peran "{name}" akan dihapus permanen. Tindakan ini tidak dapat dibatalkan.',
+	'role.delete.submit': 'Hapus peran',
+	'role.delete.submitting': 'Menghapus…',
+	// feedback
+	'role.created': 'Peran dibuat.',
+	'role.updated': 'Peran diperbarui.',
+	'role.deleted': 'Peran dihapus.',
+	// errors
+	'role.err.loadError': 'Gagal memuat peran.',
+	'role.err.notFound': 'Peran tidak ditemukan.',
+	'role.err.nameTaken': 'Nama peran sudah dipakai.',
+	'role.err.inUse': 'Peran masih ditetapkan ke anggota, jadi tidak bisa dihapus.',
+	'role.err.noPermissions': 'Pilih minimal satu izin.',
+
+	// permission resources
+	'perm.res.workspace': 'Ruang data',
+	'perm.res.member': 'Anggota',
+	'perm.res.role': 'Peran',
+	'perm.res.group': 'Grup',
+	'perm.res.folder': 'Folder',
+	'perm.res.document': 'Dokumen',
+	// permission actions
+	'perm.act.view': 'Lihat',
+	'perm.act.create': 'Buat',
+	'perm.act.add': 'Tambah',
+	'perm.act.upload': 'Unggah',
+	'perm.act.download': 'Unduh',
+	'perm.act.edit': 'Ubah',
+	'perm.act.assign': 'Tetapkan',
+	'perm.act.delete': 'Hapus'
 } as const;
 
 export type Dict = typeof id;
