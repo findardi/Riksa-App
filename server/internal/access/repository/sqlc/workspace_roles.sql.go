@@ -11,6 +11,99 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const deleteRole = `-- name: DeleteRole :exec
+delete from workspace_roles
+where id = $1
+`
+
+func (q *Queries) DeleteRole(ctx context.Context, id pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, deleteRole, id)
+	return err
+}
+
+const editRole = `-- name: EditRole :one
+update workspace_roles set 
+    name = $2,
+    permissions = $3,
+    updated_at = now()
+where id = $1
+returning id, workspace_id, name, permissions, is_system, created_at, updated_at
+`
+
+type EditRoleParams struct {
+	ID          pgtype.UUID `json:"id"`
+	Name        string      `json:"name"`
+	Permissions []string    `json:"permissions"`
+}
+
+func (q *Queries) EditRole(ctx context.Context, arg EditRoleParams) (WorkspaceRole, error) {
+	row := q.db.QueryRow(ctx, editRole, arg.ID, arg.Name, arg.Permissions)
+	var i WorkspaceRole
+	err := row.Scan(
+		&i.ID,
+		&i.WorkspaceID,
+		&i.Name,
+		&i.Permissions,
+		&i.IsSystem,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getRole = `-- name: GetRole :one
+select id, workspace_id, name, permissions, is_system, created_at, updated_at from workspace_roles
+where id = $1
+`
+
+func (q *Queries) GetRole(ctx context.Context, id pgtype.UUID) (WorkspaceRole, error) {
+	row := q.db.QueryRow(ctx, getRole, id)
+	var i WorkspaceRole
+	err := row.Scan(
+		&i.ID,
+		&i.WorkspaceID,
+		&i.Name,
+		&i.Permissions,
+		&i.IsSystem,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getRoles = `-- name: GetRoles :many
+select id, workspace_id, name, permissions, is_system, created_at, updated_at from workspace_roles
+where workspace_id = $1
+`
+
+func (q *Queries) GetRoles(ctx context.Context, workspaceID pgtype.UUID) ([]WorkspaceRole, error) {
+	rows, err := q.db.Query(ctx, getRoles, workspaceID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []WorkspaceRole
+	for rows.Next() {
+		var i WorkspaceRole
+		if err := rows.Scan(
+			&i.ID,
+			&i.WorkspaceID,
+			&i.Name,
+			&i.Permissions,
+			&i.IsSystem,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const insertRole = `-- name: InsertRole :one
 insert into workspace_roles
     (workspace_id, name, permissions, is_system)

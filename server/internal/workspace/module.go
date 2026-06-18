@@ -43,7 +43,6 @@ func NewModule(pool *pgxpool.Pool, verifier middleware.TokenVerifier, access ser
 	s := service.NewWorkspaceService(r, access)
 	h := handler.NewWorkspaceHandler(s)
 
-	// RateLimit is unused for workspace routes, so no limiter is wired.
 	mw := middleware.New(verifier, userStatusReader{repo: auth.New(pool)}, nil)
 
 	return &Module{
@@ -80,7 +79,6 @@ func (m *Module) RegisterRoutes(r chi.Router) {
 		r.Post("/", m.handler.Create)
 		r.Get("/", m.handler.GetWorkspaces)
 
-		// owner-only operations on a specific workspace
 		r.Group(func(r chi.Router) {
 			r.Use(m.mw.RequireOwner("workspaceID", m.workspaceOwner))
 

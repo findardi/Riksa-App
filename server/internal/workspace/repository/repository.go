@@ -21,9 +21,6 @@ func New(pool *pgxpool.Pool) *Repository {
 	}
 }
 
-// ExecTx menjalankan fn dalam satu transaksi. Selain *workspacedb.Queries,
-// raw pgx.Tx ikut diberikan agar domain lain (mis. access) bisa menumpang
-// transaksi yang sama lewat accessdb.New(tx).
 func (r *Repository) ExecTx(ctx context.Context, fn func(*workspacedb.Queries, pgx.Tx) error) error {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {

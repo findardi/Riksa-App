@@ -6,10 +6,16 @@ package accessdb
 
 import (
 	"context"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type Querier interface {
 	AddMember(ctx context.Context, arg AddMemberParams) (WorkspaceMember, error)
+	DeleteRole(ctx context.Context, id pgtype.UUID) error
+	EditRole(ctx context.Context, arg EditRoleParams) (WorkspaceRole, error)
+	GetRole(ctx context.Context, id pgtype.UUID) (WorkspaceRole, error)
+	GetRoles(ctx context.Context, workspaceID pgtype.UUID) ([]WorkspaceRole, error)
 	InsertRole(ctx context.Context, arg InsertRoleParams) (WorkspaceRole, error)
 }
 

@@ -1,38 +1,32 @@
 package permission
 
 const (
-	// Workspace
 	PermWorkspaceView   = "workspace:view"
 	PermWorkspaceEdit   = "workspace:edit"
 	PermWorkspaceDelete = "workspace:delete"
 
-	// Member
 	PermMemberView   = "member:view"
 	PermMemberAdd    = "member:add"
 	PermMemberEdit   = "member:edit"
 	PermMemberDelete = "member:delete"
 
-	// Role
 	PermRoleView   = "role:view"
 	PermRoleCreate = "role:create"
 	PermRoleEdit   = "role:edit"
 	PermRoleDelete = "role:delete"
 	PermRoleAssign = "role:assign"
 
-	// Group
 	PermGroupView   = "group:view"
 	PermGroupCreate = "group:create"
 	PermGroupEdit   = "group:edit"
 	PermGroupDelete = "group:delete"
 	PermGroupAssign = "group:assign"
 
-	// Folder
 	PermFolderView   = "folder:view"
 	PermFolderCreate = "folder:create"
 	PermFolderEdit   = "folder:edit"
 	PermFolderDelete = "folder:delete"
 
-	// Document
 	PermDocumentView     = "document:view"
 	PermDocumentUpload   = "document:upload"
 	PermDocumentDownload = "document:download"
@@ -40,7 +34,6 @@ const (
 	PermDocumentDelete   = "document:delete"
 )
 
-// All adalah daftar lengkap permission valid (untuk validasi mapping role).
 var All = []string{
 	PermWorkspaceView, PermWorkspaceEdit, PermWorkspaceDelete,
 	PermMemberView, PermMemberAdd, PermMemberEdit, PermMemberDelete,
@@ -58,13 +51,11 @@ var set = func() map[string]struct{} {
 	return m
 }()
 
-// IsValid memeriksa apakah sebuah permission dikenali aplikasi.
 func IsValid(p string) bool {
 	_, ok := set[p]
 	return ok
 }
 
-// Nama system role default (di-seed saat workspace dibuat).
 const (
 	RoleOwner       = "owner"
 	RoleAdmin       = "admin"
@@ -73,18 +64,15 @@ const (
 	RoleGuest       = "guest"
 )
 
-// SystemRole adalah cetakan role bawaan beserta permission-nya.
 type SystemRole struct {
 	Name        string
 	Permissions []string
 }
 
-// GetOwner: kontrol penuh atas seluruh resource.
 func GetOwner() []string {
 	return append([]string{}, All...)
 }
 
-// GetAdmin: kelola member/role/group/konten, tapi tidak bisa hapus workspace.
 func GetAdmin() []string {
 	return []string{
 		PermWorkspaceView, PermWorkspaceEdit,
@@ -96,7 +84,6 @@ func GetAdmin() []string {
 	}
 }
 
-// GetContributor: kelola folder & dokumen, tanpa akses kelola member/role/group.
 func GetContributor() []string {
 	return []string{
 		PermWorkspaceView,
@@ -107,7 +94,6 @@ func GetContributor() []string {
 	}
 }
 
-// GetViewer: hanya baca dan boleh download dokumen.
 func GetViewer() []string {
 	return []string{
 		PermWorkspaceView,
@@ -116,7 +102,6 @@ func GetViewer() []string {
 	}
 }
 
-// GetGuest: hanya baca, tanpa download.
 func GetGuest() []string {
 	return []string{
 		PermWorkspaceView,
@@ -125,7 +110,6 @@ func GetGuest() []string {
 	}
 }
 
-// DefaultSystemRoles mengembalikan seluruh role bawaan untuk di-seed ke workspace baru.
 func DefaultSystemRoles() []SystemRole {
 	return []SystemRole{
 		{Name: RoleOwner, Permissions: GetOwner()},

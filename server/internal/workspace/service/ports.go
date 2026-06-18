@@ -23,7 +23,6 @@ type WorkspaceRepository interface {
 	ExecTx(ctx context.Context, fn func(*workspacedb.Queries, pgx.Tx) error) error
 }
 
-// AccessService menumpang transaksi workspace untuk seed role bawaan.
 type AccessService interface {
-	SeedSystemRoles(ctx context.Context, tx pgx.Tx, workspaceID pgtype.UUID) error
+	ProvisionWorkspace(ctx context.Context, tx pgx.Tx, workspaceID, ownerID pgtype.UUID) error
 }
