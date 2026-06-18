@@ -127,7 +127,7 @@ export const id = {
 	'ws.section.overview': 'Ikhtisar',
 	'ws.section.documents': 'Dokumen',
 	'ws.section.activity': 'Aktivitas',
-	'ws.section.people': 'Anggota',
+	'ws.section.access': 'Manajemen Akses',
 
 	// Workspace status (lifecycle)
 	'ws.status.label': 'Status',
@@ -186,7 +186,14 @@ export const id = {
 	'err.usernameTaken': 'Username sudah dipakai.',
 	'err.network': 'Tidak dapat terhubung ke server. Coba lagi.',
 	'err.generic': 'Terjadi kesalahan. Coba lagi sebentar.',
-	'err.invalidOtp': 'Kode OTP salah atau kedaluwarsa.'
+	'err.invalidOtp': 'Kode OTP salah atau kedaluwarsa.',
+
+	// management access
+	'ma.title': 'Manajemen akses',
+	'ma.desc': 'Kelola anggota, peran, dan grup ruang ini.',
+	'ma.member': 'Anggota',
+	'ma.role': 'Peran',
+	'ma.group': 'Grup'
 } as const;
 
 export type Dict = typeof id;
