@@ -51,6 +51,7 @@ func (m *Module) RegisterRoutes(r chi.Router) {
 	r.Route("/access", func(r chi.Router) {
 		r.Use(m.mw.RequireAuth)
 		r.Use(m.mw.RequireActive)
+		r.Get("/permissions", m.handler.GetPermissions)
 
 		r.Route("/role", func(r chi.Router) {
 			r.Post("/{workspaceID}", m.handler.CreateRole)

@@ -8,6 +8,7 @@ import (
 
 	"github.com/findardi/Wadi/server/internal/access/dto"
 	"github.com/findardi/Wadi/server/internal/access/service"
+	"github.com/findardi/Wadi/server/internal/platform/permission"
 	"github.com/findardi/Wadi/server/internal/platform/response"
 	"github.com/findardi/Wadi/server/internal/platform/validation"
 	"github.com/go-chi/chi/v5"
@@ -143,4 +144,8 @@ func (h *AccessHandler) DeleteRole(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response.Success(w, http.StatusOK, "delete role success", nil)
+}
+
+func (h *AccessHandler) GetPermissions(w http.ResponseWriter, r *http.Request) {
+	response.Success(w, http.StatusOK, "get permissions success", permission.All)
 }
