@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"log"
@@ -18,14 +19,39 @@ const (
 	MaxBodyBytes = 1 << 20
 )
 
-type AccessHandler struct {
-	svc *service.AccessService
+type AuthService interface {
+	UserExists(ctx context.Context, email string) bool
 }
 
-func NewAccessHandler(svc *service.AccessService) *AccessHandler {
+type AccessHandler struct {
+	svc  *service.AccessService
+	asvc AuthService
+}
+
+func NewAccessHandler(svc *service.AccessService, asvc AuthService) *AccessHandler {
 	return &AccessHandler{
-		svc: svc,
+		svc:  svc,
+		asvc: asvc,
 	}
+}
+
+func (h *AccessHandler) CheckUser(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, MaxBodyBytes)
+
+	var req dto.CheckEmailRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid body request", nil)
+		return
+	}
+
+	if errs := validation.Validate(&req); errs != nil {
+		response.Error(w, http.StatusBadRequest, "validation failed", errs)
+		return
+	}
+
+	res := h.asvc.UserExists(r.Context(), req.Email)
+
+	response.Success(w, http.StatusOK, "get user exists", res)
 }
 
 func (h *AccessHandler) CreateRole(w http.ResponseWriter, r *http.Request) {

@@ -35,10 +35,10 @@ type Module struct {
 	mw      *middleware.Middleware
 }
 
-func NewModule(pool *pgxpool.Pool, verifier middleware.TokenVerifier, mail service.MailService) *Module {
+func NewModule(pool *pgxpool.Pool, verifier middleware.TokenVerifier, mail service.MailService, asvc handler.AuthService) *Module {
 	r := repository.New(pool)
 	s := service.NewAccessService(r, mail)
-	h := handler.NewAccessHandler(s)
+	h := handler.NewAccessHandler(s, asvc)
 
 	mw := middleware.New(verifier, userStatusReader{repo: auth.New(pool)}, nil)
 	return &Module{
@@ -52,6 +52,7 @@ func (m *Module) RegisterRoutes(r chi.Router) {
 		r.Use(m.mw.RequireAuth)
 		r.Use(m.mw.RequireActive)
 		r.Get("/permissions", m.handler.GetPermissions)
+		r.Post("/check", m.handler.CheckUser)
 
 		r.Route("/role", func(r chi.Router) {
 			r.Post("/{workspaceID}", m.handler.CreateRole)

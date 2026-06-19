@@ -11,3 +11,7 @@ type UpdateMemberRoleRequest struct {
 	MemberID string `json:"-"`
 	RoleId   string `json:"role_id" validate:"required"`
 }
+
+type CheckEmailRequest struct {
+	Email string `json:"email" validate:"required"`
+}

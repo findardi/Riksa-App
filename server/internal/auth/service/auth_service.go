@@ -51,6 +51,15 @@ func NewAuthService(repo UserRepository, otp OTPService, jwt JWTService, mail Ma
 	}
 }
 
+func (s *AuthService) UserExists(ctx context.Context, email string) bool {
+	_, err := s.repo.GetUserByEmail(ctx, email)
+	if err != nil {
+		return false
+	}
+
+	return true
+}
+
 func (s *AuthService) RegisterUser(ctx context.Context, req dto.RegisterRequest) (dto.RegisterResponse, error) {
 	email := strings.ToLower(strings.TrimSpace(req.Email))
 	username := strings.TrimSpace(req.Username)
