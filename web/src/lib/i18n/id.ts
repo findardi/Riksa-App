@@ -247,6 +247,26 @@ export const id = {
 	'role.err.inUse': 'Peran masih ditetapkan ke anggota, jadi tidak bisa dihapus.',
 	'role.err.noPermissions': 'Pilih minimal satu izin.',
 
+	// members
+	'member.invite': 'Undang anggota',
+	'member.you': 'Anda',
+	'member.role.locked': 'Terkunci',
+	'member.changeRole': 'Ubah peran {name}',
+	'member.remove': 'Keluarkan',
+	'member.remove.title': 'Keluarkan anggota',
+	'member.remove.warning':
+		'Keluarkan {name} dari ruang ini? Mereka akan kehilangan akses sampai diundang kembali.',
+	'member.remove.submit': 'Keluarkan',
+	'member.remove.submitting': 'Mengeluarkan…',
+	'member.cancel': 'Batal',
+	'member.roleChanged': 'Peran anggota diperbarui.',
+	'member.removed': 'Anggota dikeluarkan.',
+	'member.status.active': 'Aktif',
+	'member.status.invited': 'Diundang',
+	'member.status.suspended': 'Ditangguhkan',
+	'member.err.loadError': 'Gagal memuat anggota.',
+	'member.err.notFound': 'Anggota tidak ditemukan.',
+
 	// permission resources
 	'perm.res.workspace': 'Ruang data',
 	'perm.res.member': 'Anggota',

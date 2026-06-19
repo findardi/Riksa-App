@@ -12,11 +12,15 @@ import (
 
 type Querier interface {
 	AddMember(ctx context.Context, arg AddMemberParams) (WorkspaceMember, error)
+	DeleteMember(ctx context.Context, id pgtype.UUID) error
 	DeleteRole(ctx context.Context, id pgtype.UUID) error
 	EditRole(ctx context.Context, arg EditRoleParams) (WorkspaceRole, error)
+	GetMember(ctx context.Context, id pgtype.UUID) (GetMemberRow, error)
+	GetMembers(ctx context.Context, workspaceID pgtype.UUID) ([]GetMembersRow, error)
 	GetRole(ctx context.Context, id pgtype.UUID) (WorkspaceRole, error)
 	GetRoles(ctx context.Context, workspaceID pgtype.UUID) ([]WorkspaceRole, error)
 	InsertRole(ctx context.Context, arg InsertRoleParams) (WorkspaceRole, error)
+	UpdateRole(ctx context.Context, arg UpdateRoleParams) (WorkspaceMember, error)
 }
 
 var _ Querier = (*Queries)(nil)

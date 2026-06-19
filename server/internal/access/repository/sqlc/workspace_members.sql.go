@@ -45,3 +45,178 @@ func (q *Queries) AddMember(ctx context.Context, arg AddMemberParams) (Workspace
 	)
 	return i, err
 }
+
+const deleteMember = `-- name: DeleteMember :exec
+delete from workspace_members where id = $1
+`
+
+func (q *Queries) DeleteMember(ctx context.Context, id pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, deleteMember, id)
+	return err
+}
+
+const getMember = `-- name: GetMember :one
+select 
+    m.id, m.workspace_id, m.user_id, m.role_id, m.status, m.created_at, m.updated_at,
+    r.name as role_name,
+    u.username,
+    u.email,
+    coalesce(
+        array_agg(g.name) filter (where g.name is not null),
+        '{}'
+    )::text[] as group_names
+from 
+    workspace_members m 
+left join
+    workspace_roles r 
+        on r.id = m.role_id
+left join
+    users u
+        on u.id = m.user_id
+left join
+    workspace_group_members gm
+        on gm.member_id = m.id
+left join
+    workspace_groups g 
+        on g.id = gm.group_id
+where
+    m.id = $1
+group by m.id, r.name, u.username, u.email
+`
+
+type GetMemberRow struct {
+	ID          pgtype.UUID        `json:"id"`
+	WorkspaceID pgtype.UUID        `json:"workspace_id"`
+	UserID      pgtype.UUID        `json:"user_id"`
+	RoleID      pgtype.UUID        `json:"role_id"`
+	Status      string             `json:"status"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+	RoleName    *string            `json:"role_name"`
+	Username    *string            `json:"username"`
+	Email       *string            `json:"email"`
+	GroupNames  []string           `json:"group_names"`
+}
+
+func (q *Queries) GetMember(ctx context.Context, id pgtype.UUID) (GetMemberRow, error) {
+	row := q.db.QueryRow(ctx, getMember, id)
+	var i GetMemberRow
+	err := row.Scan(
+		&i.ID,
+		&i.WorkspaceID,
+		&i.UserID,
+		&i.RoleID,
+		&i.Status,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.RoleName,
+		&i.Username,
+		&i.Email,
+		&i.GroupNames,
+	)
+	return i, err
+}
+
+const getMembers = `-- name: GetMembers :many
+select 
+    m.id, m.workspace_id, m.user_id, m.role_id, m.status, m.created_at, m.updated_at,
+    r.name as role_name,
+    u.username,
+    u.email,
+    coalesce(
+        array_agg(g.name) filter (where g.name is not null),
+        '{}'
+    )::text[] as group_names
+from 
+    workspace_members m 
+left join
+    workspace_roles r 
+        on r.id = m.role_id
+left join
+    users u
+        on u.id = m.user_id
+left join
+    workspace_group_members gm
+        on gm.member_id = m.id
+left join
+    workspace_groups g 
+        on g.id = gm.group_id
+where
+    m.workspace_id = $1
+group by m.id, r.name, u.username, u.email
+order by m.created_at
+`
+
+type GetMembersRow struct {
+	ID          pgtype.UUID        `json:"id"`
+	WorkspaceID pgtype.UUID        `json:"workspace_id"`
+	UserID      pgtype.UUID        `json:"user_id"`
+	RoleID      pgtype.UUID        `json:"role_id"`
+	Status      string             `json:"status"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+	RoleName    *string            `json:"role_name"`
+	Username    *string            `json:"username"`
+	Email       *string            `json:"email"`
+	GroupNames  []string           `json:"group_names"`
+}
+
+func (q *Queries) GetMembers(ctx context.Context, workspaceID pgtype.UUID) ([]GetMembersRow, error) {
+	rows, err := q.db.Query(ctx, getMembers, workspaceID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetMembersRow
+	for rows.Next() {
+		var i GetMembersRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.WorkspaceID,
+			&i.UserID,
+			&i.RoleID,
+			&i.Status,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.RoleName,
+			&i.Username,
+			&i.Email,
+			&i.GroupNames,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const updateRole = `-- name: UpdateRole :one
+update workspace_members set
+    role_id = $2,
+    updated_at = now()
+where id = $1
+returning id, workspace_id, user_id, role_id, status, created_at, updated_at
+`
+
+type UpdateRoleParams struct {
+	ID     pgtype.UUID `json:"id"`
+	RoleID pgtype.UUID `json:"role_id"`
+}
+
+func (q *Queries) UpdateRole(ctx context.Context, arg UpdateRoleParams) (WorkspaceMember, error) {
+	row := q.db.QueryRow(ctx, updateRole, arg.ID, arg.RoleID)
+	var i WorkspaceMember
+	err := row.Scan(
+		&i.ID,
+		&i.WorkspaceID,
+		&i.UserID,
+		&i.RoleID,
+		&i.Status,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}

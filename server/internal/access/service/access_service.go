@@ -24,6 +24,7 @@ var (
 	ErrRoleNotFound     = errors.New("role not found")
 	ErrRoleInUse        = errors.New("role is still assigned to members")
 	ErrMemberAlreadyAdd = errors.New("user already a member of this workspace")
+	ErrMemberNotFound   = errors.New("member not found")
 )
 
 type AccessService struct {
@@ -278,6 +279,104 @@ func (s *AccessService) DeleteRole(ctx context.Context, roleId string) error {
 	}
 	if err != nil {
 		return fmt.Errorf("delete role: %w", err)
+	}
+
+	return nil
+}
+
+func (s *AccessService) GetMembers(ctx context.Context, workspaceID string) ([]dto.GetMemberResponse, error) {
+	var members []dto.GetMemberResponse
+	var wsID pgtype.UUID
+	if err := wsID.Scan(workspaceID); err != nil {
+		return members, fmt.Errorf("parse workspace id: %w", err)
+	}
+
+	wsMembers, err := s.repo.GetMembers(ctx, wsID)
+	if err != nil {
+		return members, fmt.Errorf("get members: %w", err)
+	}
+
+	for _, w := range wsMembers {
+		member := dto.GetMemberResponse{
+			ID:          uuidString(w.ID),
+			WorkspaceID: uuidString(w.WorkspaceID),
+			UserID:      uuidString(w.UserID),
+			RoleID:      uuidString(w.RoleID),
+			Status:      w.Status,
+			CreatedAt:   w.CreatedAt.Time,
+			UpdatedAt:   w.UpdatedAt.Time,
+			RoleName:    deref(w.RoleName),
+			Username:    deref(w.Username),
+			Email:       deref(w.Email),
+			GroupNames:  w.GroupNames,
+		}
+
+		members = append(members, member)
+	}
+
+	return members, nil
+}
+
+func (s *AccessService) GetMember(ctx context.Context, memberID string) (dto.GetMemberResponse, error) {
+	var mID pgtype.UUID
+	if err := mID.Scan(memberID); err != nil {
+		return dto.GetMemberResponse{}, fmt.Errorf("parse member id: %w", err)
+	}
+
+	w, err := s.repo.GetMember(ctx, mID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return dto.GetMemberResponse{}, ErrMemberNotFound
+	}
+	if err != nil {
+		return dto.GetMemberResponse{}, fmt.Errorf("get member: %w", err)
+	}
+
+	return dto.GetMemberResponse{
+		ID:          uuidString(w.ID),
+		WorkspaceID: uuidString(w.WorkspaceID),
+		UserID:      uuidString(w.UserID),
+		RoleID:      uuidString(w.RoleID),
+		Status:      w.Status,
+		CreatedAt:   w.CreatedAt.Time,
+		UpdatedAt:   w.UpdatedAt.Time,
+		RoleName:    deref(w.RoleName),
+		Username:    deref(w.Username),
+		Email:       deref(w.Email),
+		GroupNames:  w.GroupNames,
+	}, nil
+}
+
+func (s *AccessService) UpdateMemberRole(ctx context.Context, req dto.UpdateMemberRoleRequest) (dto.GetMemberResponse, error) {
+	var mID, rID pgtype.UUID
+	if err := mID.Scan(req.MemberID); err != nil {
+		return dto.GetMemberResponse{}, fmt.Errorf("parse member id: %w", err)
+	}
+	if err := rID.Scan(req.RoleId); err != nil {
+		return dto.GetMemberResponse{}, fmt.Errorf("parse role id: %w", err)
+	}
+
+	_, err := s.repo.UpdateRole(ctx, accessdb.UpdateRoleParams{
+		ID:     mID,
+		RoleID: rID,
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return dto.GetMemberResponse{}, ErrMemberNotFound
+	}
+	if err != nil {
+		return dto.GetMemberResponse{}, fmt.Errorf("update member role: %w", err)
+	}
+
+	return s.GetMember(ctx, req.MemberID)
+}
+
+func (s *AccessService) DeleteMember(ctx context.Context, memberID string) error {
+	var mID pgtype.UUID
+	if err := mID.Scan(memberID); err != nil {
+		return fmt.Errorf("parse member id: %w", err)
+	}
+
+	if err := s.repo.DeleteMember(ctx, mID); err != nil {
+		return fmt.Errorf("delete member: %w", err)
 	}
 
 	return nil

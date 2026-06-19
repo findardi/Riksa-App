@@ -49,3 +49,26 @@ export interface WorkspaceRoleData {
 	created_at: string;
 	updated_at: string;
 }
+
+// Workspace Member
+export type MemberStatus = 'invited' | 'active' | 'suspended';
+
+// Mirrors the Go `GetMemberResponse` (joined view: role name, user, groups).
+export interface WorkspaceMemberData {
+	id: string;
+	workspace_id: string;
+	user_id: string;
+	role_id: string;
+	status: MemberStatus;
+	created_at: string;
+	updated_at: string;
+	role_name: string;
+	username: string;
+	email: string;
+	// Go marshals a nil slice to null, so guard for null on the client.
+	group_names: string[] | null;
+}
+
+export interface UpdateMemberRolePayload {
+	role_id: string;
+}
