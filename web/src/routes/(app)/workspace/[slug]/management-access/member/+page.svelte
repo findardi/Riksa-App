@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tick } from 'svelte';
 	import { enhance } from '$app/forms';
 	import { invalidateAll } from '$app/navigation';
 	import type { SubmitFunction } from '@sveltejs/kit';
@@ -82,6 +83,47 @@
 			}
 		};
 	};
+
+	// --- Add member: email check → conditional add/invite (flow itself is next) ---
+	let addDialog = $state<HTMLDialogElement>();
+	let checkEmail = $state('');
+	let checking = $state(false);
+	let checkError = $state<string | null>(null);
+	let emailError = $state<string | undefined>(undefined);
+	let checkResult = $state<{ email: string; exists: boolean } | null>(null);
+	// Hide a stale result once the email is edited.
+	const resultFresh = $derived(checkResult && checkResult.email === checkEmail.trim());
+
+	function openAdd() {
+		checkEmail = '';
+		checking = false;
+		checkError = null;
+		emailError = undefined;
+		checkResult = null;
+		addDialog?.showModal();
+		tick().then(() => addDialog?.querySelector<HTMLInputElement>('#check-email')?.focus());
+	}
+
+	const submitCheck: SubmitFunction = () => {
+		checking = true;
+		checkError = null;
+		emailError = undefined;
+		checkResult = null;
+		return async ({ result }) => {
+			checking = false;
+			if (result.type === 'success') {
+				const d = result.data as { email: string; exists: boolean } | undefined;
+				if (d) checkResult = { email: d.email, exists: d.exists };
+			} else if (result.type === 'failure') {
+				const d = result.data as { fieldErrors?: Record<string, string>; message?: string } | undefined;
+				emailError = d?.fieldErrors?.email;
+				checkError = d?.message ?? null;
+			} else {
+				checkError = t('err.generic');
+			}
+		};
+	};
+
 </script>
 
 <svelte:head><title>{t('ma.member')} · {t('ma.title')}</title></svelte:head>
@@ -91,11 +133,7 @@
 		{t('ma.member')}
 		<span class="ml-1 font-mono text-xs font-normal text-muted">{members.length}</span>
 	</h2>
-	<!-- Invite flow not built yet: present but inert. -->
-	<button type="button" disabled class="btn btn-primary btn-sm" title={t('app.nav.soon')}>
-		{t('member.invite')}
-		<span class="text-[0.6875rem] font-normal opacity-80">· {t('app.nav.soon')}</span>
-	</button>
+	<button type="button" onclick={openAdd} class="btn btn-primary btn-sm">{t('member.add.open')}</button>
 </div>
 
 <ul class="mt-4 divide-y divide-base-content/10 border-y border-base-content/10">
@@ -233,6 +271,115 @@
 	</div>
 	<form method="dialog" class="modal-backdrop">
 		<button aria-label={t('member.cancel')}></button>
+	</form>
+</dialog>
+
+<!-- Add member: email check, then route to add (existing) or invite (new) -->
+<dialog bind:this={addDialog} class="modal" aria-labelledby="member-add-title">
+	<div class="modal-box w-full max-w-lg rounded-box border border-base-content/10 bg-base-100 p-6">
+		<h2 id="member-add-title" class="text-lg font-semibold tracking-[-0.01em]">
+			{t('member.add.title')}
+		</h2>
+		<p class="mt-1 text-sm text-muted text-pretty">{t('member.add.desc')}</p>
+
+		{#if checkError}
+			<div class="mt-4"><Alert align="start">{checkError}</Alert></div>
+		{/if}
+
+		<form method="POST" action="?/check" use:enhance={submitCheck} class="mt-5">
+			<label class="text-sm font-medium" for="check-email">{t('member.add.emailLabel')}</label>
+			<div class="mt-1.5 flex gap-2">
+				<input
+					id="check-email"
+					name="email"
+					type="email"
+					bind:value={checkEmail}
+					placeholder={t('member.add.emailPlaceholder')}
+					autocomplete="off"
+					inputmode="email"
+					aria-invalid={emailError ? 'true' : undefined}
+					aria-describedby={emailError ? 'check-email-error' : undefined}
+					class="input w-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+					class:input-error={!!emailError}
+				/>
+				<Button type="submit" loading={checking}>
+					{checking ? t('member.add.checking') : t('member.add.check')}
+				</Button>
+			</div>
+			{#if emailError}
+				<p id="check-email-error" class="mt-1.5 text-sm text-error">{emailError}</p>
+			{/if}
+		</form>
+
+		<!-- Outcome is announced; CTAs stay disabled until the add/invite flow lands. -->
+		<div aria-live="polite">
+			{#if resultFresh && checkResult}
+				{@const exists = checkResult.exists}
+				<div class="mt-5 rounded-box border border-base-content/10 p-4">
+					<div class="flex items-center gap-3">
+						<span
+							class="grid h-10 w-10 flex-none place-items-center rounded-full {exists
+								? 'bg-success/10 text-success'
+								: 'bg-primary/10 text-primary'}"
+							aria-hidden="true"
+						>
+							{#if exists}
+								<svg
+									class="h-5 w-5"
+									viewBox="0 0 24 24"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="1.8"
+									stroke-linecap="round"
+									stroke-linejoin="round"
+								>
+									<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+									<circle cx="9" cy="7" r="4" />
+									<path d="m16 11 2 2 4-4" />
+								</svg>
+							{:else}
+								<svg
+									class="h-5 w-5"
+									viewBox="0 0 24 24"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="1.8"
+									stroke-linecap="round"
+									stroke-linejoin="round"
+								>
+									<rect x="3" y="5" width="18" height="14" rx="2" />
+									<path d="m3 7 9 6 9-6" />
+								</svg>
+							{/if}
+						</span>
+						<div class="min-w-0 flex-1">
+							<p class="truncate font-mono text-sm font-medium">{checkResult.email}</p>
+							<p class="mt-0.5 text-xs text-muted">
+								{exists ? t('member.add.found') : t('member.add.notFound')}
+							</p>
+						</div>
+					</div>
+					<p class="mt-3 text-sm text-muted text-pretty">
+						{exists ? t('member.add.foundHint') : t('member.add.notFoundHint')}
+					</p>
+					<div class="mt-4 flex justify-end">
+						<Button disabled>
+							{exists ? t('member.add.addBtn') : t('member.invite')}
+							<span class="text-[0.6875rem] font-normal opacity-80">· {t('app.nav.soon')}</span>
+						</Button>
+					</div>
+				</div>
+			{/if}
+		</div>
+
+		<div class="mt-5 flex justify-end">
+			<Button type="button" variant="ghost" onclick={() => addDialog?.close()}>
+				{t('member.add.close')}
+			</Button>
+		</div>
+	</div>
+	<form method="dialog" class="modal-backdrop">
+		<button aria-label={t('member.add.close')}></button>
 	</form>
 </dialog>
 

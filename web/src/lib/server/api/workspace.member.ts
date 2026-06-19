@@ -1,6 +1,12 @@
 import type { ApiResult } from '$lib/types';
 import type { UpdateMemberRolePayload, WorkspaceMemberData } from '$lib/types/workspace';
-import { del, get, put } from './client';
+import { del, get, post, put } from './client';
+
+// Whether an email already has a Wadi account. NOTE: backend route must be POST
+// (`/access/check`) — fetch/undici forbid a body on GET.
+export async function checkUser(token: string, email: string): Promise<ApiResult<boolean>> {
+	return post<boolean>(`/access/check`, { email }, token);
+}
 
 export async function getMembers(
 	token: string,

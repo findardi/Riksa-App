@@ -1,5 +1,6 @@
 import { error, fail, redirect } from '@sveltejs/kit';
 import {
+	checkUser,
 	deleteMember,
 	getMembers,
 	getRoles,
@@ -31,6 +32,29 @@ export const load: PageServerLoad = async ({ locals, parent }) => {
 };
 
 export const actions: Actions = {
+	// Email lookup for the add/invite flow — returns whether the user exists.
+	check: async ({ locals, request }) => {
+		if (!locals.session) redirect(303, '/login');
+
+		const form = await request.formData();
+		const email = (form.get('email') ?? '').toString().trim();
+		if (!email) return fail(400, { fieldErrors: { email: t('err.required') } });
+
+		const res = await checkUser(locals.session, email);
+		if (!res.ok) {
+			if (res.status === 401) redirect(303, '/login');
+			return fail(res.status || 400, {
+				fieldErrors: (res.fieldErrors?.email ? { email: res.fieldErrors.email } : {}) as Record<
+					string,
+					string
+				>,
+				message: Object.keys(res.fieldErrors ?? {}).length ? null : res.message || t('err.generic')
+			});
+		}
+
+		return { checked: true, email, exists: res.data };
+	},
+
 	updateRole: async ({ locals, params, request }) => {
 		if (!locals.session) redirect(303, '/login');
 
