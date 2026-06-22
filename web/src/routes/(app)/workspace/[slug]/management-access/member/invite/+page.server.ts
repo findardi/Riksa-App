@@ -1,7 +1,32 @@
-import { fail, redirect } from '@sveltejs/kit';
-import { addMembers, resolveWorkspaceId } from '$lib/server/api';
+import { error, fail, redirect } from '@sveltejs/kit';
+import {
+	addMembers,
+	getInvitations,
+	resendInvitation,
+	resolveWorkspaceId,
+	revokeInvitation
+} from '$lib/server/api';
 import { t } from '$lib/i18n';
-import type { Actions } from './$types';
+import type { Actions, PageServerLoad } from './$types';
+
+const INVITE_STATUSES = ['pending', 'accepted', 'expired', 'revoked', 'rejected'];
+
+export const load: PageServerLoad = async ({ locals, parent, url }) => {
+	if (!locals.session) redirect(303, '/login');
+
+	const { workspace } = await parent();
+	// Unknown/empty status → no filter (backend returns all).
+	const raw = url.searchParams.get('status') ?? '';
+	const status = INVITE_STATUSES.includes(raw) ? raw : '';
+
+	const res = await getInvitations(locals.session, workspace.id, status || undefined);
+	if (!res.ok) {
+		if (res.status === 401) redirect(303, '/login');
+		error(res.status || 502, t('pending.err.loadError'));
+	}
+
+	return { invitations: res.data, status };
+};
 
 export const actions: Actions = {
 	// Bulk invite. Emails arrive as repeated `email` fields; the backend decides
@@ -36,5 +61,43 @@ export const actions: Actions = {
 		}
 
 		return { invited: true, results: res.data };
+	},
+
+	resend: async ({ locals, params, request }) => {
+		if (!locals.session) redirect(303, '/login');
+
+		const form = await request.formData();
+		const invitationId = (form.get('invitationId') ?? '').toString();
+		if (!invitationId) return fail(400, { message: t('err.generic') });
+
+		const wsId = await resolveWorkspaceId(locals.session, params.slug);
+		if (!wsId) return fail(404, { message: t('ws.detail.notFound') });
+
+		const res = await resendInvitation(locals.session, wsId, invitationId);
+		if (!res.ok) {
+			if (res.status === 401) redirect(303, '/login');
+			return fail(res.status || 400, { message: res.message || t('err.generic') });
+		}
+
+		return { resent: true };
+	},
+
+	revoke: async ({ locals, params, request }) => {
+		if (!locals.session) redirect(303, '/login');
+
+		const form = await request.formData();
+		const invitationId = (form.get('invitationId') ?? '').toString();
+		if (!invitationId) return fail(400, { message: t('err.generic') });
+
+		const wsId = await resolveWorkspaceId(locals.session, params.slug);
+		if (!wsId) return fail(404, { message: t('ws.detail.notFound') });
+
+		const res = await revokeInvitation(locals.session, wsId, invitationId);
+		if (!res.ok) {
+			if (res.status === 401) redirect(303, '/login');
+			return fail(res.status || 400, { message: res.message || t('err.generic') });
+		}
+
+		return { revoked: true };
 	}
 };

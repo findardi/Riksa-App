@@ -296,11 +296,29 @@ export const id = {
 	'pending.expires': 'Kedaluwarsa',
 	'pending.invitedBy': 'Diundang oleh {name}',
 	'pending.resend': 'Kirim ulang',
+	'pending.resend.done': 'Undangan dikirim ulang.',
 	'pending.revoke': 'Cabut undangan',
+	'pending.revoke.title': 'Cabut undangan',
+	'pending.revoke.warning':
+		'Cabut undangan untuk {email}? Tautan undangan mereka langsung tidak berlaku.',
+	'pending.revoke.submit': 'Cabut',
+	'pending.revoke.submitting': 'Mencabut…',
+	'pending.revoke.done': 'Undangan dicabut.',
 	'pending.empty.title': 'Belum ada undangan tertunda',
 	'pending.empty.desc':
 		'Undangan yang menunggu diterima akan muncul di sini, lengkap dengan peran dan masa berlakunya.',
 	'pending.err.loadError': 'Gagal memuat undangan.',
+
+	// invitation status + filter
+	'inv.status.pending': 'Menunggu',
+	'inv.status.accepted': 'Diterima',
+	'inv.status.expired': 'Kedaluwarsa',
+	'inv.status.revoked': 'Dicabut',
+	'inv.status.rejected': 'Ditolak',
+	'inv.filter.label': 'Status',
+	'inv.filter.all': 'Semua',
+	'inv.empty.filtered': 'Tidak ada undangan dengan status ini.',
+	'inv.empty.reset': 'Tampilkan semua',
 
 	// permission resources
 	'perm.res.workspace': 'Ruang data',

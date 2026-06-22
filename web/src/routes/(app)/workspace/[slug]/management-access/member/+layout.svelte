@@ -8,7 +8,7 @@
 	const base = $derived(`/workspace/${page.params.slug}/management-access/member`);
 	const subtabs = $derived([
 		{ href: base, label: t('ma.member'), count: data.members.length, exact: true },
-		{ href: `${base}/invite`, label: t('ma.pending'), count: data.invitations.length, exact: false }
+		{ href: `${base}/invite`, label: t('ma.pending'), count: data.pendingCount, exact: false }
 	]);
 	const isActive = (href: string, exact: boolean) =>
 		exact ? page.url.pathname === href : page.url.pathname.startsWith(href);

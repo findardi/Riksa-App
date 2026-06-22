@@ -18,12 +18,32 @@ export async function addMembers(
 	return post<AddMemberResult[]>(`/access/member/${workspaceId}/invite`, p, token);
 }
 
-// Pending invitations for a workspace (those awaiting acceptance).
+// Workspace invitations. `status` filters by an exact status; omit for all.
 export async function getInvitations(
 	token: string,
-	workspaceId: string
+	workspaceId: string,
+	status?: string
 ): Promise<ApiResult<InvitationData[]>> {
-	return get<InvitationData[]>(`/access/member/${workspaceId}/invite`, token);
+	const q = status ? `?status=${encodeURIComponent(status)}` : '';
+	return get<InvitationData[]>(`/access/member/${workspaceId}/invite${q}`, token);
+}
+
+// Re-issue an invitation's token and resend its email (no body).
+export async function resendInvitation(
+	token: string,
+	workspaceId: string,
+	invitationId: string
+): Promise<ApiResult<null>> {
+	return post<null>(`/access/member/${workspaceId}/${invitationId}/resend`, undefined, token);
+}
+
+// Revoke a pending invitation, invalidating its link (no body).
+export async function revokeInvitation(
+	token: string,
+	workspaceId: string,
+	invitationId: string
+): Promise<ApiResult<null>> {
+	return post<null>(`/access/member/${workspaceId}/${invitationId}/revoke`, undefined, token);
 }
 
 export async function getMembers(
