@@ -157,13 +157,13 @@ left join
         on u.id = i.invited_by
 where
     i.workspace_id = $1
-    and i.status = $2
+    and ($2::text is null or i.status = $2)
 order by i.created_at desc
 `
 
 type ListWorkspaceInvitationsParams struct {
 	WorkspaceID pgtype.UUID `json:"workspace_id"`
-	Status      string      `json:"status"`
+	Status      *string     `json:"status"`
 }
 
 type ListWorkspaceInvitationsRow struct {
@@ -218,6 +218,60 @@ func (q *Queries) ListWorkspaceInvitations(ctx context.Context, arg ListWorkspac
 	return items, nil
 }
 
+const reinviteWorkspaceInvitation = `-- name: ReinviteWorkspaceInvitation :one
+update workspace_user_invitations set
+    status = 'pending',
+    role_id = $1,
+    user_id = $2,
+    invited_by = $3,
+    code_hash = $4,
+    expires_at = $5,
+    accepted_at = null,
+    updated_at = now()
+where workspace_id = $6
+    and lower(email) = lower($7)
+    and status in ('revoked', 'rejected', 'expired')
+returning id, workspace_id, email, role_id, user_id, invited_by, code_hash, status, expires_at, accepted_at, created_at, updated_at
+`
+
+type ReinviteWorkspaceInvitationParams struct {
+	RoleID      pgtype.UUID        `json:"role_id"`
+	UserID      pgtype.UUID        `json:"user_id"`
+	InvitedBy   pgtype.UUID        `json:"invited_by"`
+	CodeHash    string             `json:"code_hash"`
+	ExpiresAt   pgtype.Timestamptz `json:"expires_at"`
+	WorkspaceID pgtype.UUID        `json:"workspace_id"`
+	Email       string             `json:"email"`
+}
+
+func (q *Queries) ReinviteWorkspaceInvitation(ctx context.Context, arg ReinviteWorkspaceInvitationParams) (WorkspaceUserInvitation, error) {
+	row := q.db.QueryRow(ctx, reinviteWorkspaceInvitation,
+		arg.RoleID,
+		arg.UserID,
+		arg.InvitedBy,
+		arg.CodeHash,
+		arg.ExpiresAt,
+		arg.WorkspaceID,
+		arg.Email,
+	)
+	var i WorkspaceUserInvitation
+	err := row.Scan(
+		&i.ID,
+		&i.WorkspaceID,
+		&i.Email,
+		&i.RoleID,
+		&i.UserID,
+		&i.InvitedBy,
+		&i.CodeHash,
+		&i.Status,
+		&i.ExpiresAt,
+		&i.AcceptedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const rejectWorkspaceInvitation = `-- name: RejectWorkspaceInvitation :one
 update workspace_user_invitations set
     status = 'rejected',
@@ -228,6 +282,42 @@ returning id, workspace_id, email, role_id, user_id, invited_by, code_hash, stat
 
 func (q *Queries) RejectWorkspaceInvitation(ctx context.Context, id pgtype.UUID) (WorkspaceUserInvitation, error) {
 	row := q.db.QueryRow(ctx, rejectWorkspaceInvitation, id)
+	var i WorkspaceUserInvitation
+	err := row.Scan(
+		&i.ID,
+		&i.WorkspaceID,
+		&i.Email,
+		&i.RoleID,
+		&i.UserID,
+		&i.InvitedBy,
+		&i.CodeHash,
+		&i.Status,
+		&i.ExpiresAt,
+		&i.AcceptedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const resendInvitation = `-- name: ResendInvitation :one
+update workspace_user_invitations set
+    status = 'pending',
+    expires_at = $2,
+    code_hash = $3,
+    updated_at = now()
+where id = $1 and status in ('pending', 'expired')
+returning id, workspace_id, email, role_id, user_id, invited_by, code_hash, status, expires_at, accepted_at, created_at, updated_at
+`
+
+type ResendInvitationParams struct {
+	ID        pgtype.UUID        `json:"id"`
+	ExpiresAt pgtype.Timestamptz `json:"expires_at"`
+	CodeHash  string             `json:"code_hash"`
+}
+
+func (q *Queries) ResendInvitation(ctx context.Context, arg ResendInvitationParams) (WorkspaceUserInvitation, error) {
+	row := q.db.QueryRow(ctx, resendInvitation, arg.ID, arg.ExpiresAt, arg.CodeHash)
 	var i WorkspaceUserInvitation
 	err := row.Scan(
 		&i.ID,

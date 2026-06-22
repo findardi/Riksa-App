@@ -25,8 +25,8 @@ left join
     users u
         on u.id = i.invited_by
 where
-    i.workspace_id = $1
-    and i.status = $2
+    i.workspace_id = @workspace_id
+    and (sqlc.narg('status')::text is null or i.status = sqlc.narg('status'))
 order by i.created_at desc;
 
 -- name: AcceptWorkspaceInvitation :one
@@ -50,4 +50,28 @@ update workspace_user_invitations set
     status = 'revoked',
     updated_at = now()
 where id = $1 and status = 'pending'
+returning *;
+
+-- name: ResendInvitation :one
+update workspace_user_invitations set
+    status = 'pending',
+    expires_at = $2,
+    code_hash = $3,
+    updated_at = now()
+where id = $1 and status in ('pending', 'expired')
+returning *;
+
+-- name: ReinviteWorkspaceInvitation :one
+update workspace_user_invitations set
+    status = 'pending',
+    role_id = @role_id,
+    user_id = @user_id,
+    invited_by = @invited_by,
+    code_hash = @code_hash,
+    expires_at = @expires_at,
+    accepted_at = null,
+    updated_at = now()
+where workspace_id = @workspace_id
+    and lower(email) = lower(@email)
+    and status in ('revoked', 'rejected', 'expired')
 returning *;

@@ -23,8 +23,13 @@ const (
 )
 
 const (
-	InviteStatusPending = "pending"
-	inviteTTL           = 7 * 24 * time.Hour
+	InviteStatusPending  = "pending"
+	InviteStatusAccepted = "accepted"
+	InviteStatusRejected = "rejected"
+	InviteStatusRevoked  = "revoked"
+	InviteStatusExpired  = "expired"
+
+	inviteTTL = 7 * 24 * time.Hour
 
 	OutcomeInvited = "invited"
 	OutcomeSkipped = "skipped"
@@ -33,12 +38,25 @@ const (
 	ReasonAlreadyInvited = "already_invited"
 )
 
+var validInvitationStatuses = map[string]struct{}{
+	InviteStatusPending:  {},
+	InviteStatusAccepted: {},
+	InviteStatusRejected: {},
+	InviteStatusRevoked:  {},
+	InviteStatusExpired:  {},
+}
+
 var (
 	ErrRoleNameTaken    = errors.New("role name already taken")
 	ErrRoleNotFound     = errors.New("role not found")
 	ErrRoleInUse        = errors.New("role is still assigned to members")
 	ErrMemberAlreadyAdd = errors.New("user already a member of this workspace")
 	ErrMemberNotFound   = errors.New("member not found")
+
+	ErrInvitationNotFound      = errors.New("invitation not found")
+	ErrInvitationNotResendable = errors.New("invitation can no longer be resent")
+	ErrInvitationNotRevocable  = errors.New("invitation can no longer be revoked")
+	ErrInvalidInvitationStatus = errors.New("invalid invitation status")
 )
 
 type AccessService struct {
@@ -252,12 +270,43 @@ func (s *AccessService) AddMembers(ctx context.Context, req dto.AddMembersReques
 			}
 		}
 
-		rawToken, err := s.token.GenerateRefreshToken()
-		if err != nil {
-			return outcome, fmt.Errorf("generate invite token: %w", err)
-		}
-		codeHash := s.token.Hash(rawToken)
+		rawToken := s.token.Generate()
 
+		codeHash := s.token.Hash(rawToken)
+		expiresAt := pgtype.Timestamptz{Time: time.Now().Add(inviteTTL), Valid: true}
+
+		// Revive a previously revoked/rejected/expired invitation for this email
+		// instead of leaving a stale row and inserting a duplicate.
+		_, err = s.repo.ReinviteWorkspaceInvitation(ctx, accessdb.ReinviteWorkspaceInvitationParams{
+			WorkspaceID: wsID,
+			Email:       email,
+			RoleID:      roleID,
+			UserID:      uID,
+			InvitedBy:   inID,
+			CodeHash:    codeHash,
+			ExpiresAt:   expiresAt,
+		})
+		if err == nil {
+			s.sendInviteEmail(email, rawToken)
+			outcome = append(outcome, dto.AddMembersResponse{
+				Email:   email,
+				Outcome: OutcomeInvited,
+			})
+			continue
+		}
+		if isUniqueViolation(err, "workspace_invitations_pending_key") {
+			outcome = append(outcome, dto.AddMembersResponse{
+				Email:   email,
+				Outcome: OutcomeSkipped,
+				Reason:  ReasonAlreadyInvited,
+			})
+			continue
+		}
+		if !errors.Is(err, pgx.ErrNoRows) {
+			return outcome, fmt.Errorf("reinvite %s: %w", email, err)
+		}
+
+		// No revivable invitation: create a fresh one.
 		_, err = s.repo.InsertWorkspaceInvitation(ctx, accessdb.InsertWorkspaceInvitationParams{
 			WorkspaceID: wsID,
 			Email:       email,
@@ -266,7 +315,7 @@ func (s *AccessService) AddMembers(ctx context.Context, req dto.AddMembersReques
 			InvitedBy:   inID,
 			CodeHash:    codeHash,
 			Status:      InviteStatusPending,
-			ExpiresAt:   pgtype.Timestamptz{Time: time.Now().Add(inviteTTL), Valid: true},
+			ExpiresAt:   expiresAt,
 		})
 		if isUniqueViolation(err, "workspace_invitations_pending_key") {
 			outcome = append(outcome, dto.AddMembersResponse{
@@ -290,8 +339,19 @@ func (s *AccessService) AddMembers(ctx context.Context, req dto.AddMembersReques
 	return outcome, nil
 }
 
-func (s *AccessService) ListInvitations(ctx context.Context, workspaceID string) ([]dto.InvitationResponse, error) {
+func (s *AccessService) ListInvitations(ctx context.Context, workspaceID, status string) ([]dto.InvitationResponse, error) {
 	invitations := []dto.InvitationResponse{}
+
+	status = strings.ToLower(strings.TrimSpace(status))
+
+	// empty status => return all statuses; otherwise filter by the given one
+	var statusFilter *string
+	if status != "" {
+		if _, ok := validInvitationStatuses[status]; !ok {
+			return invitations, ErrInvalidInvitationStatus
+		}
+		statusFilter = &status
+	}
 
 	var wsID pgtype.UUID
 	if err := wsID.Scan(workspaceID); err != nil {
@@ -300,7 +360,7 @@ func (s *AccessService) ListInvitations(ctx context.Context, workspaceID string)
 
 	rows, err := s.repo.ListWorkspaceInvitations(ctx, accessdb.ListWorkspaceInvitationsParams{
 		WorkspaceID: wsID,
-		Status:      InviteStatusPending,
+		Status:      statusFilter,
 	})
 	if err != nil {
 		return invitations, fmt.Errorf("list invitations: %w", err)
@@ -535,6 +595,53 @@ func (s *AccessService) DeleteMember(ctx context.Context, memberID string) error
 
 	if err := s.repo.DeleteMember(ctx, mID); err != nil {
 		return fmt.Errorf("delete member: %w", err)
+	}
+
+	return nil
+}
+
+func (s *AccessService) ResendInvitation(ctx context.Context, invitationID string) error {
+	var invID pgtype.UUID
+	if err := invID.Scan(invitationID); err != nil {
+		return fmt.Errorf("parse invitation id: %w", err)
+	}
+
+	inv, err := s.repo.GetWorkspaceInvitation(ctx, invID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return ErrInvitationNotFound
+	}
+	if err != nil {
+		return fmt.Errorf("get invitation: %w", err)
+	}
+
+	rawToken := s.token.Generate()
+
+	if _, err := s.repo.ResendInvitation(ctx, accessdb.ResendInvitationParams{
+		ID:        invID,
+		CodeHash:  s.token.Hash(rawToken),
+		ExpiresAt: pgtype.Timestamptz{Time: time.Now().Add(inviteTTL), Valid: true},
+	}); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrInvitationNotResendable
+		}
+		return fmt.Errorf("resend invitation: %w", err)
+	}
+
+	s.sendInviteEmail(inv.Email, rawToken)
+	return nil
+}
+
+func (s *AccessService) RevokeInvitation(ctx context.Context, invitationID string) error {
+	var invID pgtype.UUID
+	if err := invID.Scan(invitationID); err != nil {
+		return fmt.Errorf("parse invitation id: %w", err)
+	}
+
+	if _, err := s.repo.RevokeWorkspaceInvitation(ctx, invID); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrInvitationNotRevocable
+		}
+		return fmt.Errorf("revoke invitation: %w", err)
 	}
 
 	return nil
