@@ -72,3 +72,36 @@ export interface WorkspaceMemberData {
 export interface UpdateMemberRolePayload {
 	role_id: string;
 }
+
+// Bulk invite — backend field is `email` (an array, max 50), one role per batch.
+export interface AddMembersPayload {
+	email: string[];
+	role_id: string;
+}
+
+// Per-email result. The backend never reveals registration status: existing and
+// new users both come back as `invited`. `skipped` carries a reason.
+export type InviteOutcome = 'invited' | 'skipped';
+export type InviteReason = 'already_member' | 'already_invited';
+
+export interface AddMemberResult {
+	email: string;
+	outcome: InviteOutcome;
+	reason?: InviteReason;
+}
+
+// Workspace Invitation — pending invites live apart from active members.
+// Mirrors the Go `InvitationResponse`.
+export interface InvitationData {
+	id: string;
+	workspace_id: string;
+	email: string;
+	role_id: string;
+	role_name: string;
+	user_id: string;
+	invited_by: string;
+	invited_by_username: string;
+	status: string;
+	expires_at: string;
+	created_at: string;
+}
