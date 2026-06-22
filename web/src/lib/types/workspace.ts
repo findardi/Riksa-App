@@ -49,3 +49,59 @@ export interface WorkspaceRoleData {
 	created_at: string;
 	updated_at: string;
 }
+
+// Workspace Member
+export type MemberStatus = 'invited' | 'active' | 'suspended';
+
+// Mirrors the Go `GetMemberResponse` (joined view: role name, user, groups).
+export interface WorkspaceMemberData {
+	id: string;
+	workspace_id: string;
+	user_id: string;
+	role_id: string;
+	status: MemberStatus;
+	created_at: string;
+	updated_at: string;
+	role_name: string;
+	username: string;
+	email: string;
+	// Go marshals a nil slice to null, so guard for null on the client.
+	group_names: string[] | null;
+}
+
+export interface UpdateMemberRolePayload {
+	role_id: string;
+}
+
+// Bulk invite — backend field is `email` (an array, max 50), one role per batch.
+export interface AddMembersPayload {
+	email: string[];
+	role_id: string;
+}
+
+// Per-email result. The backend never reveals registration status: existing and
+// new users both come back as `invited`. `skipped` carries a reason.
+export type InviteOutcome = 'invited' | 'skipped';
+export type InviteReason = 'already_member' | 'already_invited';
+
+export interface AddMemberResult {
+	email: string;
+	outcome: InviteOutcome;
+	reason?: InviteReason;
+}
+
+// Workspace Invitation — pending invites live apart from active members.
+// Mirrors the Go `InvitationResponse`.
+export interface InvitationData {
+	id: string;
+	workspace_id: string;
+	email: string;
+	role_id: string;
+	role_name: string;
+	user_id: string;
+	invited_by: string;
+	invited_by_username: string;
+	status: string;
+	expires_at: string;
+	created_at: string;
+}

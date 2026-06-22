@@ -35,9 +35,9 @@ type Module struct {
 	mw      *middleware.Middleware
 }
 
-func NewModule(pool *pgxpool.Pool, verifier middleware.TokenVerifier, mail service.MailService) *Module {
+func NewModule(pool *pgxpool.Pool, verifier middleware.TokenVerifier, mail service.MailService, asvc service.AuthService, token service.Tokenizer) *Module {
 	r := repository.New(pool)
-	s := service.NewAccessService(r, mail)
+	s := service.NewAccessService(r, mail, asvc, token)
 	h := handler.NewAccessHandler(s)
 
 	mw := middleware.New(verifier, userStatusReader{repo: auth.New(pool)}, nil)
@@ -59,6 +59,16 @@ func (m *Module) RegisterRoutes(r chi.Router) {
 			r.Get("/{workspaceID}/{roleID}", m.handler.GetRole)
 			r.Put("/{workspaceID}/{roleID}", m.handler.UpdateRole)
 			r.Delete("/{workspaceID}/{roleID}", m.handler.DeleteRole)
+		})
+
+		r.Route("/member", func(r chi.Router) {
+			r.Post("/{workspaceID}", m.handler.AddMember)
+			r.Post("/{workspaceID}/invite", m.handler.AddMembers)
+			r.Get("/{workspaceID}/invite", m.handler.GetInvitations)
+			r.Get("/{workspaceID}", m.handler.GetMembers)
+			r.Get("/{workspaceID}/{memberID}", m.handler.GetMember)
+			r.Put("/{workspaceID}/{memberID}", m.handler.UpdateMember)
+			r.Delete("/{workspaceID}/{memberID}", m.handler.DeleteMember)
 		})
 	})
 }

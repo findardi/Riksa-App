@@ -11,12 +11,24 @@ import (
 )
 
 type Querier interface {
+	AcceptWorkspaceInvitation(ctx context.Context, arg AcceptWorkspaceInvitationParams) (WorkspaceUserInvitation, error)
 	AddMember(ctx context.Context, arg AddMemberParams) (WorkspaceMember, error)
+	DeleteMember(ctx context.Context, id pgtype.UUID) error
 	DeleteRole(ctx context.Context, id pgtype.UUID) error
 	EditRole(ctx context.Context, arg EditRoleParams) (WorkspaceRole, error)
+	GetMember(ctx context.Context, id pgtype.UUID) (GetMemberRow, error)
+	GetMemberByWorkspaceUser(ctx context.Context, arg GetMemberByWorkspaceUserParams) (WorkspaceMember, error)
+	GetMembers(ctx context.Context, workspaceID pgtype.UUID) ([]GetMembersRow, error)
 	GetRole(ctx context.Context, id pgtype.UUID) (WorkspaceRole, error)
 	GetRoles(ctx context.Context, workspaceID pgtype.UUID) ([]WorkspaceRole, error)
+	GetWorkspaceInvitation(ctx context.Context, id pgtype.UUID) (WorkspaceUserInvitation, error)
+	GetWorkspaceInvitationByCodeHash(ctx context.Context, codeHash string) (WorkspaceUserInvitation, error)
 	InsertRole(ctx context.Context, arg InsertRoleParams) (WorkspaceRole, error)
+	InsertWorkspaceInvitation(ctx context.Context, arg InsertWorkspaceInvitationParams) (WorkspaceUserInvitation, error)
+	ListWorkspaceInvitations(ctx context.Context, arg ListWorkspaceInvitationsParams) ([]ListWorkspaceInvitationsRow, error)
+	RejectWorkspaceInvitation(ctx context.Context, id pgtype.UUID) (WorkspaceUserInvitation, error)
+	RevokeWorkspaceInvitation(ctx context.Context, id pgtype.UUID) (WorkspaceUserInvitation, error)
+	UpdateRole(ctx context.Context, arg UpdateRoleParams) (WorkspaceMember, error)
 }
 
 var _ Querier = (*Queries)(nil)
