@@ -1,11 +1,29 @@
 import type { ApiResult } from '$lib/types';
-import type { UpdateMemberRolePayload, WorkspaceMemberData } from '$lib/types/workspace';
+import type {
+	AddMemberResult,
+	AddMembersPayload,
+	InvitationData,
+	UpdateMemberRolePayload,
+	WorkspaceMemberData
+} from '$lib/types/workspace';
 import { del, get, post, put } from './client';
 
-// Whether an email already has a Wadi account. NOTE: backend route must be POST
-// (`/access/check`) — fetch/undici forbid a body on GET.
-export async function checkUser(token: string, email: string): Promise<ApiResult<boolean>> {
-	return post<boolean>(`/access/check`, { email }, token);
+// Bulk invite. The backend resolves account existence per email internally and
+// returns a per-email outcome — it never tells the caller who was registered.
+export async function addMembers(
+	token: string,
+	workspaceId: string,
+	p: AddMembersPayload
+): Promise<ApiResult<AddMemberResult[]>> {
+	return post<AddMemberResult[]>(`/access/member/${workspaceId}/invite`, p, token);
+}
+
+// Pending invitations for a workspace (those awaiting acceptance).
+export async function getInvitations(
+	token: string,
+	workspaceId: string
+): Promise<ApiResult<InvitationData[]>> {
+	return get<InvitationData[]>(`/access/member/${workspaceId}/invite`, token);
 }
 
 export async function getMembers(
