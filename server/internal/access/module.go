@@ -69,6 +69,8 @@ func (m *Module) RegisterRoutes(r chi.Router) {
 			r.Get("/{workspaceID}/{memberID}", m.handler.GetMember)
 			r.Put("/{workspaceID}/{memberID}", m.handler.UpdateMember)
 			r.Delete("/{workspaceID}/{memberID}", m.handler.DeleteMember)
+			r.Post("/{workspaceID}/{invitationID}/resend", m.handler.ResendInvitation)
+			r.Post("/{workspaceID}/{invitationID}/revoke", m.handler.RevokeInvitation)
 		})
 	})
 }
