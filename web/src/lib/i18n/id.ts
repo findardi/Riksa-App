@@ -276,6 +276,11 @@ export const id = {
 	'member.you': 'Anda',
 	'member.role.locked': 'Terkunci',
 	'member.changeRole': 'Ubah peran {name}',
+	'member.roleConfirm.title': 'Ubah peran anggota',
+	'member.roleConfirm.warning': 'Ubah peran {name} dari {from} jadi {to}? Akses mereka langsung menyesuaikan.',
+	'member.roleConfirm.submit': 'Ubah peran',
+	'member.roleConfirm.submitting': 'Menyimpan…',
+	'list.more': 'Tampilkan {n} lagi',
 	'member.remove': 'Keluarkan',
 	'member.remove.title': 'Keluarkan anggota',
 	'member.remove.warning':
@@ -298,6 +303,7 @@ export const id = {
 	'pending.resend': 'Kirim ulang',
 	'pending.resend.done': 'Undangan dikirim ulang.',
 	'pending.revoke': 'Cabut undangan',
+	'pending.revoke.short': 'Cabut',
 	'pending.revoke.title': 'Cabut undangan',
 	'pending.revoke.warning':
 		'Cabut undangan untuk {email}? Tautan undangan mereka langsung tidak berlaku.',

@@ -1,5 +1,8 @@
 <script lang="ts">
+	import { setContext } from 'svelte';
 	import { page } from '$app/state';
+	import { Toaster, showToast } from '$lib/components/common';
+	import { InviteDialog } from '$lib/components/app';
 	import { t } from '$lib/i18n';
 	import type { LayoutProps } from './$types';
 
@@ -12,32 +15,52 @@
 	]);
 	const isActive = (href: string, exact: boolean) =>
 		exact ? page.url.pathname === href : page.url.pathname.startsWith(href);
+
+	// One invite entry point for the whole section; children (e.g. an empty-state
+	// CTA) open it through context instead of each owning a dialog.
+	let inviteOpen = $state(false);
+	setContext('member-invite', { open: () => (inviteOpen = true) });
 </script>
 
-<!-- Segmented control: secondary nav, deliberately distinct from the underline
-	 tabs above it so the two rows never read as the same control. -->
-<nav
-	class="inline-flex gap-1 rounded-field bg-base-content/4 p-1"
-	aria-label={t('ma.member')}
->
-	{#each subtabs as tab (tab.href)}
-		{@const active = isActive(tab.href, tab.exact)}
-		<a
-			href={tab.href}
-			aria-current={active ? 'page' : undefined}
-			class="inline-flex items-center gap-2 rounded-selector px-3 py-1.5 text-sm font-medium transition-colors {active
-				? 'bg-base-100 text-base-content shadow-sm'
-				: 'text-muted hover:text-base-content'}"
-		>
-			{tab.label}
-			<span
-				class="font-mono text-xs {active ? 'text-primary' : 'text-muted'}"
-				aria-hidden="true">{tab.count}</span
+<div class="flex flex-wrap items-center justify-between gap-3">
+	<!-- Segmented control: secondary nav, deliberately distinct from the underline
+		 tabs above it so the two rows never read as the same control. -->
+	<nav
+		class="inline-flex gap-1 rounded-field bg-base-content/4 p-1"
+		aria-label={t('ma.member')}
+	>
+		{#each subtabs as tab (tab.href)}
+			{@const active = isActive(tab.href, tab.exact)}
+			<a
+				href={tab.href}
+				aria-current={active ? 'page' : undefined}
+				class="inline-flex items-center gap-2 rounded-selector px-3 py-1.5 text-sm font-medium transition-colors {active
+					? 'bg-base-100 text-base-content shadow-sm'
+					: 'text-muted hover:text-base-content'}"
 			>
-		</a>
-	{/each}
-</nav>
+				{tab.label}
+				<span class="font-mono text-xs {active ? 'text-primary' : 'text-muted'}" aria-hidden="true"
+					>{tab.count}</span
+				>
+			</a>
+		{/each}
+	</nav>
+
+	<button type="button" onclick={() => (inviteOpen = true)} class="btn btn-primary btn-sm">
+		{t('member.invite')}
+	</button>
+</div>
 
 <div class="mt-5">
 	{@render children()}
 </div>
+
+<InviteDialog
+	bind:open={inviteOpen}
+	roles={data.roles}
+	action={`${base}/invite?/invite`}
+	pendingHref={`${base}/invite`}
+	oncompleted={(n) => n && showToast(t('member.invite.toast', { n }), 'success')}
+/>
+
+<Toaster />

@@ -15,17 +15,20 @@ export const load: PageServerLoad = async ({ locals, parent, url }) => {
 	if (!locals.session) redirect(303, '/login');
 
 	const { workspace } = await parent();
-	// Unknown/empty status → no filter (backend returns all).
-	const raw = url.searchParams.get('status') ?? '';
-	const status = INVITE_STATUSES.includes(raw) ? raw : '';
+	// Default to the actionable view (Menunggu) so the tab badge and the rows
+	// agree; `all` is the explicit opt-in to the full history.
+	const raw = url.searchParams.get('status') ?? 'pending';
+	const filter = raw === 'all' || INVITE_STATUSES.includes(raw) ? raw : 'pending';
+	// `all` → no backend status (returns every status); otherwise exact.
+	const query = filter === 'all' ? undefined : filter;
 
-	const res = await getInvitations(locals.session, workspace.id, status || undefined);
+	const res = await getInvitations(locals.session, workspace.id, query);
 	if (!res.ok) {
 		if (res.status === 401) redirect(303, '/login');
 		error(res.status || 502, t('pending.err.loadError'));
 	}
 
-	return { invitations: res.data, status };
+	return { invitations: res.data, status: filter };
 };
 
 export const actions: Actions = {
