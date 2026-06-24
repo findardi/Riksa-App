@@ -13,9 +13,15 @@ import (
 type Querier interface {
 	AcceptWorkspaceInvitation(ctx context.Context, arg AcceptWorkspaceInvitationParams) (WorkspaceUserInvitation, error)
 	AddMember(ctx context.Context, arg AddMemberParams) (WorkspaceMember, error)
+	CreateGroup(ctx context.Context, arg CreateGroupParams) (WorkspaceGroup, error)
+	DeleteGroup(ctx context.Context, id pgtype.UUID) error
+	DeleteGroupMember(ctx context.Context, arg DeleteGroupMemberParams) error
 	DeleteMember(ctx context.Context, id pgtype.UUID) error
 	DeleteRole(ctx context.Context, id pgtype.UUID) error
 	EditRole(ctx context.Context, arg EditRoleParams) (WorkspaceRole, error)
+	GetGroup(ctx context.Context, id pgtype.UUID) (WorkspaceGroup, error)
+	GetGroupMembers(ctx context.Context, groupID pgtype.UUID) ([]GetGroupMembersRow, error)
+	GetGroups(ctx context.Context, workspaceID pgtype.UUID) ([]WorkspaceGroup, error)
 	GetMember(ctx context.Context, id pgtype.UUID) (GetMemberRow, error)
 	GetMemberByWorkspaceUser(ctx context.Context, arg GetMemberByWorkspaceUserParams) (WorkspaceMember, error)
 	GetMembers(ctx context.Context, workspaceID pgtype.UUID) ([]GetMembersRow, error)
@@ -23,6 +29,7 @@ type Querier interface {
 	GetRoles(ctx context.Context, workspaceID pgtype.UUID) ([]WorkspaceRole, error)
 	GetWorkspaceInvitation(ctx context.Context, id pgtype.UUID) (WorkspaceUserInvitation, error)
 	GetWorkspaceInvitationByCodeHash(ctx context.Context, codeHash string) (WorkspaceUserInvitation, error)
+	InsertGroupMember(ctx context.Context, arg InsertGroupMemberParams) (WorkspaceGroupMember, error)
 	InsertRole(ctx context.Context, arg InsertRoleParams) (WorkspaceRole, error)
 	InsertWorkspaceInvitation(ctx context.Context, arg InsertWorkspaceInvitationParams) (WorkspaceUserInvitation, error)
 	ListWorkspaceInvitations(ctx context.Context, arg ListWorkspaceInvitationsParams) ([]ListWorkspaceInvitationsRow, error)
@@ -30,6 +37,7 @@ type Querier interface {
 	RejectWorkspaceInvitation(ctx context.Context, id pgtype.UUID) (WorkspaceUserInvitation, error)
 	ResendInvitation(ctx context.Context, arg ResendInvitationParams) (WorkspaceUserInvitation, error)
 	RevokeWorkspaceInvitation(ctx context.Context, id pgtype.UUID) (WorkspaceUserInvitation, error)
+	UpdateGroup(ctx context.Context, arg UpdateGroupParams) (WorkspaceGroup, error)
 	UpdateRole(ctx context.Context, arg UpdateRoleParams) (WorkspaceMember, error)
 }
 

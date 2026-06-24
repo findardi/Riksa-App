@@ -351,3 +351,102 @@ func (h *AccessHandler) RevokeInvitation(w http.ResponseWriter, r *http.Request)
 
 	response.Success(w, http.StatusOK, "revoke invitation success", nil)
 }
+
+func (h *AccessHandler) CreateGroup(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, MaxBodyBytes)
+
+	wID := chi.URLParam(r, "workspaceID")
+
+	var req dto.CreateGroupRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid body request", nil)
+		return
+	}
+
+	if errs := validation.Validate(&req); errs != nil {
+		response.Error(w, http.StatusBadRequest, "validation failed", errs)
+		return
+	}
+
+	req.WorkspaceID = wID
+
+	res, err := h.svc.CreateGroup(r.Context(), req)
+	if err != nil {
+		switch {
+		case errors.Is(err, service.ErrGroupNameTaken):
+			response.Error(w, http.StatusConflict, err.Error(), nil)
+		default:
+			log.Printf("register internal error: %v", err)
+			response.Error(w, http.StatusInternalServerError, "internal server error", nil)
+		}
+		return
+	}
+
+	response.Success(w, http.StatusOK, "create group success", res)
+}
+
+func (h *AccessHandler) GetGroups(w http.ResponseWriter, r *http.Request) {
+	wID := chi.URLParam(r, "workspaceID")
+
+	res, err := h.svc.GetGroups(r.Context(), wID)
+	if err != nil {
+		log.Printf("register internal error: %v", err)
+		response.Error(w, http.StatusInternalServerError, "internal server error", nil)
+		return
+	}
+
+	response.Success(w, http.StatusOK, "get groups success", res)
+}
+
+func (h *AccessHandler) DeleteGroup(w http.ResponseWriter, r *http.Request) {
+	gID := chi.URLParam(r, "groupID")
+
+	if err := h.svc.DeleteGroup(r.Context(), gID); err != nil {
+		switch {
+		case errors.Is(err, service.ErrGroupNotFound):
+			response.Error(w, http.StatusNotFound, err.Error(), nil)
+		default:
+			log.Printf("register internal error: %v", err)
+			response.Error(w, http.StatusInternalServerError, "internal server error", nil)
+		}
+		return
+	}
+
+	response.Success(w, http.StatusOK, "delete group success", nil)
+}
+
+func (h *AccessHandler) UpdateGroup(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, MaxBodyBytes)
+
+	gID := chi.URLParam(r, "groupID")
+
+	var req dto.UpdateGroupRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid body request", nil)
+		return
+	}
+
+	if errs := validation.Validate(&req); errs != nil {
+		response.Error(w, http.StatusBadRequest, "validation failed", errs)
+		return
+	}
+
+	req.GroupID = gID
+
+	res, err := h.svc.UpdateGroup(r.Context(), req)
+	if err != nil {
+		switch {
+		case errors.Is(err, service.ErrGroupNameTaken):
+			response.Error(w, http.StatusConflict, err.Error(), nil)
+		case errors.Is(err, service.ErrGroupNotFound):
+			response.Error(w, http.StatusNotFound, err.Error(), nil)
+		default:
+			log.Printf("register internal error: %v", err)
+			response.Error(w, http.StatusInternalServerError, "internal server error", nil)
+		}
+
+		return
+	}
+
+	response.Success(w, http.StatusOK, "update group success", res)
+}

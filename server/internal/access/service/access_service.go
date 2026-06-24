@@ -57,6 +57,9 @@ var (
 	ErrInvitationNotResendable = errors.New("invitation can no longer be resent")
 	ErrInvitationNotRevocable  = errors.New("invitation can no longer be revoked")
 	ErrInvalidInvitationStatus = errors.New("invalid invitation status")
+
+	ErrGroupNameTaken = errors.New("group name already taken")
+	ErrGroupNotFound  = errors.New("group not found")
 )
 
 type AccessService struct {
@@ -645,4 +648,113 @@ func (s *AccessService) RevokeInvitation(ctx context.Context, invitationID strin
 	}
 
 	return nil
+}
+
+func (s *AccessService) CreateGroup(ctx context.Context, req dto.CreateGroupRequest) (dto.GroupResponse, error) {
+	var wID pgtype.UUID
+	if err := wID.Scan(req.WorkspaceID); err != nil {
+		return dto.GroupResponse{}, fmt.Errorf("parse workspace id: %w", err)
+	}
+
+	g, err := s.repo.CreateGroup(ctx, accessdb.CreateGroupParams{
+		WorkspaceID: wID,
+		Name:        req.Name,
+		Description: &req.Description,
+	})
+
+	if isUniqueViolation(err, "workspace_groups_name_key") {
+		return dto.GroupResponse{}, ErrGroupNameTaken
+	}
+
+	if err != nil {
+		return dto.GroupResponse{}, fmt.Errorf("create group: %w", err)
+	}
+
+	return dto.GroupResponse{
+		ID:          uuidString(g.ID),
+		WorkspaceID: uuidString(g.WorkspaceID),
+		Name:        g.Name,
+		Description: deref(g.Description),
+		CreatedAt:   g.CreatedAt.Time,
+		UpdatedAt:   g.UpdatedAt.Time,
+	}, nil
+}
+
+func (s *AccessService) GetGroups(ctx context.Context, workspaceID string) ([]dto.GroupResponse, error) {
+	var groups []dto.GroupResponse
+	var wID pgtype.UUID
+	if err := wID.Scan(workspaceID); err != nil {
+		return groups, fmt.Errorf("parse workspace id: %w", err)
+	}
+
+	gps, err := s.repo.GetGroups(ctx, wID)
+	if err != nil {
+		return groups, fmt.Errorf("get groups: %w", err)
+	}
+
+	for _, g := range gps {
+		group := dto.GroupResponse{
+			ID:          uuidString(g.ID),
+			WorkspaceID: uuidString(g.WorkspaceID),
+			Name:        g.Name,
+			Description: deref(g.Description),
+			CreatedAt:   g.CreatedAt.Time,
+			UpdatedAt:   g.UpdatedAt.Time,
+		}
+
+		groups = append(groups, group)
+	}
+
+	return groups, nil
+}
+
+func (s *AccessService) DeleteGroup(ctx context.Context, groupID string) error {
+	var gID pgtype.UUID
+	if err := gID.Scan(groupID); err != nil {
+		return fmt.Errorf("parse group id: %w", err)
+	}
+
+	if _, err := s.repo.GetGroup(ctx, gID); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrGroupNotFound
+		}
+		return fmt.Errorf("get group: %w", err)
+	}
+
+	if err := s.repo.DeleteGroup(ctx, gID); err != nil {
+		return fmt.Errorf("delete group: %w", err)
+	}
+
+	return nil
+}
+
+func (s *AccessService) UpdateGroup(ctx context.Context, req dto.UpdateGroupRequest) (dto.GroupResponse, error) {
+	var gID pgtype.UUID
+	if err := gID.Scan(req.GroupID); err != nil {
+		return dto.GroupResponse{}, fmt.Errorf("parse group id: %w", err)
+	}
+
+	g, err := s.repo.UpdateGroup(ctx, accessdb.UpdateGroupParams{
+		ID:          gID,
+		Name:        req.Name,
+		Description: &req.Description,
+	})
+
+	switch {
+	case errors.Is(err, pgx.ErrNoRows):
+		return dto.GroupResponse{}, ErrGroupNotFound
+	case isUniqueViolation(err, "workspace_groups_name_key"):
+		return dto.GroupResponse{}, ErrGroupNameTaken
+	case err != nil:
+		return dto.GroupResponse{}, fmt.Errorf("update group: %w", err)
+	}
+
+	return dto.GroupResponse{
+		ID:          uuidString(g.ID),
+		WorkspaceID: uuidString(g.WorkspaceID),
+		Name:        g.Name,
+		Description: deref(g.Description),
+		CreatedAt:   g.CreatedAt.Time,
+		UpdatedAt:   g.UpdatedAt.Time,
+	}, nil
 }
