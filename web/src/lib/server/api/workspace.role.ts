@@ -10,7 +10,7 @@ export async function getRoles(
 	token: string,
 	workspaceId: string
 ): Promise<ApiResult<WorkspaceRoleData[]>> {
-	return get<WorkspaceRoleData[]>(`/access/role/${workspaceId}`, token);
+	return get<WorkspaceRoleData[]>(`/access/workspaces/${workspaceId}/roles`, token);
 }
 
 export async function getRole(
@@ -18,7 +18,7 @@ export async function getRole(
 	workspaceId: string,
 	roleId: string
 ): Promise<ApiResult<WorkspaceRoleData>> {
-	return get<WorkspaceRoleData>(`/access/role/${workspaceId}/${roleId}`, token);
+	return get<WorkspaceRoleData>(`/access/workspaces/${workspaceId}/roles/${roleId}`, token);
 }
 
 export async function createRole(
@@ -26,7 +26,7 @@ export async function createRole(
 	workspaceId: string,
 	p: CreateWorkspaceRolePayload
 ): Promise<ApiResult<WorkspaceRoleData>> {
-	return post<WorkspaceRoleData>(`/access/role/${workspaceId}`, p, token);
+	return post<WorkspaceRoleData>(`/access/workspaces/${workspaceId}/roles`, p, token);
 }
 
 export async function updateRole(
@@ -35,7 +35,7 @@ export async function updateRole(
 	roleId: string,
 	p: UpdateWorkspaceRolePayload
 ): Promise<ApiResult<WorkspaceRoleData>> {
-	return put<WorkspaceRoleData>(`/access/role/${workspaceId}/${roleId}`, p, token);
+	return put<WorkspaceRoleData>(`/access/workspaces/${workspaceId}/roles/${roleId}`, p, token);
 }
 
 export async function deleteRole(
@@ -43,7 +43,7 @@ export async function deleteRole(
 	workspaceId: string,
 	roleId: string
 ): Promise<ApiResult<null>> {
-	return del<null>(`/access/role/${workspaceId}/${roleId}`, token);
+	return del<null>(`/access/workspaces/${workspaceId}/roles/${roleId}`, token);
 }
 
 // Permission catalog — single source of truth lives in the Go `permission.All`.
