@@ -60,6 +60,8 @@ var (
 
 	ErrGroupNameTaken = errors.New("group name already taken")
 	ErrGroupNotFound  = errors.New("group not found")
+
+	ErrAssignMemberRole = errors.New("only can assign guest role")
 )
 
 type AccessService struct {
@@ -757,4 +759,89 @@ func (s *AccessService) UpdateGroup(ctx context.Context, req dto.UpdateGroupRequ
 		CreatedAt:   g.CreatedAt.Time,
 		UpdatedAt:   g.UpdatedAt.Time,
 	}, nil
+}
+
+func (s *AccessService) GetGroupDetail(ctx context.Context, groupID string) ([]dto.GroupMemberResponse, error) {
+	var members []dto.GroupMemberResponse
+	var gID pgtype.UUID
+	if err := gID.Scan(groupID); err != nil {
+		return members, fmt.Errorf("parse group id: %w", err)
+	}
+
+	gm, err := s.repo.GetGroupMembers(ctx, gID)
+	if err != nil {
+		return members, fmt.Errorf("get group members: %w", err)
+	}
+
+	for _, m := range gm {
+		member := dto.GroupMemberResponse{
+			GroupID:   uuidString(m.GroupID),
+			MemberID:  uuidString(m.MemberID),
+			CreatedAt: m.CreatedAt.Time,
+			Username:  deref(m.Username),
+			Email:     deref(m.Email),
+			RoleName:  deref(m.RoleName),
+			GroupName: deref(m.GroupName),
+		}
+
+		members = append(members, member)
+	}
+
+	return members, nil
+}
+
+func (s *AccessService) AssignToGroup(ctx context.Context, req dto.GroupMemberRequest) ([]dto.GroupMemberResponse, error) {
+
+	var gID pgtype.UUID
+	if err := gID.Scan(req.GroupID); err != nil {
+		return []dto.GroupMemberResponse{}, fmt.Errorf("parse group id: %w", err)
+	}
+
+	for _, m := range req.MemberID {
+		var mID pgtype.UUID
+		if err := mID.Scan(m); err != nil {
+			return []dto.GroupMemberResponse{}, fmt.Errorf("parse member id: %w", err)
+		}
+
+		mem, err := s.repo.GetMember(ctx, mID)
+		if err != nil {
+			return []dto.GroupMemberResponse{}, fmt.Errorf("get member: %w", err)
+		}
+
+		if deref(mem.RoleName) != "guest" {
+			return []dto.GroupMemberResponse{}, ErrAssignMemberRole
+		}
+
+		_, err = s.repo.InsertGroupMember(ctx, accessdb.InsertGroupMemberParams{
+			GroupID:  gID,
+			MemberID: mID,
+		})
+		if isUniqueViolation(err, "workspace_group_members_pkey") {
+			continue
+		}
+		if err != nil {
+			return []dto.GroupMemberResponse{}, fmt.Errorf("assign member to group: %w", err)
+		}
+	}
+
+	return s.GetGroupDetail(ctx, req.GroupID)
+}
+
+func (s *AccessService) UnassignFromGroup(ctx context.Context, groupID, memberID string) error {
+	var gID, mID pgtype.UUID
+	if err := gID.Scan(groupID); err != nil {
+		return fmt.Errorf("parse group id: %w", err)
+	}
+	if err := mID.Scan(memberID); err != nil {
+		return fmt.Errorf("parse member id: %w", err)
+	}
+
+	if err := s.repo.DeleteGroupMember(ctx, accessdb.DeleteGroupMemberParams{
+		GroupID:  gID,
+		MemberID: mID,
+	}); err != nil {
+		return fmt.Errorf("unassign member from group: %w", err)
+	}
+
+	return nil
 }

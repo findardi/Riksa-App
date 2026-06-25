@@ -80,8 +80,11 @@ func (m *Module) RegisterRoutes(r chi.Router) {
 			r.Route("/groups", func(r chi.Router) {
 				r.Post("/", m.handler.CreateGroup)
 				r.Get("/", m.handler.GetGroups)
+				r.Get("/{groupID}", m.handler.GetGroup)
 				r.Put("/{groupID}", m.handler.UpdateGroup)
 				r.Delete("/{groupID}", m.handler.DeleteGroup)
+				r.Post("/{groupID}/assign", m.handler.AssignMember)
+				r.Delete("/{groupID}/unassign/{memberID}", m.handler.UnassignMember)
 			})
 		})
 	})

@@ -28,5 +28,4 @@ left join
     workspace_roles r on r.id = m.role_id
 where
     gm.group_id = $1
-group by u.username, u.email, r.name, g.name
 order by gm.created_at;

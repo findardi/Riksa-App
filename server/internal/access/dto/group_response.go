@@ -10,3 +10,13 @@ type GroupResponse struct {
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
 }
+
+type GroupMemberResponse struct {
+	GroupID   string    `json:"group_id"`
+	MemberID  string    `json:"member_id"`
+	CreatedAt time.Time `json:"created_at"`
+	Username  string    `json:"username"`
+	Email     string    `json:"email"`
+	RoleName  string    `json:"role_name"`
+	GroupName string    `json:"group_name"`
+}
