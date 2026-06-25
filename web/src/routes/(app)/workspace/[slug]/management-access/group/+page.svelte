@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { invalidateAll } from '$app/navigation';
+	import { page } from '$app/state';
 	import type { SubmitFunction } from '@sveltejs/kit';
 	import { Alert, Button, Field, TextareaField, Toaster, showToast } from '$lib/components/common';
 	import { t } from '$lib/i18n';
@@ -9,6 +10,8 @@
 
 	let { data }: PageProps = $props();
 	const groups = $derived(data.groups);
+
+	const base = $derived(`/workspace/${page.params.slug}/management-access/group`);
 
 	// --- Create / Edit (one dialog, mode driven by `editing`) ---
 	let formDialog = $state<HTMLDialogElement>();
@@ -109,7 +112,24 @@
 		{#each groups as group (group.id)}
 			<li class="flex items-center gap-4 py-3">
 				<div class="min-w-0 flex-1">
-					<span class="block truncate text-[0.9375rem] font-medium">{group.name}</span>
+					<a
+						href="{base}/{group.id}"
+						class="inline-flex max-w-full items-center gap-1 text-[0.9375rem] font-medium transition-colors hover:text-primary"
+					>
+						<span class="truncate">{group.name}</span>
+						<svg
+							class="h-3.5 w-3.5 flex-none text-muted"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="1.8"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							aria-hidden="true"
+						>
+							<path d="m9 18 6-6-6-6" />
+						</svg>
+					</a>
 					{#if group.description}
 						<p class="mt-0.5 max-w-[60ch] truncate text-xs text-muted">{group.description}</p>
 					{/if}

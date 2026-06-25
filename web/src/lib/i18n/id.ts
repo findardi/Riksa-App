@@ -284,6 +284,30 @@ export const id = {
 	'group.err.notFound': 'Grup tidak ditemukan.',
 	'group.err.nameTaken': 'Nama grup sudah dipakai.',
 	'group.err.nameRequired': 'Nama grup wajib diisi.',
+	// detail
+	'group.detail.back': 'Kembali ke Grup',
+	'group.detail.count': '{n} anggota',
+	'group.detail.countEmpty': 'Belum ada anggota',
+	'group.detail.add': 'Tambah anggota',
+	'group.detail.done': 'Selesai',
+	'group.detail.empty.title': 'Grup ini masih kosong',
+	'group.detail.empty.body':
+		'Tambahkan anggota workspace ke grup ini untuk mengatur akses mereka sekaligus.',
+	'group.unassign': 'Keluarkan',
+	'group.unassign.toast': '{name} dikeluarkan dari grup.',
+	// assign dialog
+	'group.assign.title': 'Tambah anggota',
+	'group.assign.desc': 'Hanya anggota dengan peran Tamu yang dapat ditambahkan ke grup "{name}".',
+	'group.assign.search': 'Cari nama atau email…',
+	'group.assign.noMatch': 'Tidak ada anggota yang cocok.',
+	'group.assign.selected': '{n} dipilih',
+	'group.assign.submit': 'Tambahkan',
+	'group.assign.submitting': 'Menambahkan…',
+	'group.assign.empty': 'Pilih minimal satu anggota.',
+	'group.assign.toast': '{n} anggota ditambahkan.',
+	'group.assign.allIn.title': 'Tidak ada anggota Tamu',
+	'group.assign.allIn.body':
+		'Hanya anggota berperan Tamu yang bisa ditambahkan, dan saat ini tidak ada yang tersedia untuk grup ini.',
 
 	// members
 	'member.invite': 'Undang anggota',
