@@ -105,3 +105,18 @@ export interface InvitationData {
 	expires_at: string;
 	created_at: string;
 }
+
+// Groups
+export interface UpsertGroupWorkspacePayload {
+	name: string;
+	description: string;
+}
+
+export interface GroupWorkspaceData {
+	id: string;
+	workspace_id: string;
+	name: string;
+	description: string;
+	created_at: string;
+	updated_at: string;
+}

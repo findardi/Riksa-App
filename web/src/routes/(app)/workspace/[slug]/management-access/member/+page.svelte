@@ -14,7 +14,8 @@
 	const roleOptions = $derived(data.roles.filter((r) => r.name !== 'owner'));
 
 	const isOwner = (m: WorkspaceMemberData) => m.user_id === data.ownerId;
-	const initial = (m: WorkspaceMemberData) => (m.username || m.email || '?').charAt(0).toUpperCase();
+	const initial = (m: WorkspaceMemberData) =>
+		(m.username || m.email || '?').charAt(0).toUpperCase();
 
 	const statusMeta = (s: MemberStatus) => {
 		if (s === 'active') return { label: t('member.status.active'), dot: 'bg-success' };
@@ -131,7 +132,8 @@
 				{#if groups.length}
 					<div class="mt-1.5 flex flex-wrap gap-1">
 						{#each groups as g (g)}
-							<span class="rounded-selector bg-base-content/5 px-1.5 py-0.5 text-[0.6875rem] text-muted"
+							<span
+								class="rounded-selector bg-base-content/5 px-1.5 py-0.5 text-[0.6875rem] text-muted"
 								>{g}</span
 							>
 						{/each}
@@ -185,7 +187,9 @@
 						stroke-linejoin="round"
 						aria-hidden="true"
 					>
-						<path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
+						<path
+							d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"
+						/>
 						<path d="M10 11v6M14 11v6" />
 					</svg>
 					{t('member.remove')}

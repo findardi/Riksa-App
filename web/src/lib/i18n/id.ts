@@ -234,7 +234,8 @@ export const id = {
 	'role.cancel': 'Batal',
 	// delete confirm
 	'role.delete.title': 'Hapus peran',
-	'role.delete.warning': 'Peran "{name}" akan dihapus permanen. Tindakan ini tidak dapat dibatalkan.',
+	'role.delete.warning':
+		'Peran "{name}" akan dihapus permanen. Tindakan ini tidak dapat dibatalkan.',
 	'role.delete.submit': 'Hapus peran',
 	'role.delete.submitting': 'Menghapus…',
 	// feedback
@@ -247,6 +248,42 @@ export const id = {
 	'role.err.nameTaken': 'Nama peran sudah dipakai.',
 	'role.err.inUse': 'Peran masih ditetapkan ke anggota, jadi tidak bisa dihapus.',
 	'role.err.noPermissions': 'Pilih minimal satu izin.',
+
+	// groups
+	'group.new': 'Buat grup',
+	'group.edit': 'Ubah',
+	'group.delete': 'Hapus',
+	'group.empty.title': 'Belum ada grup',
+	'group.empty.body':
+		'Grup memudahkan pengelompokan anggota agar lebih mudah mengatur akses secara bersamaan.',
+	// editor
+	'group.create.title': 'Buat grup',
+	'group.create.desc': 'Beri nama grup dan deskripsi singkat agar mudah dikenali.',
+	'group.edit.title': 'Ubah grup',
+	'group.field.name': 'Nama grup',
+	'group.field.namePlaceholder': 'mis. Tim keuangan',
+	'group.field.description': 'Deskripsi',
+	'group.field.descriptionPlaceholder': 'Opsional — jelaskan singkat tujuan grup ini.',
+	'group.create.submit': 'Buat grup',
+	'group.create.submitting': 'Membuat…',
+	'group.save': 'Simpan perubahan',
+	'group.saving': 'Menyimpan…',
+	'group.cancel': 'Batal',
+	// delete confirm
+	'group.delete.title': 'Hapus grup',
+	'group.delete.warning':
+		'Grup "{name}" akan dihapus permanen. Tindakan ini tidak dapat dibatalkan.',
+	'group.delete.submit': 'Hapus grup',
+	'group.delete.submitting': 'Menghapus…',
+	// feedback
+	'group.created': 'Grup dibuat.',
+	'group.updated': 'Grup diperbarui.',
+	'group.deleted': 'Grup dihapus.',
+	// errors
+	'group.err.loadError': 'Gagal memuat grup.',
+	'group.err.notFound': 'Grup tidak ditemukan.',
+	'group.err.nameTaken': 'Nama grup sudah dipakai.',
+	'group.err.nameRequired': 'Nama grup wajib diisi.',
 
 	// members
 	'member.invite': 'Undang anggota',
@@ -277,7 +314,8 @@ export const id = {
 	'member.role.locked': 'Terkunci',
 	'member.changeRole': 'Ubah peran {name}',
 	'member.roleConfirm.title': 'Ubah peran anggota',
-	'member.roleConfirm.warning': 'Ubah peran {name} dari {from} jadi {to}? Akses mereka langsung menyesuaikan.',
+	'member.roleConfirm.warning':
+		'Ubah peran {name} dari {from} jadi {to}? Akses mereka langsung menyesuaikan.',
 	'member.roleConfirm.submit': 'Ubah peran',
 	'member.roleConfirm.submitting': 'Menyimpan…',
 	'list.more': 'Tampilkan {n} lagi',

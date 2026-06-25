@@ -29,7 +29,6 @@ export const load: LayoutServerLoad = async ({ locals, parent }) => {
 		if (invitesRes.status === 401) redirect(303, '/login');
 		error(invitesRes.status || 502, t('pending.err.loadError'));
 	}
-
 	return {
 		members: membersRes.data,
 		roles: rolesRes.data,

@@ -28,9 +28,17 @@
 	const statusMeta = (s: string) => {
 		switch (s) {
 			case 'pending':
-				return { label: t('inv.status.pending'), dot: 'bg-warning', avatar: 'bg-warning/10 text-warning' };
+				return {
+					label: t('inv.status.pending'),
+					dot: 'bg-warning',
+					avatar: 'bg-warning/10 text-warning'
+				};
 			case 'accepted':
-				return { label: t('inv.status.accepted'), dot: 'bg-success', avatar: 'bg-success/10 text-success' };
+				return {
+					label: t('inv.status.accepted'),
+					dot: 'bg-success',
+					avatar: 'bg-success/10 text-success'
+				};
 			case 'expired':
 				return {
 					label: t('inv.status.expired'),
@@ -38,9 +46,17 @@
 					avatar: 'bg-base-content/10 text-base-content/60'
 				};
 			case 'revoked':
-				return { label: t('inv.status.revoked'), dot: 'bg-error', avatar: 'bg-error/10 text-error' };
+				return {
+					label: t('inv.status.revoked'),
+					dot: 'bg-error',
+					avatar: 'bg-error/10 text-error'
+				};
 			case 'rejected':
-				return { label: t('inv.status.rejected'), dot: 'bg-error', avatar: 'bg-error/10 text-error' };
+				return {
+					label: t('inv.status.rejected'),
+					dot: 'bg-error',
+					avatar: 'bg-error/10 text-error'
+				};
 			default:
 				return { label: s, dot: 'bg-base-content/30', avatar: 'bg-base-content/10 text-muted' };
 		}
@@ -164,7 +180,12 @@
 
 				{#if manageable}
 					<div class="flex flex-none items-center gap-1">
-						<form method="POST" action="?/resend" use:enhance={submitResend(inv.id)} class="contents">
+						<form
+							method="POST"
+							action="?/resend"
+							use:enhance={submitResend(inv.id)}
+							class="contents"
+						>
 							<input type="hidden" name="invitationId" value={inv.id} />
 							<button
 								type="submit"
@@ -254,6 +275,20 @@
 		<h3 class="mt-3 text-sm font-semibold">{t('pending.empty.title')}</h3>
 		<p class="mt-1 max-w-sm text-sm text-muted text-pretty">{t('pending.empty.desc')}</p>
 		<button type="button" onclick={invite.open} class="btn btn-primary btn-sm mt-4">
+			<svg
+				class="h-4 w-4"
+				viewBox="0 0 24 24"
+				fill="none"
+				stroke="currentColor"
+				stroke-width="1.8"
+				stroke-linecap="round"
+				stroke-linejoin="round"
+				aria-hidden="true"
+			>
+				<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+				<circle cx="9" cy="7" r="4" />
+				<path d="M19 8v6M22 11h-6" />
+			</svg>
 			{t('member.invite')}
 		</button>
 	</div>

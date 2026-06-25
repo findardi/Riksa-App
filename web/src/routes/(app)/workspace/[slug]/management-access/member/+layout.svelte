@@ -25,10 +25,7 @@
 <div class="flex flex-wrap items-center justify-between gap-3">
 	<!-- Segmented control: secondary nav, deliberately distinct from the underline
 		 tabs above it so the two rows never read as the same control. -->
-	<nav
-		class="inline-flex gap-1 rounded-field bg-base-content/4 p-1"
-		aria-label={t('ma.member')}
-	>
+	<nav class="inline-flex gap-1 rounded-field bg-base-content/4 p-1" aria-label={t('ma.member')}>
 		{#each subtabs as tab (tab.href)}
 			{@const active = isActive(tab.href, tab.exact)}
 			<a
@@ -47,6 +44,20 @@
 	</nav>
 
 	<button type="button" onclick={() => (inviteOpen = true)} class="btn btn-primary btn-sm">
+		<svg
+			class="h-4 w-4"
+			viewBox="0 0 24 24"
+			fill="none"
+			stroke="currentColor"
+			stroke-width="1.8"
+			stroke-linecap="round"
+			stroke-linejoin="round"
+			aria-hidden="true"
+		>
+			<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+			<circle cx="9" cy="7" r="4" />
+			<path d="M19 8v6M22 11h-6" />
+		</svg>
 		{t('member.invite')}
 	</button>
 </div>
