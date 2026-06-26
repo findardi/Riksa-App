@@ -156,6 +156,37 @@ func (s *WorkspaceService) GetWorkspaces(ctx context.Context, userID string) ([]
 		return workspaces, fmt.Errorf("parse user id: %w", err)
 	}
 
+	workspace, err := s.repo.GetWorkspaces(ctx, uid)
+	if err != nil {
+		return workspaces, fmt.Errorf("get workspaces: %w", err)
+	}
+
+	for _, w := range workspace {
+		work := dto.WorkspaceResponse{
+			ID:          uuidString(w.ID),
+			OwnerID:     uuidString(w.OwnerID),
+			Name:        w.Name,
+			Slug:        w.Slug,
+			Description: deref(w.Description),
+			Status:      w.Status,
+			CreatedAt:   w.CreatedAt.Time,
+			UpdatedAt:   w.UpdatedAt.Time,
+		}
+
+		workspaces = append(workspaces, work)
+	}
+
+	return workspaces, nil
+}
+
+func (s *WorkspaceService) GetWorkspacesByOwner(ctx context.Context, userID string) ([]dto.WorkspaceResponse, error) {
+	workspaces := []dto.WorkspaceResponse{}
+
+	var uid pgtype.UUID
+	if err := uid.Scan(userID); err != nil {
+		return workspaces, fmt.Errorf("parse user id: %w", err)
+	}
+
 	workspace, err := s.repo.GetWorkspacesByOwner(ctx, uid)
 	if err != nil {
 		return workspaces, fmt.Errorf("get workspaces: %w", err)

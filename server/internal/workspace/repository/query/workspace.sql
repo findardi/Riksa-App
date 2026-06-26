@@ -32,3 +32,10 @@ returning *;
 
 -- name: DeleteWorkspace :exec
 delete from workspaces where id = $1;
+
+-- name: GetWorkspaces :many
+select w.* from workspaces w
+left join
+    workspace_members wm on wm.workspace_id = w.id
+where 
+    wm.user_id = $1;
