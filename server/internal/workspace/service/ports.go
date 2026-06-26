@@ -15,6 +15,7 @@ type WorkspaceRepository interface {
 
 	GetWorkspaceBySlugAndOwner(ctx context.Context, arg workspacedb.GetWorkspaceBySlugAndOwnerParams) (workspacedb.Workspace, error)
 	GetWorkspacesByOwner(ctx context.Context, ownerID pgtype.UUID) ([]workspacedb.Workspace, error)
+	GetWorkspaces(ctx context.Context, auserId pgtype.UUID) ([]workspacedb.Workspace, error)
 	GetWorkspaceByID(ctx context.Context, id pgtype.UUID) (workspacedb.Workspace, error)
 
 	UpdateWorkspace(ctx context.Context, arg workspacedb.UpdateWorkspaceParams) (workspacedb.Workspace, error)

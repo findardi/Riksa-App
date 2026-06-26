@@ -2,6 +2,9 @@
 	import { page } from '$app/state';
 	import { t } from '$lib/i18n';
 
+	type Props = { invitations?: number };
+	let { invitations = 0 }: Props = $props();
+
 	const isActive = (href: string) => page.url.pathname === href;
 </script>
 
@@ -33,12 +36,14 @@
 		{t('app.nav.rooms')}
 	</a>
 
-	<!-- Not built yet: present but inert — no broken links. -->
-	<button
-		type="button"
-		disabled
-		title={t('app.nav.soon')}
-		class="flex cursor-not-allowed items-center gap-3 rounded-field px-3 py-2 text-[0.9375rem] font-medium text-muted/70"
+	<a
+		href="/invitation"
+		class="flex items-center gap-3 rounded-field px-3 py-2 text-[0.9375rem] font-medium transition-colors {isActive(
+			'/invitation'
+		)
+			? 'bg-primary/10 text-primary'
+			: 'text-base-content hover:bg-base-content/5'}"
+		aria-current={isActive('/invitation') ? 'page' : undefined}
 	>
 		<svg
 			class="h-4.5 w-4.5 flex-none"
@@ -54,8 +59,15 @@
 			<path d="m3 7 9 6 9-6" />
 		</svg>
 		<span class="flex-1 text-left">{t('app.nav.invitations')}</span>
-		<span class="text-[0.6875rem] font-normal text-muted">{t('app.nav.soon')}</span>
-	</button>
+		{#if invitations > 0}
+			<span
+				class="grid h-5 min-w-5 place-items-center rounded-full bg-primary px-1.5 text-[0.6875rem] font-semibold text-primary-content tabular-nums"
+				aria-label={t('inv.count', { n: invitations })}
+			>
+				{invitations > 99 ? '99+' : invitations}
+			</span>
+		{/if}
+	</a>
 
 	<div class="flex-1"></div>
 

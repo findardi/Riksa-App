@@ -1,5 +1,3 @@
-// Locale primitives shared by client and server seams — no runes, no $app
-// imports, so this is safe to pull into any bundle.
 export const LOCALE_COOKIE = 'wadi_locale';
 
 export const LOCALES = ['id', 'en'] as const;

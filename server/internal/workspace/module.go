@@ -80,12 +80,14 @@ func (m *Module) RegisterRoutes(r chi.Router) {
 		r.Get("/", m.handler.GetWorkspaces)
 
 		r.Group(func(r chi.Router) {
-			r.Use(m.mw.RequireOwner("workspaceID", m.workspaceOwner))
-
 			r.Get("/{workspaceID}", m.handler.GetWorkspace)
-			r.Put("/{workspaceID}", m.handler.UpdateWorkspace)
-			r.Patch("/{workspaceID}/status", m.handler.UpdateStatusWorkspace)
-			r.Delete("/{workspaceID}", m.handler.DeleteWorkspace)
+
+			r.Group(func(r chi.Router) {
+				r.Use(m.mw.RequireOwner("workspaceID", m.workspaceOwner))
+				r.Put("/{workspaceID}", m.handler.UpdateWorkspace)
+				r.Patch("/{workspaceID}/status", m.handler.UpdateStatusWorkspace)
+				r.Delete("/{workspaceID}", m.handler.DeleteWorkspace)
+			})
 		})
 	})
 }

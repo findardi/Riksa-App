@@ -5,7 +5,6 @@ import { refreshSinleFlight } from '$lib/server/refresh-lock';
 import { setServerLocaleSource, LOCALE_COOKIE, defaultLocale, isLocale } from '$lib/i18n';
 import { getServerLocale, runWithLocale } from '$lib/i18n/server';
 
-// Point t()'s server-side locale resolution at the request-scoped store.
 setServerLocaleSource(getServerLocale);
 
 export const handle: Handle = async ({ event, resolve }) => {

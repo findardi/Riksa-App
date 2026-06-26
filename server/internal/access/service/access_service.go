@@ -65,18 +65,20 @@ var (
 )
 
 type AccessService struct {
-	repo  AccessRepository
-	mail  MailService
-	asvc  AuthService
-	token Tokenizer
+	repo   AccessRepository
+	mail   MailService
+	asvc   AuthService
+	token  Tokenizer
+	webURL string
 }
 
-func NewAccessService(repo AccessRepository, mail MailService, asvc AuthService, token Tokenizer) *AccessService {
+func NewAccessService(repo AccessRepository, mail MailService, asvc AuthService, token Tokenizer, webURL string) *AccessService {
 	return &AccessService{
-		repo:  repo,
-		mail:  mail,
-		asvc:  asvc,
-		token: token,
+		repo:   repo,
+		mail:   mail,
+		asvc:   asvc,
+		token:  token,
+		webURL: webURL,
 	}
 }
 
@@ -251,9 +253,11 @@ func (s *AccessService) AddMembers(ctx context.Context, req dto.AddMembersReques
 			return outcome, fmt.Errorf("check user %s: %w", email, err)
 		}
 
+		registered := u.ID != ""
+
 		// uID stays null when the email has no account yet (invite a future user)
 		var uID pgtype.UUID
-		if u.ID != "" {
+		if registered {
 			if err := uID.Scan(u.ID); err != nil {
 				return outcome, fmt.Errorf("parse user id: %w", err)
 			}
@@ -292,7 +296,7 @@ func (s *AccessService) AddMembers(ctx context.Context, req dto.AddMembersReques
 			ExpiresAt:   expiresAt,
 		})
 		if err == nil {
-			s.sendInviteEmail(email, rawToken)
+			s.sendInviteEmail(email, rawToken, registered)
 			outcome = append(outcome, dto.AddMembersResponse{
 				Email:   email,
 				Outcome: OutcomeInvited,
@@ -334,7 +338,7 @@ func (s *AccessService) AddMembers(ctx context.Context, req dto.AddMembersReques
 			return outcome, fmt.Errorf("insert invitation %s: %w", email, err)
 		}
 
-		s.sendInviteEmail(email, rawToken)
+		s.sendInviteEmail(email, rawToken, registered)
 		outcome = append(outcome, dto.AddMembersResponse{
 			Email:   email,
 			Outcome: OutcomeInvited,
@@ -392,11 +396,18 @@ func (s *AccessService) ListInvitations(ctx context.Context, workspaceID, status
 
 // sendInviteEmail fires the invite email in the background; the request ctx
 // would be cancelled, so use a fresh one. Failure is logged, not fatal.
-func (s *AccessService) sendInviteEmail(to, token string) {
+func (s *AccessService) sendInviteEmail(to, token string, registered bool) {
 	go func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 		defer cancel()
-		body := fmt.Sprintf("You have been invited to join a workspace. Use this token to accept: %s", token)
+
+		var body string
+		if registered {
+			body = fmt.Sprintf("You have been invited to join a workspace. Open your invitations to accept: %s/invitations", s.webURL)
+		} else {
+			body = fmt.Sprintf("You have been invited to join a workspace. Use this token to accept: %s", token)
+		}
+
 		if err := s.mail.Send(ctx, to, "You're invited to a workspace", body); err != nil {
 			log.Printf("send invite email to %s failed: %v", to, err)
 		}
@@ -632,7 +643,7 @@ func (s *AccessService) ResendInvitation(ctx context.Context, invitationID strin
 		return fmt.Errorf("resend invitation: %w", err)
 	}
 
-	s.sendInviteEmail(inv.Email, rawToken)
+	s.sendInviteEmail(inv.Email, rawToken, inv.UserID.Valid)
 	return nil
 }
 

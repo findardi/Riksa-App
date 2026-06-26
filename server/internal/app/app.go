@@ -16,6 +16,7 @@ import (
 	"github.com/findardi/Wadi/server/internal/auth"
 	authrepo "github.com/findardi/Wadi/server/internal/auth/repository"
 	authservice "github.com/findardi/Wadi/server/internal/auth/service"
+	"github.com/findardi/Wadi/server/internal/invitation"
 	"github.com/findardi/Wadi/server/internal/platform/config"
 	"github.com/findardi/Wadi/server/internal/platform/oauth"
 	"github.com/findardi/Wadi/server/internal/platform/otp"
@@ -48,12 +49,15 @@ func New(pool *pgxpool.Pool, otpSecret, addr, jwtSecret string) *App {
 		"google": oauth.NewGoogle(ggCfg.ClientID, ggCfg.ClientSecret, ggCfg.RedirectURL),
 	}
 
+	webURL := config.GetEnv("WEB_URL", "http://localhost:5173")
+
 	authsvc := authservice.NewAuthService(authrepo.New(pool), otpGen, jwtGen, mailer)
-	accessSvc := accessservice.NewAccessService(accessrepo.New(pool), mailer, authsvc, otpGen)
+	accessSvc := accessservice.NewAccessService(accessrepo.New(pool), mailer, authsvc, otpGen, webURL)
 
 	authModule := auth.NewModule(pool, otpGen, jwtGen, mailer, limiter, providers)
 	workspaceModule := workspace.NewModule(pool, jwtGen, accessSvc)
-	accessModule := access.NewModule(pool, jwtGen, mailer, authsvc, otpGen)
+	accessModule := access.NewModule(pool, jwtGen, mailer, authsvc, otpGen, webURL)
+	invitationModule := invitation.NewModule(pool, jwtGen)
 
 	r := chi.NewRouter()
 	registerGlobalMiddleware(r)
@@ -65,6 +69,7 @@ func New(pool *pgxpool.Pool, otpSecret, addr, jwtSecret string) *App {
 	authModule.RegisterRoutes(r)
 	workspaceModule.RegisterRoutes(r)
 	accessModule.RegisterRoutes(r)
+	invitationModule.RegisterRoutes(r)
 
 	return &App{
 		router: r,

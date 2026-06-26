@@ -104,6 +104,43 @@ func (q *Queries) GetWorkspaceBySlugAndOwner(ctx context.Context, arg GetWorkspa
 	return i, err
 }
 
+const getWorkspaces = `-- name: GetWorkspaces :many
+select w.id, w.owner_id, w.name, w.slug, w.description, w.status, w.created_at, w.updated_at from workspaces w
+left join
+    workspace_members wm on wm.workspace_id = w.id
+where 
+    wm.user_id = $1
+`
+
+func (q *Queries) GetWorkspaces(ctx context.Context, userID pgtype.UUID) ([]Workspace, error) {
+	rows, err := q.db.Query(ctx, getWorkspaces, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Workspace
+	for rows.Next() {
+		var i Workspace
+		if err := rows.Scan(
+			&i.ID,
+			&i.OwnerID,
+			&i.Name,
+			&i.Slug,
+			&i.Description,
+			&i.Status,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getWorkspacesByOwner = `-- name: GetWorkspacesByOwner :many
 select id, owner_id, name, slug, description, status, created_at, updated_at from workspaces where owner_id = $1
 `

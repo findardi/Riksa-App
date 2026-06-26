@@ -31,7 +31,7 @@
 			{#if room}
 				<RoomSidebar workspace={room} />
 			{:else}
-				<AppSidebar />
+				<AppSidebar invitations={data.invitationCount} />
 			{/if}
 		</aside>
 
@@ -53,7 +53,7 @@
 			{#if room}
 				<RoomSidebar workspace={room} />
 			{:else}
-				<AppSidebar />
+				<AppSidebar invitations={data.invitationCount} />
 			{/if}
 		</aside>
 

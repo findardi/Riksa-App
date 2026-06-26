@@ -5,4 +5,5 @@ export * from './workspace';
 export * from './workspace.role';
 export * from './workspace.member';
 export * from './workspace.group';
+export * from './invitation';
 export * from './resolve';

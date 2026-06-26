@@ -2,8 +2,6 @@
 // key a compile error.
 import type { Dict } from './id';
 
-// Record<keyof Dict, string> enforces full key coverage without demanding each
-// value equal id.ts's literal (Dict carries `as const` literal types).
 export const en: Record<keyof Dict, string> = {
 	'brand.name': 'Wadi',
 	'brand.tagline': 'A secure data room for your deal documents.',
@@ -396,6 +394,34 @@ export const en: Record<keyof Dict, string> = {
 	'inv.filter.all': 'All',
 	'inv.empty.filtered': 'No invitations with this status.',
 	'inv.empty.reset': 'Show all',
+
+	// my invitations — invitee inbox (/invitation)
+	'inv.title': 'Invitations',
+	'inv.count': '{n} pending',
+	'inv.role': 'Role',
+	'inv.accept': 'Accept',
+	'inv.accepting': 'Accepting…',
+	'inv.reject': 'Decline',
+	'inv.expiresInDay': 'Expires in {n} day',
+	'inv.expiresInDays': 'Expires in {n} days',
+	'inv.expiresInHour': 'Expires in {n} hour',
+	'inv.expiresInHours': 'Expires in {n} hours',
+	'inv.expiresSoon': 'Expires in under an hour',
+	'inv.loadError': 'Could not load invitations.',
+	'inv.empty.title': 'No invitations yet',
+	'inv.empty.body':
+		"Invitations to join a data room appear here, with the role you'd get and how long they last.",
+	'inv.accepted.toast': 'Joined {name}.',
+	'inv.rejected.toast': 'Invitation declined.',
+	'inv.cancel': 'Cancel',
+	'inv.reject.submitting': 'Declining…',
+	'inv.open': 'Open invitation {name}',
+	'inv.detail.subtitle': 'Review the details, then accept or decline.',
+	'inv.detail.invitedBy': 'Invited by',
+	'inv.detail.expires': 'Expires',
+	'inv.err.notFound': 'Invitation not found.',
+	'inv.err.expired': 'This invitation has expired.',
+	'inv.err.notPending': 'This invitation is no longer available.',
 
 	// permission resources
 	'perm.res.workspace': 'Data room',

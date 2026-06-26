@@ -1,6 +1,11 @@
+import { getMyInvitation } from '$lib/server/api';
 import type { LayoutServerLoad } from './$types';
 
-// Expose the authenticated user to the app shell (top bar account menu).
 export const load: LayoutServerLoad = async ({ locals }) => {
-	return { user: locals.user };
+	let invitationCount = 0;
+	if (locals.session) {
+		const res = await getMyInvitation(locals.session);
+		if (res.ok) invitationCount = res.data.length;
+	}
+	return { user: locals.user, invitationCount };
 };
