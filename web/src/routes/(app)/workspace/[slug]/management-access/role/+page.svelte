@@ -79,7 +79,21 @@
 		{t('ma.role')}
 		<span class="ml-1 font-mono text-xs font-normal text-muted">{roles.length}</span>
 	</h2>
-	<a href="{base}/new" class="btn btn-primary btn-sm">{t('role.new')}</a>
+	<a href="{base}/new" class="btn btn-primary btn-sm">
+		<svg
+			class="h-4 w-4"
+			viewBox="0 0 24 24"
+			fill="none"
+			stroke="currentColor"
+			stroke-width="1.8"
+			stroke-linecap="round"
+			stroke-linejoin="round"
+			aria-hidden="true"
+		>
+			<path d="M12 5v14M5 12h14" />
+		</svg>
+		{t('role.new')}
+	</a>
 </div>
 
 <ul class="mt-4 divide-y divide-base-content/10 border-y border-base-content/10">
@@ -102,23 +116,64 @@
 			{#if role.is_system}
 				<a
 					{href}
-					class="rounded-field px-3 py-1.5 text-sm font-medium text-muted transition-colors hover:bg-base-content/5 hover:text-base-content"
+					class="inline-flex flex-none items-center gap-1.5 rounded-field px-2.5 py-2.5 text-sm font-medium text-muted transition-colors hover:bg-base-content/5 hover:text-base-content"
 				>
+					<svg
+						class="h-4 w-4"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="1.8"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						aria-hidden="true"
+					>
+						<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" />
+						<circle cx="12" cy="12" r="3" />
+					</svg>
 					{t('role.view')}
 				</a>
 			{:else}
-				<div class="flex items-center gap-1">
+				<div class="flex flex-none items-center gap-1">
 					<a
 						{href}
-						class="rounded-field px-3 py-1.5 text-sm font-medium text-muted transition-colors hover:bg-base-content/5 hover:text-base-content"
+						class="inline-flex items-center gap-1.5 rounded-field px-2.5 py-2.5 text-sm font-medium text-muted transition-colors hover:bg-base-content/5 hover:text-base-content"
 					>
+						<svg
+							class="h-4 w-4"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="1.8"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							aria-hidden="true"
+						>
+							<path d="M12 20h9" />
+							<path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+						</svg>
 						{t('role.edit')}
 					</a>
 					<button
 						type="button"
 						onclick={() => openDelete(role)}
-						class="rounded-field px-3 py-1.5 text-sm font-medium text-muted transition-colors hover:bg-error/10 hover:text-error"
+						class="inline-flex items-center gap-1.5 rounded-field px-2.5 py-2.5 text-sm font-medium text-muted transition-colors hover:bg-error/10 hover:text-error"
 					>
+						<svg
+							class="h-4 w-4"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="1.8"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							aria-hidden="true"
+						>
+							<path
+								d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"
+							/>
+							<path d="M10 11v6M14 11v6" />
+						</svg>
 						{t('role.delete')}
 					</button>
 				</div>

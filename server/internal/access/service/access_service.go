@@ -23,8 +23,13 @@ const (
 )
 
 const (
-	InviteStatusPending = "pending"
-	inviteTTL           = 7 * 24 * time.Hour
+	InviteStatusPending  = "pending"
+	InviteStatusAccepted = "accepted"
+	InviteStatusRejected = "rejected"
+	InviteStatusRevoked  = "revoked"
+	InviteStatusExpired  = "expired"
+
+	inviteTTL = 7 * 24 * time.Hour
 
 	OutcomeInvited = "invited"
 	OutcomeSkipped = "skipped"
@@ -33,12 +38,30 @@ const (
 	ReasonAlreadyInvited = "already_invited"
 )
 
+var validInvitationStatuses = map[string]struct{}{
+	InviteStatusPending:  {},
+	InviteStatusAccepted: {},
+	InviteStatusRejected: {},
+	InviteStatusRevoked:  {},
+	InviteStatusExpired:  {},
+}
+
 var (
 	ErrRoleNameTaken    = errors.New("role name already taken")
 	ErrRoleNotFound     = errors.New("role not found")
 	ErrRoleInUse        = errors.New("role is still assigned to members")
 	ErrMemberAlreadyAdd = errors.New("user already a member of this workspace")
 	ErrMemberNotFound   = errors.New("member not found")
+
+	ErrInvitationNotFound      = errors.New("invitation not found")
+	ErrInvitationNotResendable = errors.New("invitation can no longer be resent")
+	ErrInvitationNotRevocable  = errors.New("invitation can no longer be revoked")
+	ErrInvalidInvitationStatus = errors.New("invalid invitation status")
+
+	ErrGroupNameTaken = errors.New("group name already taken")
+	ErrGroupNotFound  = errors.New("group not found")
+
+	ErrAssignMemberRole = errors.New("only can assign guest role")
 )
 
 type AccessService struct {
@@ -252,12 +275,43 @@ func (s *AccessService) AddMembers(ctx context.Context, req dto.AddMembersReques
 			}
 		}
 
-		rawToken, err := s.token.GenerateRefreshToken()
-		if err != nil {
-			return outcome, fmt.Errorf("generate invite token: %w", err)
-		}
-		codeHash := s.token.Hash(rawToken)
+		rawToken := s.token.Generate()
 
+		codeHash := s.token.Hash(rawToken)
+		expiresAt := pgtype.Timestamptz{Time: time.Now().Add(inviteTTL), Valid: true}
+
+		// Revive a previously revoked/rejected/expired invitation for this email
+		// instead of leaving a stale row and inserting a duplicate.
+		_, err = s.repo.ReinviteWorkspaceInvitation(ctx, accessdb.ReinviteWorkspaceInvitationParams{
+			WorkspaceID: wsID,
+			Email:       email,
+			RoleID:      roleID,
+			UserID:      uID,
+			InvitedBy:   inID,
+			CodeHash:    codeHash,
+			ExpiresAt:   expiresAt,
+		})
+		if err == nil {
+			s.sendInviteEmail(email, rawToken)
+			outcome = append(outcome, dto.AddMembersResponse{
+				Email:   email,
+				Outcome: OutcomeInvited,
+			})
+			continue
+		}
+		if isUniqueViolation(err, "workspace_invitations_pending_key") {
+			outcome = append(outcome, dto.AddMembersResponse{
+				Email:   email,
+				Outcome: OutcomeSkipped,
+				Reason:  ReasonAlreadyInvited,
+			})
+			continue
+		}
+		if !errors.Is(err, pgx.ErrNoRows) {
+			return outcome, fmt.Errorf("reinvite %s: %w", email, err)
+		}
+
+		// No revivable invitation: create a fresh one.
 		_, err = s.repo.InsertWorkspaceInvitation(ctx, accessdb.InsertWorkspaceInvitationParams{
 			WorkspaceID: wsID,
 			Email:       email,
@@ -266,7 +320,7 @@ func (s *AccessService) AddMembers(ctx context.Context, req dto.AddMembersReques
 			InvitedBy:   inID,
 			CodeHash:    codeHash,
 			Status:      InviteStatusPending,
-			ExpiresAt:   pgtype.Timestamptz{Time: time.Now().Add(inviteTTL), Valid: true},
+			ExpiresAt:   expiresAt,
 		})
 		if isUniqueViolation(err, "workspace_invitations_pending_key") {
 			outcome = append(outcome, dto.AddMembersResponse{
@@ -290,8 +344,19 @@ func (s *AccessService) AddMembers(ctx context.Context, req dto.AddMembersReques
 	return outcome, nil
 }
 
-func (s *AccessService) ListInvitations(ctx context.Context, workspaceID string) ([]dto.InvitationResponse, error) {
+func (s *AccessService) ListInvitations(ctx context.Context, workspaceID, status string) ([]dto.InvitationResponse, error) {
 	invitations := []dto.InvitationResponse{}
+
+	status = strings.ToLower(strings.TrimSpace(status))
+
+	// empty status => return all statuses; otherwise filter by the given one
+	var statusFilter *string
+	if status != "" {
+		if _, ok := validInvitationStatuses[status]; !ok {
+			return invitations, ErrInvalidInvitationStatus
+		}
+		statusFilter = &status
+	}
 
 	var wsID pgtype.UUID
 	if err := wsID.Scan(workspaceID); err != nil {
@@ -300,7 +365,7 @@ func (s *AccessService) ListInvitations(ctx context.Context, workspaceID string)
 
 	rows, err := s.repo.ListWorkspaceInvitations(ctx, accessdb.ListWorkspaceInvitationsParams{
 		WorkspaceID: wsID,
-		Status:      InviteStatusPending,
+		Status:      statusFilter,
 	})
 	if err != nil {
 		return invitations, fmt.Errorf("list invitations: %w", err)
@@ -535,6 +600,247 @@ func (s *AccessService) DeleteMember(ctx context.Context, memberID string) error
 
 	if err := s.repo.DeleteMember(ctx, mID); err != nil {
 		return fmt.Errorf("delete member: %w", err)
+	}
+
+	return nil
+}
+
+func (s *AccessService) ResendInvitation(ctx context.Context, invitationID string) error {
+	var invID pgtype.UUID
+	if err := invID.Scan(invitationID); err != nil {
+		return fmt.Errorf("parse invitation id: %w", err)
+	}
+
+	inv, err := s.repo.GetWorkspaceInvitation(ctx, invID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return ErrInvitationNotFound
+	}
+	if err != nil {
+		return fmt.Errorf("get invitation: %w", err)
+	}
+
+	rawToken := s.token.Generate()
+
+	if _, err := s.repo.ResendInvitation(ctx, accessdb.ResendInvitationParams{
+		ID:        invID,
+		CodeHash:  s.token.Hash(rawToken),
+		ExpiresAt: pgtype.Timestamptz{Time: time.Now().Add(inviteTTL), Valid: true},
+	}); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrInvitationNotResendable
+		}
+		return fmt.Errorf("resend invitation: %w", err)
+	}
+
+	s.sendInviteEmail(inv.Email, rawToken)
+	return nil
+}
+
+func (s *AccessService) RevokeInvitation(ctx context.Context, invitationID string) error {
+	var invID pgtype.UUID
+	if err := invID.Scan(invitationID); err != nil {
+		return fmt.Errorf("parse invitation id: %w", err)
+	}
+
+	if _, err := s.repo.RevokeWorkspaceInvitation(ctx, invID); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrInvitationNotRevocable
+		}
+		return fmt.Errorf("revoke invitation: %w", err)
+	}
+
+	return nil
+}
+
+func (s *AccessService) CreateGroup(ctx context.Context, req dto.CreateGroupRequest) (dto.GroupResponse, error) {
+	var wID pgtype.UUID
+	if err := wID.Scan(req.WorkspaceID); err != nil {
+		return dto.GroupResponse{}, fmt.Errorf("parse workspace id: %w", err)
+	}
+
+	g, err := s.repo.CreateGroup(ctx, accessdb.CreateGroupParams{
+		WorkspaceID: wID,
+		Name:        req.Name,
+		Description: &req.Description,
+	})
+
+	if isUniqueViolation(err, "workspace_groups_name_key") {
+		return dto.GroupResponse{}, ErrGroupNameTaken
+	}
+
+	if err != nil {
+		return dto.GroupResponse{}, fmt.Errorf("create group: %w", err)
+	}
+
+	return dto.GroupResponse{
+		ID:          uuidString(g.ID),
+		WorkspaceID: uuidString(g.WorkspaceID),
+		Name:        g.Name,
+		Description: deref(g.Description),
+		CreatedAt:   g.CreatedAt.Time,
+		UpdatedAt:   g.UpdatedAt.Time,
+	}, nil
+}
+
+func (s *AccessService) GetGroups(ctx context.Context, workspaceID string) ([]dto.GroupResponse, error) {
+	var groups []dto.GroupResponse
+	var wID pgtype.UUID
+	if err := wID.Scan(workspaceID); err != nil {
+		return groups, fmt.Errorf("parse workspace id: %w", err)
+	}
+
+	gps, err := s.repo.GetGroups(ctx, wID)
+	if err != nil {
+		return groups, fmt.Errorf("get groups: %w", err)
+	}
+
+	for _, g := range gps {
+		group := dto.GroupResponse{
+			ID:          uuidString(g.ID),
+			WorkspaceID: uuidString(g.WorkspaceID),
+			Name:        g.Name,
+			Description: deref(g.Description),
+			CreatedAt:   g.CreatedAt.Time,
+			UpdatedAt:   g.UpdatedAt.Time,
+		}
+
+		groups = append(groups, group)
+	}
+
+	return groups, nil
+}
+
+func (s *AccessService) DeleteGroup(ctx context.Context, groupID string) error {
+	var gID pgtype.UUID
+	if err := gID.Scan(groupID); err != nil {
+		return fmt.Errorf("parse group id: %w", err)
+	}
+
+	if _, err := s.repo.GetGroup(ctx, gID); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrGroupNotFound
+		}
+		return fmt.Errorf("get group: %w", err)
+	}
+
+	if err := s.repo.DeleteGroup(ctx, gID); err != nil {
+		return fmt.Errorf("delete group: %w", err)
+	}
+
+	return nil
+}
+
+func (s *AccessService) UpdateGroup(ctx context.Context, req dto.UpdateGroupRequest) (dto.GroupResponse, error) {
+	var gID pgtype.UUID
+	if err := gID.Scan(req.GroupID); err != nil {
+		return dto.GroupResponse{}, fmt.Errorf("parse group id: %w", err)
+	}
+
+	g, err := s.repo.UpdateGroup(ctx, accessdb.UpdateGroupParams{
+		ID:          gID,
+		Name:        req.Name,
+		Description: &req.Description,
+	})
+
+	switch {
+	case errors.Is(err, pgx.ErrNoRows):
+		return dto.GroupResponse{}, ErrGroupNotFound
+	case isUniqueViolation(err, "workspace_groups_name_key"):
+		return dto.GroupResponse{}, ErrGroupNameTaken
+	case err != nil:
+		return dto.GroupResponse{}, fmt.Errorf("update group: %w", err)
+	}
+
+	return dto.GroupResponse{
+		ID:          uuidString(g.ID),
+		WorkspaceID: uuidString(g.WorkspaceID),
+		Name:        g.Name,
+		Description: deref(g.Description),
+		CreatedAt:   g.CreatedAt.Time,
+		UpdatedAt:   g.UpdatedAt.Time,
+	}, nil
+}
+
+func (s *AccessService) GetGroupDetail(ctx context.Context, groupID string) ([]dto.GroupMemberResponse, error) {
+	var members []dto.GroupMemberResponse
+	var gID pgtype.UUID
+	if err := gID.Scan(groupID); err != nil {
+		return members, fmt.Errorf("parse group id: %w", err)
+	}
+
+	gm, err := s.repo.GetGroupMembers(ctx, gID)
+	if err != nil {
+		return members, fmt.Errorf("get group members: %w", err)
+	}
+
+	for _, m := range gm {
+		member := dto.GroupMemberResponse{
+			GroupID:   uuidString(m.GroupID),
+			MemberID:  uuidString(m.MemberID),
+			CreatedAt: m.CreatedAt.Time,
+			Username:  deref(m.Username),
+			Email:     deref(m.Email),
+			RoleName:  deref(m.RoleName),
+			GroupName: deref(m.GroupName),
+		}
+
+		members = append(members, member)
+	}
+
+	return members, nil
+}
+
+func (s *AccessService) AssignToGroup(ctx context.Context, req dto.GroupMemberRequest) ([]dto.GroupMemberResponse, error) {
+
+	var gID pgtype.UUID
+	if err := gID.Scan(req.GroupID); err != nil {
+		return []dto.GroupMemberResponse{}, fmt.Errorf("parse group id: %w", err)
+	}
+
+	for _, m := range req.MemberID {
+		var mID pgtype.UUID
+		if err := mID.Scan(m); err != nil {
+			return []dto.GroupMemberResponse{}, fmt.Errorf("parse member id: %w", err)
+		}
+
+		mem, err := s.repo.GetMember(ctx, mID)
+		if err != nil {
+			return []dto.GroupMemberResponse{}, fmt.Errorf("get member: %w", err)
+		}
+
+		if deref(mem.RoleName) != "guest" {
+			return []dto.GroupMemberResponse{}, ErrAssignMemberRole
+		}
+
+		_, err = s.repo.InsertGroupMember(ctx, accessdb.InsertGroupMemberParams{
+			GroupID:  gID,
+			MemberID: mID,
+		})
+		if isUniqueViolation(err, "workspace_group_members_pkey") {
+			continue
+		}
+		if err != nil {
+			return []dto.GroupMemberResponse{}, fmt.Errorf("assign member to group: %w", err)
+		}
+	}
+
+	return s.GetGroupDetail(ctx, req.GroupID)
+}
+
+func (s *AccessService) UnassignFromGroup(ctx context.Context, groupID, memberID string) error {
+	var gID, mID pgtype.UUID
+	if err := gID.Scan(groupID); err != nil {
+		return fmt.Errorf("parse group id: %w", err)
+	}
+	if err := mID.Scan(memberID); err != nil {
+		return fmt.Errorf("parse member id: %w", err)
+	}
+
+	if err := s.repo.DeleteGroupMember(ctx, accessdb.DeleteGroupMemberParams{
+		GroupID:  gID,
+		MemberID: mID,
+	}); err != nil {
+		return fmt.Errorf("unassign member from group: %w", err)
 	}
 
 	return nil

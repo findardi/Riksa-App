@@ -20,13 +20,7 @@
 		oncompleted?: (invited: number) => void;
 	};
 
-	let {
-		roles,
-		action,
-		open = $bindable(false),
-		pendingHref,
-		oncompleted
-	}: Props = $props();
+	let { roles, action, open = $bindable(false), pendingHref, oncompleted }: Props = $props();
 
 	// Don't offer "owner" as an assignable role — one owner per room.
 	const roleOptions = $derived(roles.filter((r) => r.name !== 'owner'));
@@ -152,7 +146,9 @@
 				await invalidateAll();
 				oncompleted?.(results.filter((r) => r.outcome === 'invited').length);
 			} else if (result.type === 'failure') {
-				const d = result.data as { fieldErrors?: Record<string, string>; message?: string } | undefined;
+				const d = result.data as
+					| { fieldErrors?: Record<string, string>; message?: string }
+					| undefined;
 				formError = d?.fieldErrors?.email ?? d?.message ?? t('err.generic');
 			} else {
 				formError = t('err.generic');
@@ -210,7 +206,8 @@
 							{#if summary.alreadyMember}{t('member.invite.result.alreadyMember', {
 									n: summary.alreadyMember
 								})}{/if}{#if summary.alreadyMember && summary.alreadyInvited}
-								· {/if}{#if summary.alreadyInvited}{t('member.invite.result.alreadyInvited', {
+								·
+							{/if}{#if summary.alreadyInvited}{t('member.invite.result.alreadyInvited', {
 									n: summary.alreadyInvited
 								})}{/if}
 						</p>
@@ -304,7 +301,8 @@
 				{/if}
 
 				<div class="mt-4">
-					<label class="text-sm font-medium" for="invite-role">{t('member.invite.roleLabel')}</label>
+					<label class="text-sm font-medium" for="invite-role">{t('member.invite.roleLabel')}</label
+					>
 					<select id="invite-role" name="roleId" bind:value={roleId} class="select mt-1.5 w-full">
 						{#each roleOptions as r (r.id)}
 							<option value={r.id}>{roleDisplayName(r.name)}</option>

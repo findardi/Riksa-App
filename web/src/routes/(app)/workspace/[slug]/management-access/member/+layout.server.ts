@@ -9,10 +9,12 @@ export const load: LayoutServerLoad = async ({ locals, parent }) => {
 	if (!locals.session) redirect(303, '/login');
 
 	const { workspace } = await parent();
+	// Only pending invitations feed the sub-tab badge ("awaiting a response");
+	// the invite page loads its own filtered list separately.
 	const [membersRes, rolesRes, invitesRes] = await Promise.all([
 		getMembers(locals.session, workspace.id),
 		getRoles(locals.session, workspace.id),
-		getInvitations(locals.session, workspace.id)
+		getInvitations(locals.session, workspace.id, 'pending')
 	]);
 
 	if (!membersRes.ok) {
@@ -27,11 +29,10 @@ export const load: LayoutServerLoad = async ({ locals, parent }) => {
 		if (invitesRes.status === 401) redirect(303, '/login');
 		error(invitesRes.status || 502, t('pending.err.loadError'));
 	}
-
 	return {
 		members: membersRes.data,
 		roles: rolesRes.data,
-		invitations: invitesRes.data,
+		pendingCount: invitesRes.data.length,
 		ownerId: workspace.owner_id
 	};
 };

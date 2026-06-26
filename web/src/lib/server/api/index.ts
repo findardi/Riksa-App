@@ -4,4 +4,5 @@ export * from './sso';
 export * from './workspace';
 export * from './workspace.role';
 export * from './workspace.member';
+export * from './workspace.group';
 export * from './resolve';

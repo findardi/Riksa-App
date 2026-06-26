@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 	import Brand from './Brand.svelte';
+	import LanguageSwitcher from './LanguageSwitcher.svelte';
 	import { t } from '$lib/i18n';
 
 	let { children }: { children: Snippet } = $props();
@@ -12,7 +13,10 @@
 	<aside
 		class="flex flex-col gap-8 border-b border-base-content/10 bg-base-300 px-6 py-5 min-[880px]:justify-between min-[880px]:border-r min-[880px]:border-b-0 min-[880px]:p-9"
 	>
-		<a href="/" class="inline-flex w-fit"><Brand size={30} /></a>
+		<div class="flex items-center justify-between gap-3">
+			<a href="/" class="inline-flex w-fit"><Brand size={30} /></a>
+			<LanguageSwitcher />
+		</div>
 
 		<div class="hidden min-[880px]:block">
 			<p class="max-w-[22ch] text-2xl font-medium tracking-[-0.015em] text-balance">

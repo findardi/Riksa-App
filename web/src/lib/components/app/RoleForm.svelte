@@ -85,7 +85,9 @@
 
 					<div class="mt-3 grid grid-cols-2 gap-x-4 gap-y-2.5 sm:grid-cols-3">
 						{#each g.items as item (item.value)}
-							<label class="inline-flex items-center gap-2 text-sm {disabled ? '' : 'cursor-pointer'}">
+							<label
+								class="inline-flex items-center gap-2 text-sm {disabled ? '' : 'cursor-pointer'}"
+							>
 								<input
 									type="checkbox"
 									name="permissions"

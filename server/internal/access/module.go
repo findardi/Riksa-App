@@ -53,12 +53,39 @@ func (m *Module) RegisterRoutes(r chi.Router) {
 		r.Use(m.mw.RequireActive)
 		r.Get("/permissions", m.handler.GetPermissions)
 
-		r.Route("/role", func(r chi.Router) {
-			r.Post("/{workspaceID}", m.handler.CreateRole)
-			r.Get("/{workspaceID}", m.handler.GetRoles)
-			r.Get("/{workspaceID}/{roleID}", m.handler.GetRole)
-			r.Put("/{workspaceID}/{roleID}", m.handler.UpdateRole)
-			r.Delete("/{workspaceID}/{roleID}", m.handler.DeleteRole)
+		r.Route("/workspaces/{workspaceID}", func(r chi.Router) {
+			r.Route("/roles", func(r chi.Router) {
+				r.Post("/", m.handler.CreateRole)
+				r.Get("/", m.handler.GetRoles)
+				r.Get("/{roleID}", m.handler.GetRole)
+				r.Put("/{roleID}", m.handler.UpdateRole)
+				r.Delete("/{roleID}", m.handler.DeleteRole)
+			})
+
+			r.Route("/members", func(r chi.Router) {
+				r.Post("/", m.handler.AddMember)
+				r.Get("/", m.handler.GetMembers)
+				r.Get("/{memberID}", m.handler.GetMember)
+				r.Put("/{memberID}", m.handler.UpdateMember)
+				r.Delete("/{memberID}", m.handler.DeleteMember)
+			})
+
+			r.Route("/invitations", func(r chi.Router) {
+				r.Post("/", m.handler.AddMembers)
+				r.Get("/", m.handler.GetInvitations)
+				r.Post("/{invitationID}/resend", m.handler.ResendInvitation)
+				r.Post("/{invitationID}/revoke", m.handler.RevokeInvitation)
+			})
+
+			r.Route("/groups", func(r chi.Router) {
+				r.Post("/", m.handler.CreateGroup)
+				r.Get("/", m.handler.GetGroups)
+				r.Get("/{groupID}", m.handler.GetGroup)
+				r.Put("/{groupID}", m.handler.UpdateGroup)
+				r.Delete("/{groupID}", m.handler.DeleteGroup)
+				r.Post("/{groupID}/assign", m.handler.AssignMember)
+				r.Delete("/{groupID}/unassign/{memberID}", m.handler.UnassignMember)
+			})
 		})
 
 		r.Route("/member", func(r chi.Router) {

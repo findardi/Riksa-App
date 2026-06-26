@@ -105,3 +105,35 @@ export interface InvitationData {
 	expires_at: string;
 	created_at: string;
 }
+
+// Groups
+export interface UpsertGroupWorkspacePayload {
+	name: string;
+	description: string;
+}
+
+export interface GroupWorkspaceData {
+	id: string;
+	workspace_id: string;
+	name: string;
+	description: string;
+	created_at: string;
+	updated_at: string;
+}
+
+// A workspace member assigned to a group — joined view from the Go
+// `GroupMemberResponse`. `member_id` is the WorkspaceMemberData id.
+export interface GroupMemberData {
+	group_id: string;
+	member_id: string;
+	created_at: string;
+	username: string;
+	email: string;
+	role_name: string;
+	group_name: string;
+}
+
+// Assign — backend field is `member_id` (an array of workspace member ids).
+export interface AssignMembersPayload {
+	member_id: string[];
+}

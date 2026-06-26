@@ -90,6 +90,7 @@ export const id = {
 	'app.menu.open': 'Buka menu navigasi',
 	'app.account.signedInAs': 'Masuk sebagai',
 	'app.account.logout': 'Keluar',
+	'app.language': 'Bahasa',
 
 	// Workspaces (ruang data)
 	'ws.title': 'Ruang data',
@@ -234,7 +235,8 @@ export const id = {
 	'role.cancel': 'Batal',
 	// delete confirm
 	'role.delete.title': 'Hapus peran',
-	'role.delete.warning': 'Peran "{name}" akan dihapus permanen. Tindakan ini tidak dapat dibatalkan.',
+	'role.delete.warning':
+		'Peran "{name}" akan dihapus permanen. Tindakan ini tidak dapat dibatalkan.',
 	'role.delete.submit': 'Hapus peran',
 	'role.delete.submitting': 'Menghapus…',
 	// feedback
@@ -247,6 +249,66 @@ export const id = {
 	'role.err.nameTaken': 'Nama peran sudah dipakai.',
 	'role.err.inUse': 'Peran masih ditetapkan ke anggota, jadi tidak bisa dihapus.',
 	'role.err.noPermissions': 'Pilih minimal satu izin.',
+
+	// groups
+	'group.new': 'Buat grup',
+	'group.edit': 'Ubah',
+	'group.delete': 'Hapus',
+	'group.empty.title': 'Belum ada grup',
+	'group.empty.body':
+		'Grup memudahkan pengelompokan anggota agar lebih mudah mengatur akses secara bersamaan.',
+	// editor
+	'group.create.title': 'Buat grup',
+	'group.create.desc': 'Beri nama grup dan deskripsi singkat agar mudah dikenali.',
+	'group.edit.title': 'Ubah grup',
+	'group.field.name': 'Nama grup',
+	'group.field.namePlaceholder': 'mis. Tim keuangan',
+	'group.field.description': 'Deskripsi',
+	'group.field.descriptionPlaceholder': 'Opsional — jelaskan singkat tujuan grup ini.',
+	'group.create.submit': 'Buat grup',
+	'group.create.submitting': 'Membuat…',
+	'group.save': 'Simpan perubahan',
+	'group.saving': 'Menyimpan…',
+	'group.cancel': 'Batal',
+	// delete confirm
+	'group.delete.title': 'Hapus grup',
+	'group.delete.warning':
+		'Grup "{name}" akan dihapus permanen. Tindakan ini tidak dapat dibatalkan.',
+	'group.delete.submit': 'Hapus grup',
+	'group.delete.submitting': 'Menghapus…',
+	// feedback
+	'group.created': 'Grup dibuat.',
+	'group.updated': 'Grup diperbarui.',
+	'group.deleted': 'Grup dihapus.',
+	// errors
+	'group.err.loadError': 'Gagal memuat grup.',
+	'group.err.notFound': 'Grup tidak ditemukan.',
+	'group.err.nameTaken': 'Nama grup sudah dipakai.',
+	'group.err.nameRequired': 'Nama grup wajib diisi.',
+	// detail
+	'group.detail.back': 'Kembali ke Grup',
+	'group.detail.count': '{n} anggota',
+	'group.detail.countEmpty': 'Belum ada anggota',
+	'group.detail.add': 'Tambah anggota',
+	'group.detail.done': 'Selesai',
+	'group.detail.empty.title': 'Grup ini masih kosong',
+	'group.detail.empty.body':
+		'Tambahkan anggota workspace ke grup ini untuk mengatur akses mereka sekaligus.',
+	'group.unassign': 'Keluarkan',
+	'group.unassign.toast': '{name} dikeluarkan dari grup.',
+	// assign dialog
+	'group.assign.title': 'Tambah anggota',
+	'group.assign.desc': 'Hanya anggota dengan peran Tamu yang dapat ditambahkan ke grup "{name}".',
+	'group.assign.search': 'Cari nama atau email…',
+	'group.assign.noMatch': 'Tidak ada anggota yang cocok.',
+	'group.assign.selected': '{n} dipilih',
+	'group.assign.submit': 'Tambahkan',
+	'group.assign.submitting': 'Menambahkan…',
+	'group.assign.empty': 'Pilih minimal satu anggota.',
+	'group.assign.toast': '{n} anggota ditambahkan.',
+	'group.assign.allIn.title': 'Tidak ada anggota Tamu',
+	'group.assign.allIn.body':
+		'Hanya anggota berperan Tamu yang bisa ditambahkan, dan saat ini tidak ada yang tersedia untuk grup ini.',
 
 	// members
 	'member.invite': 'Undang anggota',
@@ -276,6 +338,12 @@ export const id = {
 	'member.you': 'Anda',
 	'member.role.locked': 'Terkunci',
 	'member.changeRole': 'Ubah peran {name}',
+	'member.roleConfirm.title': 'Ubah peran anggota',
+	'member.roleConfirm.warning':
+		'Ubah peran {name} dari {from} jadi {to}? Akses mereka langsung menyesuaikan.',
+	'member.roleConfirm.submit': 'Ubah peran',
+	'member.roleConfirm.submitting': 'Menyimpan…',
+	'list.more': 'Tampilkan {n} lagi',
 	'member.remove': 'Keluarkan',
 	'member.remove.title': 'Keluarkan anggota',
 	'member.remove.warning':
@@ -296,11 +364,30 @@ export const id = {
 	'pending.expires': 'Kedaluwarsa',
 	'pending.invitedBy': 'Diundang oleh {name}',
 	'pending.resend': 'Kirim ulang',
+	'pending.resend.done': 'Undangan dikirim ulang.',
 	'pending.revoke': 'Cabut undangan',
+	'pending.revoke.short': 'Cabut',
+	'pending.revoke.title': 'Cabut undangan',
+	'pending.revoke.warning':
+		'Cabut undangan untuk {email}? Tautan undangan mereka langsung tidak berlaku.',
+	'pending.revoke.submit': 'Cabut',
+	'pending.revoke.submitting': 'Mencabut…',
+	'pending.revoke.done': 'Undangan dicabut.',
 	'pending.empty.title': 'Belum ada undangan tertunda',
 	'pending.empty.desc':
 		'Undangan yang menunggu diterima akan muncul di sini, lengkap dengan peran dan masa berlakunya.',
 	'pending.err.loadError': 'Gagal memuat undangan.',
+
+	// invitation status + filter
+	'inv.status.pending': 'Menunggu',
+	'inv.status.accepted': 'Diterima',
+	'inv.status.expired': 'Kedaluwarsa',
+	'inv.status.revoked': 'Dicabut',
+	'inv.status.rejected': 'Ditolak',
+	'inv.filter.label': 'Status',
+	'inv.filter.all': 'Semua',
+	'inv.empty.filtered': 'Tidak ada undangan dengan status ini.',
+	'inv.empty.reset': 'Tampilkan semua',
 
 	// permission resources
 	'perm.res.workspace': 'Ruang data',

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Brand } from '$lib/components/common';
+	import { Brand, LanguageSwitcher } from '$lib/components/common';
 	import { t } from '$lib/i18n';
 	import type { MeData } from '$lib/types';
 
@@ -93,6 +93,9 @@
 				<p class="text-xs text-muted">{t('app.account.signedInAs')}</p>
 				<p class="truncate text-sm font-medium">{user?.username}</p>
 				<p class="truncate font-mono text-xs text-muted">{user?.email}</p>
+			</li>
+			<li class="mt-1 border-t border-base-content/10 pt-1">
+				<LanguageSwitcher variant="inline" />
 			</li>
 			<li class="mt-1 border-t border-base-content/10 pt-1">
 				<form method="POST" action="/?/logout">

@@ -26,3 +26,4 @@ vite.config.ts.timestamp-*
 .impeccable/
 PRODUCT.md
 DESIGN.md
+.mcp.json
