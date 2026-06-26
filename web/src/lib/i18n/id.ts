@@ -90,6 +90,7 @@ export const id = {
 	'app.menu.open': 'Buka menu navigasi',
 	'app.account.signedInAs': 'Masuk sebagai',
 	'app.account.logout': 'Keluar',
+	'app.language': 'Bahasa',
 
 	// Workspaces (ruang data)
 	'ws.title': 'Ruang data',

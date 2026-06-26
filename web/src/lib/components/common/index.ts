@@ -4,6 +4,7 @@ export { default as AuthShell } from './AuthShell.svelte';
 export { default as Brand } from './Brand.svelte';
 export { default as Button } from './Button.svelte';
 export { default as Field } from './Field.svelte';
+export { default as LanguageSwitcher } from './LanguageSwitcher.svelte';
 export { default as OtpInput } from './OtpInput.svelte';
 export { default as PasswordField } from './PasswordField.svelte';
 export { default as SsoButtons } from './SsoButtons.svelte';

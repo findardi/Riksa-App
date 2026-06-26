@@ -2,8 +2,16 @@ import type { Handle } from '@sveltejs/kit';
 import { clearSession, getAccessToken, getRefreshToken, setSession } from '$lib/server/session';
 import { getMe, refreshSession } from '$lib/server/api';
 import { refreshSinleFlight } from '$lib/server/refresh-lock';
+import { setServerLocaleSource, LOCALE_COOKIE, defaultLocale, isLocale } from '$lib/i18n';
+import { getServerLocale, runWithLocale } from '$lib/i18n/server';
+
+// Point t()'s server-side locale resolution at the request-scoped store.
+setServerLocaleSource(getServerLocale);
 
 export const handle: Handle = async ({ event, resolve }) => {
+	const cookieLocale = event.cookies.get(LOCALE_COOKIE);
+	const locale = isLocale(cookieLocale) ? cookieLocale : defaultLocale;
+
 	const refresh = getRefreshToken(event.cookies);
 
 	let token = getAccessToken(event.cookies);
@@ -25,5 +33,8 @@ export const handle: Handle = async ({ event, resolve }) => {
 
 	event.locals.session = token;
 	event.locals.user = user;
-	return resolve(event);
+
+	return runWithLocale(locale, () =>
+		resolve(event, { transformPageChunk: ({ html }) => html.replace('%lang%', locale) })
+	);
 };
