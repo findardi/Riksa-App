@@ -87,5 +87,15 @@ func (m *Module) RegisterRoutes(r chi.Router) {
 				r.Delete("/{groupID}/unassign/{memberID}", m.handler.UnassignMember)
 			})
 		})
+
+		r.Route("/member", func(r chi.Router) {
+			r.Post("/{workspaceID}", m.handler.AddMember)
+			r.Post("/{workspaceID}/invite", m.handler.AddMembers)
+			r.Get("/{workspaceID}/invite", m.handler.GetInvitations)
+			r.Get("/{workspaceID}", m.handler.GetMembers)
+			r.Get("/{workspaceID}/{memberID}", m.handler.GetMember)
+			r.Put("/{workspaceID}/{memberID}", m.handler.UpdateMember)
+			r.Delete("/{workspaceID}/{memberID}", m.handler.DeleteMember)
+		})
 	})
 }
