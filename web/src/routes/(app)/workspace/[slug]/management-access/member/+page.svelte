@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { invalidateAll } from '$app/navigation';
+	import { page } from '$app/state';
 	import type { SubmitFunction } from '@sveltejs/kit';
 	import { Alert, Button, showToast } from '$lib/components/common';
 	import { roleDisplayName } from '$lib/access/permissions';
@@ -12,6 +13,10 @@
 	const members = $derived(data.members);
 	// Don't offer "owner" as an assignable role — one owner per room.
 	const roleOptions = $derived(data.roles.filter((r) => r.name !== 'owner'));
+
+	const base = $derived(`/workspace/${page.params.slug}/management-access/member`);
+	const inviteAction = $derived(`${base}/invite?/invite`);
+	const inviteHref = $derived(`${base}/invite`);
 
 	const isOwner = (m: WorkspaceMemberData) => m.user_id === data.ownerId;
 	const initial = (m: WorkspaceMemberData) =>
