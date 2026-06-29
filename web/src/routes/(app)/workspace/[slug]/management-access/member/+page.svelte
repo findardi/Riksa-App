@@ -1,15 +1,20 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { invalidateAll } from '$app/navigation';
+	import { page } from '$app/state';
 	import type { SubmitFunction } from '@sveltejs/kit';
 	import { Alert, Button, showToast } from '$lib/components/common';
 	import { roleDisplayName } from '$lib/access/permissions';
+	import { canManageMembers } from '$lib/access/roles';
 	import { t } from '$lib/i18n';
-	import type { MemberStatus, WorkspaceMemberData } from '$lib/types/workspace';
+	import type { MemberStatus, MyAccessWorkspace, WorkspaceMemberData } from '$lib/types/workspace';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
 	const members = $derived(data.members);
+	const canManage = $derived(
+		canManageMembers((page.data as { access?: MyAccessWorkspace }).access?.role ?? '')
+	);
 	// Don't offer "owner" as an assignable role — one owner per room.
 	const roleOptions = $derived(data.roles.filter((r) => r.name !== 'owner'));
 
@@ -141,10 +146,10 @@
 				{/if}
 			</div>
 
-			{#if owner}
+			{#if owner || !canManage}
 				<span
 					class="inline-flex flex-none items-center gap-1.5 text-sm text-muted"
-					title={t('member.role.locked')}
+					title={owner ? t('member.role.locked') : undefined}
 				>
 					{roleDisplayName(m.role_name)}
 					<svg

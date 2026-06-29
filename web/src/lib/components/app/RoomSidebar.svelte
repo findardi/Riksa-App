@@ -1,15 +1,18 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import { t } from '$lib/i18n';
+	import { canManageAccess } from '$lib/access/roles';
 	import WorkspaceStatusBadge from './WorkspaceStatusBadge.svelte';
-	import type { WorkspaceData } from '$lib/types/workspace';
+	import type { MyAccessWorkspace, WorkspaceData } from '$lib/types/workspace';
 
-	type Props = { workspace: WorkspaceData };
-	let { workspace }: Props = $props();
+	type Props = { workspace: WorkspaceData; access?: MyAccessWorkspace };
+	let { workspace, access }: Props = $props();
 
 	const overviewHref = $derived(`/workspace/${workspace.slug}`);
 	const accessManagementHref = $derived(`/workspace/${workspace.slug}/management-access`);
 	const isActive = (href: string) => page.url.pathname === href;
+	// Members/roles/groups admin surface — managers only (owner/admin).
+	const showAccess = $derived(!!access && canManageAccess(access.role));
 </script>
 
 <nav class="flex h-full flex-col gap-1 p-3" aria-label="Navigasi ruang data">
@@ -121,31 +124,33 @@
 		<span class="text-[0.6875rem] font-normal text-muted">{t('app.nav.soon')}</span>
 	</button>
 
-	<!-- People & permissions — not built yet. -->
-	<a
-		href={accessManagementHref}
-		class="flex items-center gap-3 rounded-field px-3 py-2 text-[0.9375rem] font-medium transition-colors {isActive(
-			accessManagementHref
-		)
-			? 'bg-primary/10 text-primary'
-			: 'text-base-content hover:bg-base-content/5'}"
-		aria-current={isActive(accessManagementHref) ? 'page' : undefined}
-	>
-		<svg
-			class="h-4.5 w-4.5 flex-none"
-			viewBox="0 0 24 24"
-			fill="none"
-			stroke="currentColor"
-			stroke-width="1.6"
-			stroke-linecap="round"
-			stroke-linejoin="round"
-			aria-hidden="true"
+	<!-- People & permissions — managers only. -->
+	{#if showAccess}
+		<a
+			href={accessManagementHref}
+			class="flex items-center gap-3 rounded-field px-3 py-2 text-[0.9375rem] font-medium transition-colors {isActive(
+				accessManagementHref
+			)
+				? 'bg-primary/10 text-primary'
+				: 'text-base-content hover:bg-base-content/5'}"
+			aria-current={isActive(accessManagementHref) ? 'page' : undefined}
 		>
-			<circle cx="9" cy="8" r="3" />
-			<path d="M3 20a6 6 0 0 1 12 0" />
-			<path d="M16 5.5a3 3 0 0 1 0 5.5" />
-			<path d="M18 13.5a6 6 0 0 1 3 5.5" />
-		</svg>
-		<span class="flex-1 text-left">{t('ws.section.access')}</span>
-	</a>
+			<svg
+				class="h-4.5 w-4.5 flex-none"
+				viewBox="0 0 24 24"
+				fill="none"
+				stroke="currentColor"
+				stroke-width="1.6"
+				stroke-linecap="round"
+				stroke-linejoin="round"
+				aria-hidden="true"
+			>
+				<circle cx="9" cy="8" r="3" />
+				<path d="M3 20a6 6 0 0 1 12 0" />
+				<path d="M16 5.5a3 3 0 0 1 0 5.5" />
+				<path d="M18 13.5a6 6 0 0 1 3 5.5" />
+			</svg>
+			<span class="flex-1 text-left">{t('ws.section.access')}</span>
+		</a>
+	{/if}
 </nav>

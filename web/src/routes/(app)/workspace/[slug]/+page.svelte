@@ -4,12 +4,19 @@
 	import { invalidateAll } from '$app/navigation';
 	import type { SubmitFunction } from '@sveltejs/kit';
 	import { Alert, Button, Field, TextareaField } from '$lib/components/common';
+	import { WorkspaceStatusBadge } from '$lib/components/app';
+	import { canDeleteWorkspace, canEditWorkspace } from '$lib/access/roles';
 	import { t } from '$lib/i18n';
-	import type { WorkspaceStatus } from '$lib/types/workspace';
+	import type { MyAccessWorkspace, WorkspaceStatus } from '$lib/types/workspace';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
 	const ws = $derived(data.workspace);
+
+	// Edit, status, and delete are all RequireOwner on the backend — owner only.
+	const role = $derived((data as { access?: MyAccessWorkspace }).access?.role ?? '');
+	const canEdit = $derived(canEditWorkspace(role));
+	const canDelete = $derived(canDeleteWorkspace(role));
 
 	const dateFmt = new Intl.DateTimeFormat('id-ID', {
 		day: 'numeric',
@@ -142,7 +149,9 @@
 				<span>{t('ws.detail.updated')} {fmtDate(ws.updated_at)}</span>
 			</p>
 		</div>
-		<Button variant="ghost" onclick={openEdit}>{t('ws.edit.open')}</Button>
+		{#if canEdit}
+			<Button variant="ghost" onclick={openEdit}>{t('ws.edit.open')}</Button>
+		{/if}
 	</header>
 
 	{#if ws.description}
@@ -156,46 +165,52 @@
 		<h2 id="status-label" class="text-sm font-semibold">{t('ws.status.label')}</h2>
 		<p class="mt-1 text-sm text-muted">{statusHint}</p>
 
-		<form
-			method="POST"
-			action="?/updateStatus"
-			use:enhance={submitStatus}
-			role="group"
-			aria-labelledby="status-label"
-			class="mt-3 inline-flex rounded-field border border-base-content/10 p-0.5"
-		>
-			{#each statuses as s (s)}
-				{@const current = s === ws.status}
-				<button
-					name="status"
-					value={s}
-					disabled={current || pendingStatus !== null}
-					aria-pressed={current}
-					class="inline-flex items-center gap-1.5 rounded-sm px-3 py-1.5 text-sm font-medium transition-colors {current
-						? 'bg-primary/10 text-primary'
-						: 'text-muted hover:bg-base-content/5 hover:text-base-content disabled:cursor-not-allowed disabled:text-muted/60 disabled:hover:bg-transparent disabled:hover:text-muted/60'}"
-				>
-					{#if pendingStatus === s}
-						<span class="loading loading-spinner loading-xs"></span>
-					{/if}
-					{t(`ws.status.${s}`)}
-				</button>
-			{/each}
-		</form>
+		{#if canEdit}
+			<form
+				method="POST"
+				action="?/updateStatus"
+				use:enhance={submitStatus}
+				role="group"
+				aria-labelledby="status-label"
+				class="mt-3 inline-flex rounded-field border border-base-content/10 p-0.5"
+			>
+				{#each statuses as s (s)}
+					{@const current = s === ws.status}
+					<button
+						name="status"
+						value={s}
+						disabled={current || pendingStatus !== null}
+						aria-pressed={current}
+						class="inline-flex items-center gap-1.5 rounded-sm px-3 py-1.5 text-sm font-medium transition-colors {current
+							? 'bg-primary/10 text-primary'
+							: 'text-muted hover:bg-base-content/5 hover:text-base-content disabled:cursor-not-allowed disabled:text-muted/60 disabled:hover:bg-transparent disabled:hover:text-muted/60'}"
+					>
+						{#if pendingStatus === s}
+							<span class="loading loading-spinner loading-xs"></span>
+						{/if}
+						{t(`ws.status.${s}`)}
+					</button>
+				{/each}
+			</form>
+		{:else}
+			<div class="mt-3"><WorkspaceStatusBadge status={ws.status} /></div>
+		{/if}
 	</section>
 
 	<!-- Delete — quiet settings-style row; the red button carries the danger. -->
-	<section
-		class="mt-10 flex flex-col gap-3 border-t border-base-content/10 pt-6 sm:flex-row sm:items-start sm:justify-between sm:gap-6"
-	>
-		<div class="min-w-0">
-			<h2 class="text-sm font-semibold">{t('ws.delete.title')}</h2>
-			<p class="mt-1 max-w-[48ch] text-sm text-muted text-pretty">{t('ws.delete.body')}</p>
-		</div>
-		<div class="flex-none">
-			<Button variant="danger" onclick={openDelete}>{t('ws.delete.open')}</Button>
-		</div>
-	</section>
+	{#if canDelete}
+		<section
+			class="mt-10 flex flex-col gap-3 border-t border-base-content/10 pt-6 sm:flex-row sm:items-start sm:justify-between sm:gap-6"
+		>
+			<div class="min-w-0">
+				<h2 class="text-sm font-semibold">{t('ws.delete.title')}</h2>
+				<p class="mt-1 max-w-[48ch] text-sm text-muted text-pretty">{t('ws.delete.body')}</p>
+			</div>
+			<div class="flex-none">
+				<Button variant="danger" onclick={openDelete}>{t('ws.delete.open')}</Button>
+			</div>
+		</section>
+	{/if}
 </div>
 
 <!-- Edit dialog -->

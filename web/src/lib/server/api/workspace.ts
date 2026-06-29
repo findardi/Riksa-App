@@ -1,6 +1,7 @@
 import type { ApiResult } from '$lib/types';
 import type {
 	CreateWorkspacePayload,
+	MyAccessWorkspace,
 	UpdateWorkspacePayload,
 	WorkspaceData,
 	WorkspaceStatus
@@ -45,4 +46,8 @@ export async function updateWorkspaceStatus(
 // Delete returns an empty data envelope (200, data: null), not 204.
 export async function deleteWorkspace(token: string, id: string): Promise<ApiResult<null>> {
 	return del<null>(`/workspaces/${id}`, token);
+}
+
+export async function getMyAccessWorkspace(token: string, id: string): Promise<ApiResult<MyAccessWorkspace>> {
+	return get<MyAccessWorkspace>(`/access/workspaces/${id}/me`, token)
 }
