@@ -25,6 +25,7 @@ type Querier interface {
 	GetMember(ctx context.Context, id pgtype.UUID) (GetMemberRow, error)
 	GetMemberByWorkspaceUser(ctx context.Context, arg GetMemberByWorkspaceUserParams) (WorkspaceMember, error)
 	GetMembers(ctx context.Context, workspaceID pgtype.UUID) ([]GetMembersRow, error)
+	GetMembershipWithPermissions(ctx context.Context, arg GetMembershipWithPermissionsParams) (GetMembershipWithPermissionsRow, error)
 	GetRole(ctx context.Context, id pgtype.UUID) (WorkspaceRole, error)
 	GetRoles(ctx context.Context, workspaceID pgtype.UUID) ([]WorkspaceRole, error)
 	GetWorkspaceInvitation(ctx context.Context, id pgtype.UUID) (WorkspaceUserInvitation, error)

@@ -1,5 +1,5 @@
 import { error, redirect } from '@sveltejs/kit';
-import { getWorkspace, getWorkspaces } from '$lib/server/api';
+import { getMyAccessWorkspace, getWorkspace, getWorkspaces } from '$lib/server/api';
 import { t } from '$lib/i18n';
 import type { LayoutServerLoad } from './$types';
 
@@ -17,13 +17,24 @@ export const load: LayoutServerLoad = async ({ locals, params }) => {
 	const match = list.data.find((w) => w.slug === params.slug);
 	if (!match) error(404, t('ws.detail.notFound'));
 
-	const res = await getWorkspace(locals.session, match.id);
-	if (!res.ok) {
-		if (res.status === 401) redirect(303, '/login');
-		if (res.status === 403) error(403, t('ws.detail.forbidden'));
-		if (res.status === 404) error(404, t('ws.detail.notFound'));
-		error(res.status || 500, t('err.generic'));
+	const [workRes, myAccessRes] = await Promise.all([
+		getWorkspace(locals.session, match.id),
+		getMyAccessWorkspace(locals.session, match.id)
+	])
+
+	if (!workRes.ok) {
+		if (workRes.status === 401) redirect(303, '/login');
+		if (workRes.status === 403) error(403, t('ws.detail.forbidden'));
+		if (workRes.status === 404) error(404, t('ws.detail.notFound'));
+		error(workRes.status || 500, t('err.generic'));
 	}
 
-	return { workspace: res.data };
+	if (!myAccessRes.ok) {
+		if (myAccessRes.status === 401) redirect(303, '/login');
+		if (myAccessRes.status === 403) error(403, t('ws.detail.forbidden'));
+		if (myAccessRes.status === 404) error(404, t('ws.detail.notFound'));
+		error(myAccessRes.status || 500, t('err.generic'));
+	}
+
+	return { workspace: workRes.data, access: myAccessRes.data };
 };

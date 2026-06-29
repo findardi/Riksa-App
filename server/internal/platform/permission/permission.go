@@ -57,11 +57,9 @@ func IsValid(p string) bool {
 }
 
 const (
-	RoleOwner       = "owner"
-	RoleAdmin       = "admin"
-	RoleContributor = "contributor"
-	RoleViewer      = "viewer"
-	RoleGuest       = "guest"
+	RoleOwner = "owner"
+	RoleAdmin = "admin"
+	RoleGuest = "guest"
 )
 
 type SystemRole struct {
@@ -84,24 +82,6 @@ func GetAdmin() []string {
 	}
 }
 
-func GetContributor() []string {
-	return []string{
-		PermWorkspaceView,
-		PermMemberView,
-		PermGroupView,
-		PermFolderView, PermFolderCreate, PermFolderEdit, PermFolderDelete,
-		PermDocumentView, PermDocumentUpload, PermDocumentDownload, PermDocumentEdit, PermDocumentDelete,
-	}
-}
-
-func GetViewer() []string {
-	return []string{
-		PermWorkspaceView,
-		PermFolderView,
-		PermDocumentView, PermDocumentDownload,
-	}
-}
-
 func GetGuest() []string {
 	return []string{
 		PermWorkspaceView,
@@ -114,8 +94,6 @@ func DefaultSystemRoles() []SystemRole {
 	return []SystemRole{
 		{Name: RoleOwner, Permissions: GetOwner()},
 		{Name: RoleAdmin, Permissions: GetAdmin()},
-		{Name: RoleContributor, Permissions: GetContributor()},
-		{Name: RoleViewer, Permissions: GetViewer()},
 		{Name: RoleGuest, Permissions: GetGuest()},
 	}
 }

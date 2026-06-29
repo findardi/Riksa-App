@@ -37,6 +37,17 @@ var ErrResourceNotFound = errors.New("resource not found")
 // the resource is absent.
 type OwnerResolver func(ctx context.Context, id string) (ownerID string, err error)
 
+// Membership is the caller's resolved standing in a workspace: their role name,
+// the flattened permission set of that role, and the member status. RequireMember
+// loads it into the request context; RequirePermission reads it.
+type Membership struct {
+	Role        string   `json:"role"`
+	Permissions []string `json:"permissions"`
+	Status      string   `json:"status"`
+}
+
+type MemberResolver func(ctx context.Context, workspaceID string, userID string) (*Membership, error)
+
 type RateStore interface {
 	Allow(key string, limit int, window time.Duration) (allowed bool, retryAfter time.Duration)
 }
@@ -53,6 +64,8 @@ type RateConfig struct {
 type ctxKey string
 
 const claimsKey ctxKey = "auth_claims"
+
+const membershipKey ctxKey = "auth_membership"
 
 type Middleware struct {
 	verifier TokenVerifier
@@ -81,12 +94,6 @@ func (m *Middleware) RequireAuth(next http.Handler) http.Handler {
 		claims, err := m.verifier.VerifyToken(parts[1])
 		if err != nil {
 			response.Error(w, http.StatusUnauthorized, "invalid or expired token", nil)
-			return
-		}
-
-		// only access tokens may pass; reject anything not minted as token_login
-		if claims.Typ != token.TokenLogin {
-			response.Error(w, http.StatusUnauthorized, "invalid token type", nil)
 			return
 		}
 
@@ -150,9 +157,60 @@ func (m *Middleware) RequireOwner(param string, resolve OwnerResolver) func(http
 	}
 }
 
+func (m *Middleware) RequireMember(param string, resolver MemberResolver) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			claims, ok := ClaimsFromContext(r.Context())
+			if !ok {
+				response.Error(w, http.StatusUnauthorized, "unauthorized", nil)
+				return
+			}
+
+			ms, err := resolver(r.Context(), chi.URLParam(r, param), claims.ID)
+			switch {
+			case errors.Is(err, ErrResourceNotFound):
+				response.Error(w, http.StatusForbidden, "forbidden", nil)
+			case err != nil:
+				log.Printf("require member internal error: %v", err)
+				response.Error(w, http.StatusInternalServerError, "internal server error", nil)
+			default:
+				ctx := context.WithValue(r.Context(), membershipKey, ms)
+				next.ServeHTTP(w, r.WithContext(ctx))
+			}
+		})
+	}
+}
+
+func (m *Middleware) RequirePermission(perm string) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			ms, ok := MembershipFromContext(r.Context())
+			if !ok {
+				log.Printf("require permission: membership missing in context (RequireMember not applied?)")
+				response.Error(w, http.StatusInternalServerError, "internal server error", nil)
+				return
+			}
+
+			for _, p := range ms.Permissions {
+				if p == perm {
+					next.ServeHTTP(w, r)
+					return
+				}
+			}
+
+			response.Error(w, http.StatusForbidden, "forbidden", nil)
+		})
+	}
+}
+
 func ClaimsFromContext(ctx context.Context) (*token.JwtClaims, bool) {
 	claims, ok := ctx.Value(claimsKey).(*token.JwtClaims)
 	return claims, ok
+}
+
+func MembershipFromContext(ctx context.Context) (*Membership, bool) {
+	ms, ok := ctx.Value(membershipKey).(*Membership)
+	return ms, ok
 }
 
 func (m *Middleware) RateLimit(cfg RateConfig) func(http.Handler) http.Handler {

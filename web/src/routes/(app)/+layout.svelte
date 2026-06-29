@@ -2,7 +2,7 @@
 	import { afterNavigate } from '$app/navigation';
 	import { page } from '$app/state';
 	import { AppSidebar, AppTopbar, RoomSidebar } from '$lib/components/app';
-	import type { WorkspaceData } from '$lib/types/workspace';
+	import type { MyAccessWorkspace, WorkspaceData } from '$lib/types/workspace';
 	import type { LayoutProps } from './$types';
 
 	let { data, children }: LayoutProps = $props();
@@ -11,6 +11,8 @@
 	// Context-swap: inside a room, `page.data.workspace` is set by the room
 	// layout load, so the shell shows room nav instead of the global nav.
 	const room = $derived((page.data as { workspace?: WorkspaceData }).workspace);
+	// The viewer's standing in the open room — drives role-based nav.
+	const access = $derived((page.data as { access?: MyAccessWorkspace }).access);
 
 	// Close the mobile drawer after any navigation.
 	afterNavigate(() => (navOpen = false));
@@ -29,7 +31,7 @@
 		<!-- Desktop: static sidebar — global nav, or room nav inside a room. -->
 		<aside class="hidden w-60 shrink-0 border-r border-base-content/10 bg-base-300 md:block">
 			{#if room}
-				<RoomSidebar workspace={room} />
+				<RoomSidebar workspace={room} {access} />
 			{:else}
 				<AppSidebar invitations={data.invitationCount} />
 			{/if}
@@ -51,7 +53,7 @@
 			aria-hidden={!navOpen}
 		>
 			{#if room}
-				<RoomSidebar workspace={room} />
+				<RoomSidebar workspace={room} {access} />
 			{:else}
 				<AppSidebar invitations={data.invitationCount} />
 			{/if}

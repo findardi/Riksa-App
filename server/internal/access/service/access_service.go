@@ -47,11 +47,19 @@ var validInvitationStatuses = map[string]struct{}{
 }
 
 var (
-	ErrRoleNameTaken    = errors.New("role name already taken")
-	ErrRoleNotFound     = errors.New("role not found")
-	ErrRoleInUse        = errors.New("role is still assigned to members")
-	ErrMemberAlreadyAdd = errors.New("user already a member of this workspace")
-	ErrMemberNotFound   = errors.New("member not found")
+	ErrRoleNameTaken       = errors.New("role name already taken")
+	ErrRoleNotFound        = errors.New("role not found")
+	ErrRoleInUse           = errors.New("role is still assigned to members")
+	ErrSystemRoleImmutable = errors.New("system roles cannot be modified or deleted")
+	ErrMemberAlreadyAdd    = errors.New("user already a member of this workspace")
+	ErrMemberNotFound      = errors.New("member not found")
+
+	ErrCannotRemoveOwner     = errors.New("the workspace owner cannot be removed")
+	ErrCannotAssignOwnerRole = errors.New("the owner role cannot be assigned")
+	ErrCannotChangeOwnerRole = errors.New("the owner's role cannot be changed")
+	ErrOnlyOwnerAssignsAdmin = errors.New("only the owner can assign the admin role")
+	ErrCannotRemoveSelf      = errors.New("you cannot remove yourself")
+	ErrCannotChangeSelfRole  = errors.New("you cannot change your own role")
 
 	ErrInvitationNotFound      = errors.New("invitation not found")
 	ErrInvitationNotResendable = errors.New("invitation can no longer be resent")
@@ -114,6 +122,22 @@ func isForeignKeyViolation(err error) bool {
 	return false
 }
 
+// guardRoleAssignment enforces who may grant which privileged system role when
+// inviting or changing a member. The owner role is never assignable via the API;
+// the admin role may only be granted by the owner. Any other role (guest, custom)
+// passes — the caller already holds the member:add/edit permission to reach here.
+func guardRoleAssignment(actorRole, targetRole string) error {
+	switch targetRole {
+	case permission.RoleOwner:
+		return ErrCannotAssignOwnerRole
+	case permission.RoleAdmin:
+		if actorRole != permission.RoleOwner {
+			return ErrOnlyOwnerAssignsAdmin
+		}
+	}
+	return nil
+}
+
 func (s *AccessService) InsertRole(ctx context.Context, req dto.CreateWorkspaceRoleRequest) (dto.WorkspaceRoleResponse, error) {
 	var uid pgtype.UUID
 	if err := uid.Scan(req.WorkspaceID); err != nil {
@@ -126,11 +150,13 @@ func (s *AccessService) InsertRole(ctx context.Context, req dto.CreateWorkspaceR
 		}
 	}
 
+	// is_system is never settable via the API; only ProvisionWorkspace seeds
+	// system roles. User-created roles are always non-system.
 	role, err := s.repo.InsertRole(ctx, accessdb.InsertRoleParams{
 		WorkspaceID: uid,
 		Name:        req.Name,
 		Permissions: req.Permission,
-		IsSystem:    req.IsSystem,
+		IsSystem:    false,
 	})
 
 	if isUniqueViolation(err, "workspace_roles_name_key") {
@@ -194,6 +220,17 @@ func (s *AccessService) AddMember(ctx context.Context, req dto.CreateWorkspaceMe
 		return dto.WorkspaceMemberResponse{}, fmt.Errorf("parse role id: %w", err)
 	}
 
+	role, err := s.repo.GetRole(ctx, roleID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return dto.WorkspaceMemberResponse{}, ErrRoleNotFound
+	}
+	if err != nil {
+		return dto.WorkspaceMemberResponse{}, fmt.Errorf("get role: %w", err)
+	}
+	if err := guardRoleAssignment(req.ActorRole, role.Name); err != nil {
+		return dto.WorkspaceMemberResponse{}, err
+	}
+
 	status := req.Status
 	if status == "" {
 		status = MemberStatusActive
@@ -235,6 +272,17 @@ func (s *AccessService) AddMembers(ctx context.Context, req dto.AddMembersReques
 	}
 	if err := inID.Scan(req.InvitedBy); err != nil {
 		return outcome, fmt.Errorf("parse invited by id: %w", err)
+	}
+
+	invitedRole, err := s.repo.GetRole(ctx, roleID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return outcome, ErrRoleNotFound
+	}
+	if err != nil {
+		return outcome, fmt.Errorf("get role: %w", err)
+	}
+	if err := guardRoleAssignment(req.ActorRole, invitedRole.Name); err != nil {
+		return outcome, err
 	}
 
 	seen := make(map[string]struct{})
@@ -475,6 +523,17 @@ func (s *AccessService) UpdateRole(ctx context.Context, req dto.UpdateWorkspaceR
 		return dto.WorkspaceRoleResponse{}, fmt.Errorf("parse role id: %w", err)
 	}
 
+	existing, err := s.repo.GetRole(ctx, roleID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return dto.WorkspaceRoleResponse{}, ErrRoleNotFound
+	}
+	if err != nil {
+		return dto.WorkspaceRoleResponse{}, fmt.Errorf("get role: %w", err)
+	}
+	if existing.IsSystem {
+		return dto.WorkspaceRoleResponse{}, ErrSystemRoleImmutable
+	}
+
 	role, err := s.repo.EditRole(ctx, accessdb.EditRoleParams{
 		ID:          roleID,
 		Name:        req.Name,
@@ -507,7 +566,18 @@ func (s *AccessService) DeleteRole(ctx context.Context, roleId string) error {
 		return fmt.Errorf("parse role id: %w", err)
 	}
 
-	err := s.repo.DeleteRole(ctx, roleID)
+	existing, err := s.repo.GetRole(ctx, roleID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return ErrRoleNotFound
+	}
+	if err != nil {
+		return fmt.Errorf("get role: %w", err)
+	}
+	if existing.IsSystem {
+		return ErrSystemRoleImmutable
+	}
+
+	err = s.repo.DeleteRole(ctx, roleID)
 	if isForeignKeyViolation(err) {
 		return ErrRoleInUse
 	}
@@ -589,7 +659,29 @@ func (s *AccessService) UpdateMemberRole(ctx context.Context, req dto.UpdateMemb
 		return dto.GetMemberResponse{}, fmt.Errorf("parse role id: %w", err)
 	}
 
-	_, err := s.repo.UpdateRole(ctx, accessdb.UpdateRoleParams{
+	target, err := s.GetMember(ctx, req.MemberID)
+	if err != nil {
+		return dto.GetMemberResponse{}, err
+	}
+	if target.UserID == req.ActorID {
+		return dto.GetMemberResponse{}, ErrCannotChangeSelfRole
+	}
+	if target.RoleName == permission.RoleOwner {
+		return dto.GetMemberResponse{}, ErrCannotChangeOwnerRole
+	}
+
+	newRole, err := s.repo.GetRole(ctx, rID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return dto.GetMemberResponse{}, ErrRoleNotFound
+	}
+	if err != nil {
+		return dto.GetMemberResponse{}, fmt.Errorf("get role: %w", err)
+	}
+	if err := guardRoleAssignment(req.ActorRole, newRole.Name); err != nil {
+		return dto.GetMemberResponse{}, err
+	}
+
+	_, err = s.repo.UpdateRole(ctx, accessdb.UpdateRoleParams{
 		ID:     mID,
 		RoleID: rID,
 	})
@@ -603,10 +695,21 @@ func (s *AccessService) UpdateMemberRole(ctx context.Context, req dto.UpdateMemb
 	return s.GetMember(ctx, req.MemberID)
 }
 
-func (s *AccessService) DeleteMember(ctx context.Context, memberID string) error {
+func (s *AccessService) DeleteMember(ctx context.Context, memberID, actorID string) error {
 	var mID pgtype.UUID
 	if err := mID.Scan(memberID); err != nil {
 		return fmt.Errorf("parse member id: %w", err)
+	}
+
+	target, err := s.GetMember(ctx, memberID)
+	if err != nil {
+		return err
+	}
+	if target.UserID == actorID {
+		return ErrCannotRemoveSelf
+	}
+	if target.RoleName == permission.RoleOwner {
+		return ErrCannotRemoveOwner
 	}
 
 	if err := s.repo.DeleteMember(ctx, mID); err != nil {

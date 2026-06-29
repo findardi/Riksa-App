@@ -29,6 +29,16 @@ func NewAccessHandler(svc *service.AccessService) *AccessHandler {
 	}
 }
 
+func (h *AccessHandler) GetMyAccess(w http.ResponseWriter, r *http.Request) {
+	ms, ok := middleware.MembershipFromContext(r.Context())
+	if !ok {
+		response.Error(w, http.StatusInternalServerError, "internal server error", nil)
+		return
+	}
+
+	response.Success(w, http.StatusOK, "get my access success", ms)
+}
+
 func (h *AccessHandler) CreateRole(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, MaxBodyBytes)
 
@@ -120,6 +130,8 @@ func (h *AccessHandler) UpdateRole(w http.ResponseWriter, r *http.Request) {
 			response.Error(w, http.StatusConflict, err.Error(), nil)
 		case errors.Is(err, service.ErrRoleNotFound):
 			response.Error(w, http.StatusNotFound, err.Error(), nil)
+		case errors.Is(err, service.ErrSystemRoleImmutable):
+			response.Error(w, http.StatusForbidden, err.Error(), nil)
 		default:
 			log.Printf("register internal error: %v", err)
 			response.Error(w, http.StatusInternalServerError, "internal server error", nil)
@@ -137,6 +149,10 @@ func (h *AccessHandler) DeleteRole(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case errors.Is(err, service.ErrRoleInUse):
 			response.Error(w, http.StatusBadRequest, err.Error(), nil)
+		case errors.Is(err, service.ErrRoleNotFound):
+			response.Error(w, http.StatusNotFound, err.Error(), nil)
+		case errors.Is(err, service.ErrSystemRoleImmutable):
+			response.Error(w, http.StatusForbidden, err.Error(), nil)
 		default:
 			log.Printf("register internal error: %v", err)
 			response.Error(w, http.StatusInternalServerError, "internal server error", nil)
@@ -167,13 +183,24 @@ func (h *AccessHandler) AddMember(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	ms, ok := middleware.MembershipFromContext(r.Context())
+	if !ok {
+		response.Error(w, http.StatusInternalServerError, "internal server error", nil)
+		return
+	}
+
 	req.WorkspaceId = wID
+	req.ActorRole = ms.Role
 
 	res, err := h.svc.AddMember(r.Context(), req)
 	if err != nil {
 		switch {
 		case errors.Is(err, service.ErrMemberAlreadyAdd):
 			response.Error(w, http.StatusConflict, err.Error(), nil)
+		case errors.Is(err, service.ErrCannotAssignOwnerRole), errors.Is(err, service.ErrOnlyOwnerAssignsAdmin):
+			response.Error(w, http.StatusForbidden, err.Error(), nil)
+		case errors.Is(err, service.ErrRoleNotFound):
+			response.Error(w, http.StatusNotFound, err.Error(), nil)
 		default:
 			log.Printf("register internal error: %v", err)
 			response.Error(w, http.StatusInternalServerError, "internal server error", nil)
@@ -206,13 +233,27 @@ func (h *AccessHandler) AddMembers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	ms, ok := middleware.MembershipFromContext(r.Context())
+	if !ok {
+		response.Error(w, http.StatusInternalServerError, "internal server error", nil)
+		return
+	}
+
 	req.WorkspaceId = wID
 	req.InvitedBy = claims.ID
+	req.ActorRole = ms.Role
 
 	res, err := h.svc.AddMembers(r.Context(), req)
 	if err != nil {
-		log.Printf("add members internal error: %v", err)
-		response.Error(w, http.StatusInternalServerError, "internal server error", nil)
+		switch {
+		case errors.Is(err, service.ErrCannotAssignOwnerRole), errors.Is(err, service.ErrOnlyOwnerAssignsAdmin):
+			response.Error(w, http.StatusForbidden, err.Error(), nil)
+		case errors.Is(err, service.ErrRoleNotFound):
+			response.Error(w, http.StatusNotFound, err.Error(), nil)
+		default:
+			log.Printf("add members internal error: %v", err)
+			response.Error(w, http.StatusInternalServerError, "internal server error", nil)
+		}
 		return
 	}
 
@@ -286,14 +327,33 @@ func (h *AccessHandler) UpdateMember(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	claims, ok := middleware.ClaimsFromContext(r.Context())
+	if !ok {
+		response.Error(w, http.StatusUnauthorized, "unauthorized", nil)
+		return
+	}
+
+	ms, ok := middleware.MembershipFromContext(r.Context())
+	if !ok {
+		response.Error(w, http.StatusInternalServerError, "internal server error", nil)
+		return
+	}
+
 	req.MemberID = mID
+	req.ActorRole = ms.Role
+	req.ActorID = claims.ID
 
 	res, err := h.svc.UpdateMemberRole(r.Context(), req)
 
 	if err != nil {
 		switch {
-		case errors.Is(err, service.ErrMemberNotFound):
+		case errors.Is(err, service.ErrMemberNotFound), errors.Is(err, service.ErrRoleNotFound):
 			response.Error(w, http.StatusNotFound, err.Error(), nil)
+		case errors.Is(err, service.ErrCannotChangeOwnerRole),
+			errors.Is(err, service.ErrCannotAssignOwnerRole),
+			errors.Is(err, service.ErrOnlyOwnerAssignsAdmin),
+			errors.Is(err, service.ErrCannotChangeSelfRole):
+			response.Error(w, http.StatusForbidden, err.Error(), nil)
 		default:
 			log.Printf("register internal error: %v", err)
 			response.Error(w, http.StatusInternalServerError, "internal server error", nil)
@@ -307,9 +367,22 @@ func (h *AccessHandler) UpdateMember(w http.ResponseWriter, r *http.Request) {
 func (h *AccessHandler) DeleteMember(w http.ResponseWriter, r *http.Request) {
 	mID := chi.URLParam(r, "memberID")
 
-	if err := h.svc.DeleteMember(r.Context(), mID); err != nil {
-		log.Printf("register internal error: %v", err)
-		response.Error(w, http.StatusInternalServerError, "internal server error", nil)
+	claims, ok := middleware.ClaimsFromContext(r.Context())
+	if !ok {
+		response.Error(w, http.StatusUnauthorized, "unauthorized", nil)
+		return
+	}
+
+	if err := h.svc.DeleteMember(r.Context(), mID, claims.ID); err != nil {
+		switch {
+		case errors.Is(err, service.ErrMemberNotFound):
+			response.Error(w, http.StatusNotFound, err.Error(), nil)
+		case errors.Is(err, service.ErrCannotRemoveOwner), errors.Is(err, service.ErrCannotRemoveSelf):
+			response.Error(w, http.StatusForbidden, err.Error(), nil)
+		default:
+			log.Printf("register internal error: %v", err)
+			response.Error(w, http.StatusInternalServerError, "internal server error", nil)
+		}
 		return
 	}
 

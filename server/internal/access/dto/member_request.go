@@ -5,11 +5,14 @@ type CreateWorkspaceMemberRequest struct {
 	UserId      string `json:"user_id" validate:"required"`
 	RoleId      string `json:"role_id" validate:"required"`
 	Status      string `json:"status"`
+	ActorRole   string `json:"-"`
 }
 
 type UpdateMemberRoleRequest struct {
-	MemberID string `json:"-"`
-	RoleId   string `json:"role_id" validate:"required"`
+	MemberID  string `json:"-"`
+	RoleId    string `json:"role_id" validate:"required"`
+	ActorRole string `json:"-"`
+	ActorID   string `json:"-"`
 }
 
 type CheckEmailRequest struct {
@@ -21,4 +24,5 @@ type AddMembersRequest struct {
 	Email       []string `json:"email" validate:"required,min=1,max=50,dive,email"`
 	RoleId      string   `json:"role_id" validate:"required,uuid"`
 	InvitedBy   string   `json:"-"`
+	ActorRole   string   `json:"-"`
 }

@@ -5,11 +5,14 @@
 	import type { SubmitFunction } from '@sveltejs/kit';
 	import { Alert, Button } from '$lib/components/common';
 	import { roleDisplayName } from '$lib/access/permissions';
+	import { assignableRoles } from '$lib/access/roles';
 	import { t } from '$lib/i18n';
 	import type { AddMemberResult, WorkspaceRoleData } from '$lib/types/workspace';
 
 	type Props = {
 		roles: WorkspaceRoleData[];
+		/** The inviter's own role — limits which roles they may grant. */
+		viewerRole: string;
 		/** Form action URL — same-route (`?/invite`) or a cross-route path. */
 		action: string;
 		/** Controls visibility; the host opens by setting this true. */
@@ -20,10 +23,18 @@
 		oncompleted?: (invited: number) => void;
 	};
 
-	let { roles, action, open = $bindable(false), pendingHref, oncompleted }: Props = $props();
+	let {
+		roles,
+		viewerRole,
+		action,
+		open = $bindable(false),
+		pendingHref,
+		oncompleted
+	}: Props = $props();
 
-	// Don't offer "owner" as an assignable role — one owner per room.
-	const roleOptions = $derived(roles.filter((r) => r.name !== 'owner'));
+	// Only the roles the inviter is allowed to grant (owner → all but owner;
+	// admin → guest only). Backend enforces the same; this just hides the rest.
+	const roleOptions = $derived(assignableRoles(viewerRole, roles));
 	// Default to the least-privileged role so a careless batch can't over-grant.
 	const defaultRoleId = $derived(
 		roleOptions.find((r) => r.name === 'guest')?.id ?? roleOptions.at(-1)?.id ?? ''
@@ -254,7 +265,7 @@
 				>
 					{#each emails as email (email)}
 						<span
-							class="inline-flex items-center gap-1 rounded-selector bg-base-content/[0.06] py-0.5 pr-0.5 pl-2 font-mono text-sm"
+							class="inline-flex items-center gap-1 rounded-selector bg-base-content/6 py-0.5 pr-0.5 pl-2 font-mono text-sm"
 						>
 							{email}
 							<button
