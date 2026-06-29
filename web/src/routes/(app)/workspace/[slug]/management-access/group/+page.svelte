@@ -4,12 +4,16 @@
 	import { page } from '$app/state';
 	import type { SubmitFunction } from '@sveltejs/kit';
 	import { Alert, Button, Field, TextareaField, Toaster, showToast } from '$lib/components/common';
+	import { canManageGroups } from '$lib/access/roles';
 	import { t } from '$lib/i18n';
-	import type { GroupWorkspaceData } from '$lib/types/workspace';
+	import type { GroupWorkspaceData, MyAccessWorkspace } from '$lib/types/workspace';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
 	const groups = $derived(data.groups);
+	const canManage = $derived(
+		canManageGroups((page.data as { access?: MyAccessWorkspace }).access?.role ?? '')
+	);
 
 	const base = $derived(`/workspace/${page.params.slug}/management-access/group`);
 
@@ -90,21 +94,23 @@
 		{t('ma.group')}
 		<span class="ml-1 font-mono text-xs font-normal text-muted">{groups.length}</span>
 	</h2>
-	<button type="button" onclick={openCreate} class="btn btn-primary btn-sm">
-		<svg
-			class="h-4 w-4"
-			viewBox="0 0 24 24"
-			fill="none"
-			stroke="currentColor"
-			stroke-width="1.8"
-			stroke-linecap="round"
-			stroke-linejoin="round"
-			aria-hidden="true"
-		>
-			<path d="M12 5v14M5 12h14" />
-		</svg>
-		{t('group.new')}
-	</button>
+	{#if canManage}
+		<button type="button" onclick={openCreate} class="btn btn-primary btn-sm">
+			<svg
+				class="h-4 w-4"
+				viewBox="0 0 24 24"
+				fill="none"
+				stroke="currentColor"
+				stroke-width="1.8"
+				stroke-linecap="round"
+				stroke-linejoin="round"
+				aria-hidden="true"
+			>
+				<path d="M12 5v14M5 12h14" />
+			</svg>
+			{t('group.new')}
+		</button>
+	{/if}
 </div>
 
 {#if groups.length}
@@ -135,50 +141,52 @@
 					{/if}
 				</div>
 
-				<div class="flex flex-none items-center gap-1">
-					<button
-						type="button"
-						onclick={() => openEdit(group)}
-						class="inline-flex items-center gap-1.5 rounded-field px-2.5 py-2.5 text-sm font-medium text-muted transition-colors hover:bg-base-content/5 hover:text-base-content"
-					>
-						<svg
-							class="h-4 w-4"
-							viewBox="0 0 24 24"
-							fill="none"
-							stroke="currentColor"
-							stroke-width="1.8"
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							aria-hidden="true"
+				{#if canManage}
+					<div class="flex flex-none items-center gap-1">
+						<button
+							type="button"
+							onclick={() => openEdit(group)}
+							class="inline-flex items-center gap-1.5 rounded-field px-2.5 py-2.5 text-sm font-medium text-muted transition-colors hover:bg-base-content/5 hover:text-base-content"
 						>
-							<path d="M12 20h9" />
-							<path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
-						</svg>
-						{t('group.edit')}
-					</button>
-					<button
-						type="button"
-						onclick={() => openDelete(group)}
-						class="inline-flex items-center gap-1.5 rounded-field px-2.5 py-2.5 text-sm font-medium text-muted transition-colors hover:bg-error/10 hover:text-error"
-					>
-						<svg
-							class="h-4 w-4"
-							viewBox="0 0 24 24"
-							fill="none"
-							stroke="currentColor"
-							stroke-width="1.8"
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							aria-hidden="true"
+							<svg
+								class="h-4 w-4"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="1.8"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								aria-hidden="true"
+							>
+								<path d="M12 20h9" />
+								<path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+							</svg>
+							{t('group.edit')}
+						</button>
+						<button
+							type="button"
+							onclick={() => openDelete(group)}
+							class="inline-flex items-center gap-1.5 rounded-field px-2.5 py-2.5 text-sm font-medium text-muted transition-colors hover:bg-error/10 hover:text-error"
 						>
-							<path
-								d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"
-							/>
-							<path d="M10 11v6M14 11v6" />
-						</svg>
-						{t('group.delete')}
-					</button>
-				</div>
+							<svg
+								class="h-4 w-4"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="1.8"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								aria-hidden="true"
+							>
+								<path
+									d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"
+								/>
+								<path d="M10 11v6M14 11v6" />
+							</svg>
+							{t('group.delete')}
+						</button>
+					</div>
+				{/if}
 			</li>
 		{/each}
 	</ul>
@@ -186,21 +194,23 @@
 	<div class="mt-4 rounded-box border border-dashed border-base-content/15 px-6 py-10 text-center">
 		<p class="text-sm font-medium">{t('group.empty.title')}</p>
 		<p class="mx-auto mt-1 max-w-[48ch] text-sm text-muted text-pretty">{t('group.empty.body')}</p>
-		<button type="button" onclick={openCreate} class="btn btn-primary btn-sm mt-4">
-			<svg
-				class="h-4 w-4"
-				viewBox="0 0 24 24"
-				fill="none"
-				stroke="currentColor"
-				stroke-width="1.8"
-				stroke-linecap="round"
-				stroke-linejoin="round"
-				aria-hidden="true"
-			>
-				<path d="M12 5v14M5 12h14" />
-			</svg>
-			{t('group.new')}
-		</button>
+		{#if canManage}
+			<button type="button" onclick={openCreate} class="btn btn-primary btn-sm mt-4">
+				<svg
+					class="h-4 w-4"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="1.8"
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					aria-hidden="true"
+				>
+					<path d="M12 5v14M5 12h14" />
+				</svg>
+				{t('group.new')}
+			</button>
+		{/if}
 	</div>
 {/if}
 

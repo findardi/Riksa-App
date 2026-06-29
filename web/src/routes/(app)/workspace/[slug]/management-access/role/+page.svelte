@@ -6,13 +6,17 @@
 	import type { SubmitFunction } from '@sveltejs/kit';
 	import { Alert, Button } from '$lib/components/common';
 	import { roleDisplayName } from '$lib/access/permissions';
+	import { canManageRoles } from '$lib/access/roles';
 	import { t } from '$lib/i18n';
-	import type { WorkspaceRoleData } from '$lib/types/workspace';
+	import type { MyAccessWorkspace, WorkspaceRoleData } from '$lib/types/workspace';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
 	const roles = $derived(data.roles);
 	const customCount = $derived(roles.filter((r) => !r.is_system).length);
+	const canManage = $derived(
+		canManageRoles((page.data as { access?: MyAccessWorkspace }).access?.role ?? '')
+	);
 
 	const base = $derived(`/workspace/${page.params.slug}/management-access/role`);
 	const permLabel = (r: WorkspaceRoleData) =>
@@ -79,21 +83,23 @@
 		{t('ma.role')}
 		<span class="ml-1 font-mono text-xs font-normal text-muted">{roles.length}</span>
 	</h2>
-	<a href="{base}/new" class="btn btn-primary btn-sm">
-		<svg
-			class="h-4 w-4"
-			viewBox="0 0 24 24"
-			fill="none"
-			stroke="currentColor"
-			stroke-width="1.8"
-			stroke-linecap="round"
-			stroke-linejoin="round"
-			aria-hidden="true"
-		>
-			<path d="M12 5v14M5 12h14" />
-		</svg>
-		{t('role.new')}
-	</a>
+	{#if canManage}
+		<a href="{base}/new" class="btn btn-primary btn-sm">
+			<svg
+				class="h-4 w-4"
+				viewBox="0 0 24 24"
+				fill="none"
+				stroke="currentColor"
+				stroke-width="1.8"
+				stroke-linecap="round"
+				stroke-linejoin="round"
+				aria-hidden="true"
+			>
+				<path d="M12 5v14M5 12h14" />
+			</svg>
+			{t('role.new')}
+		</a>
+	{/if}
 </div>
 
 <ul class="mt-4 divide-y divide-base-content/10 border-y border-base-content/10">
@@ -113,7 +119,7 @@
 				<p class="mt-0.5 font-mono text-xs text-muted">{permLabel(role)}</p>
 			</div>
 
-			{#if role.is_system}
+			{#if role.is_system || !canManage}
 				<a
 					{href}
 					class="inline-flex flex-none items-center gap-1.5 rounded-field px-2.5 py-2.5 text-sm font-medium text-muted transition-colors hover:bg-base-content/5 hover:text-base-content"

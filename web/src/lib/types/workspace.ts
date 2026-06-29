@@ -137,3 +137,9 @@ export interface GroupMemberData {
 export interface AssignMembersPayload {
 	member_id: string[];
 }
+
+export interface MyAccessWorkspace {
+	role: string;
+	permissions: string[];
+	status: string;
+}

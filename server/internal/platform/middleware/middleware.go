@@ -41,9 +41,9 @@ type OwnerResolver func(ctx context.Context, id string) (ownerID string, err err
 // the flattened permission set of that role, and the member status. RequireMember
 // loads it into the request context; RequirePermission reads it.
 type Membership struct {
-	Role        string
-	Permissions []string
-	Status      string
+	Role        string   `json:"role"`
+	Permissions []string `json:"permissions"`
+	Status      string   `json:"status"`
 }
 
 type MemberResolver func(ctx context.Context, workspaceID string, userID string) (*Membership, error)
