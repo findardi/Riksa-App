@@ -18,6 +18,9 @@
 	const roleOptions = $derived(assignableRoles(viewerRole, data.roles));
 
 	const isOwner = (m: WorkspaceMemberData) => m.user_id === data.ownerId;
+	// The signed-in user can't remove their own membership from the list.
+	const selfId = $derived((page.data as { user?: { id: string } }).user?.id ?? '');
+	const isSelf = (m: WorkspaceMemberData) => m.user_id === selfId;
 	// A member's role is changeable only if its current role is one the viewer may
 	// grant — so an admin can't demote a fellow admin (the backend rejects it too).
 	const canChangeRole = (m: WorkspaceMemberData) =>
@@ -182,7 +185,7 @@
 				</span>
 			{/if}
 
-			{#if canManage && !owner}
+			{#if canManage && !owner && !isSelf(m)}
 				<button
 					type="button"
 					onclick={() => openRemove(m)}
