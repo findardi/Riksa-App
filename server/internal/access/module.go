@@ -89,6 +89,7 @@ func (m *Module) RegisterRoutes(r chi.Router) {
 
 		r.Route("/workspaces/{workspaceID}", func(r chi.Router) {
 			r.Use(m.mw.RequireMember("workspaceID", m.workspaceMember))
+			r.Get("/me", m.handler.GetMyAccess)
 			r.Route("/roles", func(r chi.Router) {
 				r.With(m.mw.RequirePermission(permission.PermRoleCreate)).Post("/", m.handler.CreateRole)
 				r.With(m.mw.RequirePermission(permission.PermRoleView)).Get("/", m.handler.GetRoles)

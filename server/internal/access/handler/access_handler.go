@@ -29,6 +29,16 @@ func NewAccessHandler(svc *service.AccessService) *AccessHandler {
 	}
 }
 
+func (h *AccessHandler) GetMyAccess(w http.ResponseWriter, r *http.Request) {
+	ms, ok := middleware.MembershipFromContext(r.Context())
+	if !ok {
+		response.Error(w, http.StatusInternalServerError, "internal server error", nil)
+		return
+	}
+
+	response.Success(w, http.StatusOK, "get my access success", ms)
+}
+
 func (h *AccessHandler) CreateRole(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, MaxBodyBytes)
 
