@@ -10,6 +10,7 @@ import (
 	"github.com/findardi/Wadi/server/internal/access/service"
 	auth "github.com/findardi/Wadi/server/internal/auth/repository"
 	"github.com/findardi/Wadi/server/internal/platform/middleware"
+	"github.com/findardi/Wadi/server/internal/platform/permission"
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -52,25 +53,32 @@ func NewModule(pool *pgxpool.Pool, verifier middleware.TokenVerifier, mail servi
 	}
 }
 
-func (m *Module) workspaceMember(ctx context.Context, workspaceID, userID string) error {
+func (m *Module) workspaceMember(ctx context.Context, workspaceID, userID string) (*middleware.Membership, error) {
 	var wID, uID pgtype.UUID
 
 	if err := wID.Scan(workspaceID); err != nil {
-		return middleware.ErrResourceNotFound
+		return nil, middleware.ErrResourceNotFound
 	}
 	if err := uID.Scan(userID); err != nil {
-		return middleware.ErrResourceNotFound
+		return nil, middleware.ErrResourceNotFound
 	}
 
-	_, err := m.repo.GetMemberByWorkspaceUser(ctx, accessdb.GetMemberByWorkspaceUserParams{
+	row, err := m.repo.GetMembershipWithPermissions(ctx, accessdb.GetMembershipWithPermissionsParams{
 		WorkspaceID: wID,
 		UserID:      uID,
 	})
-
 	if errors.Is(err, pgx.ErrNoRows) {
-		return middleware.ErrResourceNotFound
+		return nil, middleware.ErrResourceNotFound
 	}
-	return err
+	if err != nil {
+		return nil, err
+	}
+
+	return &middleware.Membership{
+		Role:        row.RoleName,
+		Permissions: row.Permissions,
+		Status:      row.Status,
+	}, nil
 }
 
 func (m *Module) RegisterRoutes(r chi.Router) {
@@ -82,36 +90,36 @@ func (m *Module) RegisterRoutes(r chi.Router) {
 		r.Route("/workspaces/{workspaceID}", func(r chi.Router) {
 			r.Use(m.mw.RequireMember("workspaceID", m.workspaceMember))
 			r.Route("/roles", func(r chi.Router) {
-				r.Post("/", m.handler.CreateRole)
-				r.Get("/", m.handler.GetRoles)
-				r.Get("/{roleID}", m.handler.GetRole)
-				r.Put("/{roleID}", m.handler.UpdateRole)
-				r.Delete("/{roleID}", m.handler.DeleteRole)
+				r.With(m.mw.RequirePermission(permission.PermRoleCreate)).Post("/", m.handler.CreateRole)
+				r.With(m.mw.RequirePermission(permission.PermRoleView)).Get("/", m.handler.GetRoles)
+				r.With(m.mw.RequirePermission(permission.PermRoleView)).Get("/{roleID}", m.handler.GetRole)
+				r.With(m.mw.RequirePermission(permission.PermRoleEdit)).Put("/{roleID}", m.handler.UpdateRole)
+				r.With(m.mw.RequirePermission(permission.PermRoleDelete)).Delete("/{roleID}", m.handler.DeleteRole)
 			})
 
 			r.Route("/members", func(r chi.Router) {
-				r.Post("/", m.handler.AddMember)
-				r.Get("/", m.handler.GetMembers)
-				r.Get("/{memberID}", m.handler.GetMember)
-				r.Put("/{memberID}", m.handler.UpdateMember)
-				r.Delete("/{memberID}", m.handler.DeleteMember)
+				r.With(m.mw.RequirePermission(permission.PermMemberAdd)).Post("/", m.handler.AddMember)
+				r.With(m.mw.RequirePermission(permission.PermMemberView)).Get("/", m.handler.GetMembers)
+				r.With(m.mw.RequirePermission(permission.PermMemberView)).Get("/{memberID}", m.handler.GetMember)
+				r.With(m.mw.RequirePermission(permission.PermMemberEdit)).Put("/{memberID}", m.handler.UpdateMember)
+				r.With(m.mw.RequirePermission(permission.PermMemberDelete)).Delete("/{memberID}", m.handler.DeleteMember)
 			})
 
 			r.Route("/invitations", func(r chi.Router) {
-				r.Post("/", m.handler.AddMembers)
-				r.Get("/", m.handler.GetInvitations)
-				r.Post("/{invitationID}/resend", m.handler.ResendInvitation)
-				r.Post("/{invitationID}/revoke", m.handler.RevokeInvitation)
+				r.With(m.mw.RequirePermission(permission.PermMemberAdd)).Post("/", m.handler.AddMembers)
+				r.With(m.mw.RequirePermission(permission.PermMemberView)).Get("/", m.handler.GetInvitations)
+				r.With(m.mw.RequirePermission(permission.PermMemberAdd)).Post("/{invitationID}/resend", m.handler.ResendInvitation)
+				r.With(m.mw.RequirePermission(permission.PermMemberDelete)).Post("/{invitationID}/revoke", m.handler.RevokeInvitation)
 			})
 
 			r.Route("/groups", func(r chi.Router) {
-				r.Post("/", m.handler.CreateGroup)
-				r.Get("/", m.handler.GetGroups)
-				r.Get("/{groupID}", m.handler.GetGroup)
-				r.Put("/{groupID}", m.handler.UpdateGroup)
-				r.Delete("/{groupID}", m.handler.DeleteGroup)
-				r.Post("/{groupID}/assign", m.handler.AssignMember)
-				r.Delete("/{groupID}/unassign/{memberID}", m.handler.UnassignMember)
+				r.With(m.mw.RequirePermission(permission.PermGroupCreate)).Post("/", m.handler.CreateGroup)
+				r.With(m.mw.RequirePermission(permission.PermGroupView)).Get("/", m.handler.GetGroups)
+				r.With(m.mw.RequirePermission(permission.PermGroupView)).Get("/{groupID}", m.handler.GetGroup)
+				r.With(m.mw.RequirePermission(permission.PermGroupEdit)).Put("/{groupID}", m.handler.UpdateGroup)
+				r.With(m.mw.RequirePermission(permission.PermGroupDelete)).Delete("/{groupID}", m.handler.DeleteGroup)
+				r.With(m.mw.RequirePermission(permission.PermGroupAssign)).Post("/{groupID}/assign", m.handler.AssignMember)
+				r.With(m.mw.RequirePermission(permission.PermGroupAssign)).Delete("/{groupID}/unassign/{memberID}", m.handler.UnassignMember)
 			})
 		})
 	})

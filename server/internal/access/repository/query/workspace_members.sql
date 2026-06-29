@@ -12,6 +12,12 @@ delete from workspace_members where id = $1;
 select * from workspace_members
 where workspace_id = $1 and user_id = $2;
 
+-- name: GetMembershipWithPermissions :one
+select m.status, r.name as role_name, r.permissions
+from workspace_members m
+join workspace_roles r on r.id = m.role_id
+where m.workspace_id = $1 and m.user_id = $2;
+
 -- name: GetMembers :many
 select 
     m.*,
