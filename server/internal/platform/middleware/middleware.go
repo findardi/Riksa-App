@@ -37,6 +37,8 @@ var ErrResourceNotFound = errors.New("resource not found")
 // the resource is absent.
 type OwnerResolver func(ctx context.Context, id string) (ownerID string, err error)
 
+type MemberResolver func(ctx context.Context, workspaceID string, userID string) error
+
 type RateStore interface {
 	Allow(key string, limit int, window time.Duration) (allowed bool, retryAfter time.Duration)
 }
@@ -81,12 +83,6 @@ func (m *Middleware) RequireAuth(next http.Handler) http.Handler {
 		claims, err := m.verifier.VerifyToken(parts[1])
 		if err != nil {
 			response.Error(w, http.StatusUnauthorized, "invalid or expired token", nil)
-			return
-		}
-
-		// only access tokens may pass; reject anything not minted as token_login
-		if claims.Typ != token.TokenLogin {
-			response.Error(w, http.StatusUnauthorized, "invalid token type", nil)
 			return
 		}
 
@@ -143,6 +139,29 @@ func (m *Middleware) RequireOwner(param string, resolve OwnerResolver) func(http
 				response.Error(w, http.StatusInternalServerError, "internal server error", nil)
 			case ownerID != claims.ID:
 				response.Error(w, http.StatusForbidden, "forbidden", nil)
+			default:
+				next.ServeHTTP(w, r)
+			}
+		})
+	}
+}
+
+func (m *Middleware) RequireMember(param string, resolver MemberResolver) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			claims, ok := ClaimsFromContext(r.Context())
+			if !ok {
+				response.Error(w, http.StatusUnauthorized, "unauthorized", nil)
+				return
+			}
+
+			err := resolver(r.Context(), chi.URLParam(r, param), claims.ID)
+			switch {
+			case errors.Is(err, ErrResourceNotFound):
+				response.Error(w, http.StatusForbidden, "forbidden", nil)
+			case err != nil:
+				log.Printf("require member internal error: %v", err)
+				response.Error(w, http.StatusInternalServerError, "internal server error", nil)
 			default:
 				next.ServeHTTP(w, r)
 			}
