@@ -265,7 +265,7 @@
 				>
 					{#each emails as email (email)}
 						<span
-							class="inline-flex items-center gap-1 rounded-selector bg-base-content/[0.06] py-0.5 pr-0.5 pl-2 font-mono text-sm"
+							class="inline-flex items-center gap-1 rounded-selector bg-base-content/6 py-0.5 pr-0.5 pl-2 font-mono text-sm"
 						>
 							{email}
 							<button
