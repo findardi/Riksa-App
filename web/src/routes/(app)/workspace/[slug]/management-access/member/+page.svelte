@@ -39,9 +39,22 @@
 	// failed change because any reload re-derives it.
 	let choice = $derived(Object.fromEntries(data.members.map((m) => [m.id, m.role_id])));
 
+	// --- Search + status filter (client-side; the list is already fully loaded) ---
+	let query = $state('');
+	let statusFilter = $state<'all' | MemberStatus>('all');
+	const statusFilters: MemberStatus[] = ['active', 'invited', 'suspended'];
+	const filtered = $derived.by(() => {
+		const q = query.trim().toLowerCase();
+		return members.filter((m) => {
+			if (statusFilter !== 'all' && m.status !== statusFilter) return false;
+			if (!q) return true;
+			return `${m.username ?? ''} ${m.email ?? ''}`.toLowerCase().includes(q);
+		});
+	});
+
 	// Reveal long lists incrementally rather than dumping every row at once.
 	let limit = $state(25);
-	const shown = $derived(members.slice(0, limit));
+	const shown = $derived(filtered.slice(0, limit));
 
 	// --- Change role (confirm before applying; permission changes are consequential) ---
 	let roleDialog = $state<HTMLDialogElement>();
@@ -111,116 +124,158 @@
 
 <svelte:head><title>{t('ma.member')} · {t('ma.title')}</title></svelte:head>
 
-<ul class="divide-y divide-base-content/10 border-y border-base-content/10">
-	{#each shown as m (m.id)}
-		{@const status = statusMeta(m.status)}
-		{@const owner = isOwner(m)}
-		{@const groups = m.group_names ?? []}
-		<li class="flex flex-wrap items-center gap-x-3 gap-y-2 py-3">
-			<span
-				class="grid h-9 w-9 flex-none place-items-center rounded-full bg-primary/10 text-sm font-semibold text-primary"
-				aria-hidden="true">{initial(m)}</span
-			>
+<div class="mb-4 flex flex-wrap items-center gap-2">
+	<div class="relative min-w-0 flex-1 basis-56">
+		<svg
+			class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted"
+			viewBox="0 0 24 24"
+			fill="none"
+			stroke="currentColor"
+			stroke-width="1.8"
+			stroke-linecap="round"
+			stroke-linejoin="round"
+			aria-hidden="true"
+		>
+			<circle cx="11" cy="11" r="7" />
+			<path d="m21 21-4.3-4.3" />
+		</svg>
+		<input
+			type="search"
+			bind:value={query}
+			placeholder={t('member.search')}
+			aria-label={t('member.search')}
+			class="input input-sm w-full pl-9"
+		/>
+	</div>
+	<select
+		bind:value={statusFilter}
+		aria-label={t('member.filter.all')}
+		class="select select-sm flex-none"
+	>
+		<option value="all">{t('member.filter.all')}</option>
+		{#each statusFilters as s (s)}
+			<option value={s}>{statusMeta(s).label}</option>
+		{/each}
+	</select>
+</div>
 
-			<div class="min-w-0 flex-1 basis-48">
-				<div class="flex items-center gap-2">
-					<span class="truncate text-[0.9375rem] font-medium">{m.username || m.email}</span>
-					{#if owner}
-						<span
-							class="rounded-selector bg-base-content/10 px-1.5 py-0.5 text-[0.6875rem] font-medium text-muted"
-							>{roleDisplayName('owner')}</span
-						>
+{#if shown.length === 0}
+	<p class="border-y border-base-content/10 py-10 text-center text-sm text-muted">
+		{t('member.noMatch')}
+	</p>
+{:else}
+	<ul class="divide-y divide-base-content/10 border-y border-base-content/10">
+		{#each shown as m (m.id)}
+			{@const status = statusMeta(m.status)}
+			{@const owner = isOwner(m)}
+			{@const groups = m.group_names ?? []}
+			<li class="flex flex-wrap items-center gap-x-3 gap-y-2 py-3">
+				<span
+					class="grid h-9 w-9 flex-none place-items-center rounded-full bg-primary/10 text-sm font-semibold text-primary"
+					aria-hidden="true">{initial(m)}</span
+				>
+
+				<div class="min-w-0 flex-1 basis-48">
+					<div class="flex items-center gap-2">
+						<span class="truncate text-[0.9375rem] font-medium">{m.username || m.email}</span>
+						{#if owner}
+							<span
+								class="rounded-selector bg-base-content/10 px-1.5 py-0.5 text-[0.6875rem] font-medium text-muted"
+								>{roleDisplayName('owner')}</span
+							>
+						{/if}
+					</div>
+					<p class="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted">
+						<span class="truncate font-mono">{m.email}</span>
+						<span aria-hidden="true">·</span>
+						<span class="inline-flex items-center gap-1.5">
+							<span class="h-1.5 w-1.5 rounded-full {status.dot}"></span>
+							{status.label}
+						</span>
+					</p>
+					{#if groups.length}
+						<div class="mt-1.5 flex flex-wrap gap-1">
+							{#each groups as g (g)}
+								<span
+									class="rounded-selector bg-base-content/5 px-1.5 py-0.5 text-[0.6875rem] text-muted"
+									>{g}</span
+								>
+							{/each}
+						</div>
 					{/if}
 				</div>
-				<p class="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted">
-					<span class="truncate font-mono">{m.email}</span>
-					<span aria-hidden="true">·</span>
-					<span class="inline-flex items-center gap-1.5">
-						<span class="h-1.5 w-1.5 rounded-full {status.dot}"></span>
-						{status.label}
-					</span>
-				</p>
-				{#if groups.length}
-					<div class="mt-1.5 flex flex-wrap gap-1">
-						{#each groups as g (g)}
-							<span
-								class="rounded-selector bg-base-content/5 px-1.5 py-0.5 text-[0.6875rem] text-muted"
-								>{g}</span
-							>
+
+				{#if canChangeRole(m)}
+					<select
+						bind:value={choice[m.id]}
+						onchange={(e) => requestRoleChange(m, e.currentTarget.value)}
+						aria-label={t('member.changeRole', { name: m.username || m.email })}
+						class="select select-sm w-36 flex-none"
+					>
+						{#each roleOptions as r (r.id)}
+							<option value={r.id}>{roleDisplayName(r.name)}</option>
 						{/each}
-					</div>
+					</select>
+				{:else}
+					<span
+						class="inline-flex flex-none items-center gap-1.5 text-sm text-muted"
+						title={owner ? t('member.role.locked') : undefined}
+					>
+						{roleDisplayName(m.role_name)}
+						<svg
+							class="h-3.5 w-3.5 flex-none"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="1.8"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							aria-hidden="true"
+						>
+							<rect x="5" y="11" width="14" height="9" rx="2" />
+							<path d="M8 11V7a4 4 0 0 1 8 0v4" />
+						</svg>
+					</span>
 				{/if}
-			</div>
 
-			{#if canChangeRole(m)}
-				<select
-					bind:value={choice[m.id]}
-					onchange={(e) => requestRoleChange(m, e.currentTarget.value)}
-					aria-label={t('member.changeRole', { name: m.username || m.email })}
-					class="select select-sm w-36 flex-none"
-				>
-					{#each roleOptions as r (r.id)}
-						<option value={r.id}>{roleDisplayName(r.name)}</option>
-					{/each}
-				</select>
-			{:else}
-				<span
-					class="inline-flex flex-none items-center gap-1.5 text-sm text-muted"
-					title={owner ? t('member.role.locked') : undefined}
-				>
-					{roleDisplayName(m.role_name)}
-					<svg
-						class="h-3.5 w-3.5 flex-none"
-						viewBox="0 0 24 24"
-						fill="none"
-						stroke="currentColor"
-						stroke-width="1.8"
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						aria-hidden="true"
+				{#if canManage && !owner && !isSelf(m)}
+					<button
+						type="button"
+						onclick={() => openRemove(m)}
+						aria-label={t('member.remove.aria', { name: m.username || m.email })}
+						class="inline-flex flex-none items-center gap-1.5 rounded-field px-2.5 py-2.5 text-sm text-muted transition-colors hover:bg-error/10 hover:text-error"
 					>
-						<rect x="5" y="11" width="14" height="9" rx="2" />
-						<path d="M8 11V7a4 4 0 0 1 8 0v4" />
-					</svg>
-				</span>
-			{/if}
+						<svg
+							class="h-4 w-4"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="1.8"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							aria-hidden="true"
+						>
+							<path
+								d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"
+							/>
+							<path d="M10 11v6M14 11v6" />
+						</svg>
+						{t('member.remove')}
+					</button>
+				{/if}
+			</li>
+		{/each}
+	</ul>
+{/if}
 
-			{#if canManage && !owner && !isSelf(m)}
-				<button
-					type="button"
-					onclick={() => openRemove(m)}
-					class="inline-flex flex-none items-center gap-1.5 rounded-field px-2.5 py-2.5 text-sm text-muted transition-colors hover:bg-error/10 hover:text-error"
-				>
-					<svg
-						class="h-4 w-4"
-						viewBox="0 0 24 24"
-						fill="none"
-						stroke="currentColor"
-						stroke-width="1.8"
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						aria-hidden="true"
-					>
-						<path
-							d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"
-						/>
-						<path d="M10 11v6M14 11v6" />
-					</svg>
-					{t('member.remove')}
-				</button>
-			{/if}
-		</li>
-	{/each}
-</ul>
-
-{#if members.length > limit}
+{#if filtered.length > limit}
 	<div class="mt-4 flex justify-center">
 		<button
 			type="button"
 			onclick={() => (limit += 25)}
 			class="text-sm font-medium text-primary hover:underline"
 		>
-			{t('list.more', { n: members.length - limit })}
+			{t('list.more', { n: filtered.length - limit })}
 		</button>
 	</div>
 {/if}

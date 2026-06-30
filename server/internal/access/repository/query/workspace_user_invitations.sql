@@ -75,3 +75,13 @@ where workspace_id = @workspace_id
     and lower(email) = lower(@email)
     and status in ('revoked', 'rejected', 'expired')
 returning *;
+
+-- name: GetInvitationByCodeHashDetailed :one
+select 
+    i.*,
+    w.name as workspace_name,
+    r.name as role_name
+from workspace_user_invitations i
+join workspaces w on w.id = i.workspace_id
+join workspace_roles r on r.id = i.role_id
+where i.code_hash = $1;

@@ -51,10 +51,10 @@ func New(pool *pgxpool.Pool, otpSecret, addr, jwtSecret string) *App {
 
 	webURL := config.GetEnv("WEB_URL", "http://localhost:5173")
 
-	authsvc := authservice.NewAuthService(authrepo.New(pool), otpGen, jwtGen, mailer)
+	authsvc := authservice.NewAuthService(authrepo.New(pool), otpGen, jwtGen, mailer, nil)
 	accessSvc := accessservice.NewAccessService(accessrepo.New(pool), mailer, authsvc, otpGen, webURL)
 
-	authModule := auth.NewModule(pool, otpGen, jwtGen, mailer, limiter, providers)
+	authModule := auth.NewModule(pool, otpGen, jwtGen, mailer, limiter, providers, accessSvc)
 	workspaceModule := workspace.NewModule(pool, jwtGen, accessSvc)
 	accessModule := access.NewModule(pool, jwtGen, mailer, authsvc, otpGen, webURL)
 	invitationModule := invitation.NewModule(pool, jwtGen)

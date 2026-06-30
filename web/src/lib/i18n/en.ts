@@ -222,6 +222,12 @@ export const en: Record<keyof Dict, string> = {
 	'role.sys.contributor': 'Contributor',
 	'role.sys.viewer': 'Viewer',
 	'role.sys.guest': 'Guest',
+	'role.desc.owner':
+		'Full control of the room — manage members, roles, groups, documents, and delete the room.',
+	'role.desc.admin':
+		'Manage members, groups, and documents. Cannot delete the room or transfer ownership.',
+	'role.desc.guest':
+		'Limited access scoped to their groups — typically view and download shared documents only.',
 	// editor
 	'role.create.title': 'Create role',
 	'role.create.desc': 'Name the role and choose the permissions it covers.',
@@ -312,9 +318,12 @@ export const en: Record<keyof Dict, string> = {
 	'group.assign.submitting': 'Adding…',
 	'group.assign.empty': 'Select at least one member.',
 	'group.assign.toast': '{n} members added.',
-	'group.assign.allIn.title': 'No Guest members',
-	'group.assign.allIn.body':
-		'Only members with the Guest role can be added, and none are currently available for this group.',
+	'group.assign.allIn.title': 'All Guests already added',
+	'group.assign.allIn.body': 'Every member with the Guest role is already in this group.',
+	'group.assign.noGuests.title': 'No Guest members yet',
+	'group.assign.noGuests.body':
+		'Only members with the Guest role can join a group. Invite members first — accepted invitations appear here.',
+	'group.assign.noGuests.cta': 'Invite members',
 
 	// members
 	'member.invite': 'Invite members',
@@ -351,6 +360,7 @@ export const en: Record<keyof Dict, string> = {
 	'member.roleConfirm.submitting': 'Saving…',
 	'list.more': 'Show {n} more',
 	'member.remove': 'Remove',
+	'member.remove.aria': 'Remove {name} from the room',
 	'member.remove.title': 'Remove member',
 	'member.remove.warning':
 		'Remove {name} from this room? They will lose access until invited again.',
@@ -362,6 +372,9 @@ export const en: Record<keyof Dict, string> = {
 	'member.status.active': 'Active',
 	'member.status.invited': 'Invited',
 	'member.status.suspended': 'Suspended',
+	'member.search': 'Search name or email…',
+	'member.filter.all': 'All statuses',
+	'member.noMatch': 'No members match your search.',
 	'member.err.loadError': 'Could not load members.',
 	'member.err.notFound': 'Member not found.',
 
@@ -422,6 +435,24 @@ export const en: Record<keyof Dict, string> = {
 	'inv.err.notFound': 'Invitation not found.',
 	'inv.err.expired': 'This invitation has expired.',
 	'inv.err.notPending': 'This invitation is no longer available.',
+
+	// magic-link signup — unregistered invitee (/invitations/accept)
+	'invAccept.title': 'Accept invitation',
+	'invAccept.subtitle': 'Create an account to join {name}.',
+	'invAccept.roleLine': "You've been invited as {role}.",
+	'invAccept.emailLabel': 'Email',
+	'invAccept.emailLocked': 'This email is locked to the invitation.',
+	'invAccept.submit': 'Create account & join',
+	'invAccept.submitting': 'Processing…',
+	'invAccept.invalid.title': 'Invalid invitation',
+	'invAccept.invalid.body':
+		'This link has expired, been revoked, or was already used. Ask the room owner to send a new invitation.',
+	'invAccept.registered': 'This email is already registered. Please sign in, then open Invitations.',
+	'invAccept.loggedIn.title': "You're already signed in",
+	'invAccept.loggedIn.body':
+		'This link is for creating a new account. If this invitation is for your account, open Invitations.',
+	'invAccept.toLogin': 'Go to sign in',
+	'invAccept.toInbox': 'Open Invitations',
 
 	// permission resources
 	'perm.res.workspace': 'Data room',

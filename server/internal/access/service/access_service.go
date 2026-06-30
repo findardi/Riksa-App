@@ -453,7 +453,7 @@ func (s *AccessService) sendInviteEmail(to, token string, registered bool) {
 		if registered {
 			body = fmt.Sprintf("You have been invited to join a workspace. Open your invitations to accept: %s/invitations", s.webURL)
 		} else {
-			body = fmt.Sprintf("You have been invited to join a workspace. Use this token to accept: %s", token)
+			body = fmt.Sprintf("You have been invited to join a workspace. Accept and set up your account: %s/invitations/accept?token=%s", s.webURL, token)
 		}
 
 		if err := s.mail.Send(ctx, to, "You're invited to a workspace", body); err != nil {

@@ -26,6 +26,8 @@ var (
 	ErrEmailAlreadyRegistered = errors.New("email already registered, please login with password")
 	ErrSSOEmailMissing        = errors.New("no verified email available from provider")
 	ErrRefreshReuseDetected   = errors.New("refresh token reuse detected")
+	ErrInvitationInvalid      = errors.New("invitation link is invalid or has expired")
+	ErrInviteEmailRegistered  = errors.New("email already registered, please login to accept")
 )
 
 // tokenTTL maps a user_tokens.type to its lifetime.
@@ -36,18 +38,20 @@ var tokenTTL = map[string]time.Duration{
 }
 
 type AuthService struct {
-	repo UserRepository
-	otp  OTPService
-	jwt  JWTService
-	mail MailService
+	repo   UserRepository
+	otp    OTPService
+	jwt    JWTService
+	mail   MailService
+	invite InvitationConsumer
 }
 
-func NewAuthService(repo UserRepository, otp OTPService, jwt JWTService, mail MailService) *AuthService {
+func NewAuthService(repo UserRepository, otp OTPService, jwt JWTService, mail MailService, invite InvitationConsumer) *AuthService {
 	return &AuthService{
-		repo: repo,
-		otp:  otp,
-		jwt:  jwt,
-		mail: mail,
+		repo:   repo,
+		otp:    otp,
+		jwt:    jwt,
+		mail:   mail,
+		invite: invite,
 	}
 }
 
@@ -646,4 +650,62 @@ func (s *AuthService) SSOLogin(ctx context.Context, provider string, identity SS
 
 	return s.issueToken(ctx, user)
 
+}
+
+func (s *AuthService) PreviewInvitationSignup(ctx context.Context, token string) (InvitePreview, error) {
+	return s.invite.PreviewInvitation(ctx, token)
+}
+
+func (s *AuthService) AcceptInvitationSignup(ctx context.Context, req dto.AcceptInvitationRequest) (dto.LoginResponse, error) {
+	preview, err := s.invite.PreviewInvitation(ctx, req.Token)
+	if err != nil {
+		return dto.LoginResponse{}, err
+	}
+
+	email := strings.ToLower(strings.TrimSpace(preview.Email))
+	username := strings.TrimSpace(req.Username)
+
+	if _, err := s.repo.GetUserByEmail(ctx, email); err == nil {
+		return dto.LoginResponse{}, ErrInviteEmailRegistered
+	} else if !errors.Is(err, pgx.ErrNoRows) {
+		return dto.LoginResponse{}, fmt.Errorf("check email: %w", err)
+	}
+
+	if _, err := s.repo.GetUserByUsername(ctx, &username); err == nil {
+		return dto.LoginResponse{}, ErrUsernameUnique
+	} else if !errors.Is(err, pgx.ErrNoRows) {
+		return dto.LoginResponse{}, fmt.Errorf("check username: %w", err)
+	}
+
+	hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), 12)
+	if err != nil {
+		return dto.LoginResponse{}, fmt.Errorf("hash password: %w", err)
+	}
+	hashpassword := string(hash)
+
+	var user authdb.User
+	err = s.repo.ExecTxTx(ctx, func(q *authdb.Queries, tx pgx.Tx) error {
+		u, err := q.CreateUserVerified(ctx, authdb.CreateUserVerifiedParams{
+			Email:        email,
+			Username:     &username,
+			PasswordHash: &hashpassword,
+		})
+
+		if err != nil {
+			return fmt.Errorf("create user: %w", err)
+		}
+
+		if err := s.invite.ConsumeInvitation(ctx, tx, req.Token, uuidString(u.ID)); err != nil {
+			return err
+		}
+
+		user = u
+		return nil
+	})
+
+	if err != nil {
+		return dto.LoginResponse{}, err
+	}
+
+	return s.issueToken(ctx, user)
 }

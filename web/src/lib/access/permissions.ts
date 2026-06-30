@@ -38,9 +38,22 @@ const SYSTEM_ROLE_LABEL: Record<string, TKey> = {
 	guest: 'role.sys.guest'
 };
 
+// One-line capability summary for the fixed roles. Owner/admin/guest only —
+// these are the roles the product commits to; anything else has no description.
+const SYSTEM_ROLE_DESC: Record<string, TKey> = {
+	owner: 'role.desc.owner',
+	admin: 'role.desc.admin',
+	guest: 'role.desc.guest'
+};
+
 /** Localized display name for a role; custom role names pass through unchanged. */
 export function roleDisplayName(name: string): string {
 	return SYSTEM_ROLE_LABEL[name] ? t(SYSTEM_ROLE_LABEL[name]) : name;
+}
+
+/** Localized one-line description for a fixed role; empty string if none. */
+export function roleDescription(name: string): string {
+	return SYSTEM_ROLE_DESC[name] ? t(SYSTEM_ROLE_DESC[name]) : '';
 }
 
 export type PermissionItem = { value: string; action: string; label: string };

@@ -5,6 +5,7 @@ import (
 
 	authdb "github.com/findardi/Wadi/server/internal/auth/repository/sqlc"
 	"github.com/findardi/Wadi/server/internal/platform/token"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
@@ -20,6 +21,7 @@ type UserRepository interface {
 	CreateUser(ctx context.Context, arg authdb.CreateUserParams) (authdb.User, error)
 	CreateUserToken(ctx context.Context, arg authdb.CreateUserTokenParams) (authdb.UserToken, error)
 	CreateUserIdentity(ctx context.Context, arg authdb.CreateUserIdentityParams) (authdb.UserIdentity, error)
+	CreateUserVerified(ctx context.Context, arg authdb.CreateUserVerifiedParams) (authdb.User, error)
 
 	UpdateStatus(ctx context.Context, arg authdb.UpdateStatusParams) (authdb.User, error)
 	UpdateUser(ctx context.Context, arg authdb.UpdateUserParams) (authdb.User, error)
@@ -31,6 +33,7 @@ type UserRepository interface {
 	DeleteExpiredUserTokens(ctx context.Context, userID pgtype.UUID) error
 
 	ExecTx(ctx context.Context, fn func(q *authdb.Queries) error) error
+	ExecTxTx(ctx context.Context, fn func(*authdb.Queries, pgx.Tx) error) error
 }
 
 type OTPService interface {
@@ -47,4 +50,15 @@ type JWTService interface {
 
 type MailService interface {
 	Send(ctx context.Context, to, subject, body string) error
+}
+
+type InvitePreview struct {
+	Email         string `json:"email"`
+	WorkspaceName string `json:"workspace_name"`
+	RoleName      string `json:"role_name"`
+}
+
+type InvitationConsumer interface {
+	PreviewInvitation(ctx context.Context, token string) (InvitePreview, error)
+	ConsumeInvitation(ctx context.Context, tx pgx.Tx, token, newUserID string) error
 }

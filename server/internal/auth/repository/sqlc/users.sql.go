@@ -47,6 +47,36 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 	return i, err
 }
 
+const createUserVerified = `-- name: CreateUserVerified :one
+insert into users
+    (email, username, password_hash, status, email_verified_at)
+values
+    ($1, $2, $3, 'active', now())
+returning id, email, username, password_hash, email_verified_at, status, created_at, updated_at
+`
+
+type CreateUserVerifiedParams struct {
+	Email        string  `json:"email"`
+	Username     *string `json:"username"`
+	PasswordHash *string `json:"password_hash"`
+}
+
+func (q *Queries) CreateUserVerified(ctx context.Context, arg CreateUserVerifiedParams) (User, error) {
+	row := q.db.QueryRow(ctx, createUserVerified, arg.Email, arg.Username, arg.PasswordHash)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.Username,
+		&i.PasswordHash,
+		&i.EmailVerifiedAt,
+		&i.Status,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const getUserByEmail = `-- name: GetUserByEmail :one
 select id, email, username, password_hash, email_verified_at, status, created_at, updated_at from users where email = $1 limit 1
 `

@@ -216,6 +216,12 @@ export const id = {
 	'role.sys.contributor': 'Kontributor',
 	'role.sys.viewer': 'Pembaca',
 	'role.sys.guest': 'Tamu',
+	'role.desc.owner':
+		'Kontrol penuh atas ruang — kelola anggota, peran, grup, dokumen, dan hapus ruang.',
+	'role.desc.admin':
+		'Kelola anggota, grup, dan dokumen. Tidak bisa menghapus ruang atau memindahkan kepemilikan.',
+	'role.desc.guest':
+		'Akses terbatas sesuai grup — umumnya hanya melihat dan mengunduh dokumen yang dibagikan.',
 	// editor
 	'role.create.title': 'Buat peran',
 	'role.create.desc': 'Beri nama peran dan pilih izin yang dicakupnya.',
@@ -306,9 +312,12 @@ export const id = {
 	'group.assign.submitting': 'Menambahkan…',
 	'group.assign.empty': 'Pilih minimal satu anggota.',
 	'group.assign.toast': '{n} anggota ditambahkan.',
-	'group.assign.allIn.title': 'Tidak ada anggota Tamu',
-	'group.assign.allIn.body':
-		'Hanya anggota berperan Tamu yang bisa ditambahkan, dan saat ini tidak ada yang tersedia untuk grup ini.',
+	'group.assign.allIn.title': 'Semua Tamu sudah tergabung',
+	'group.assign.allIn.body': 'Semua anggota berperan Tamu sudah ada di dalam grup ini.',
+	'group.assign.noGuests.title': 'Belum ada anggota Tamu',
+	'group.assign.noGuests.body':
+		'Hanya anggota berperan Tamu yang bisa masuk grup. Undang anggota lebih dulu — undangan yang diterima akan muncul di sini.',
+	'group.assign.noGuests.cta': 'Undang anggota',
 
 	// members
 	'member.invite': 'Undang anggota',
@@ -345,6 +354,7 @@ export const id = {
 	'member.roleConfirm.submitting': 'Menyimpan…',
 	'list.more': 'Tampilkan {n} lagi',
 	'member.remove': 'Keluarkan',
+	'member.remove.aria': 'Keluarkan {name} dari ruang',
 	'member.remove.title': 'Keluarkan anggota',
 	'member.remove.warning':
 		'Keluarkan {name} dari ruang ini? Mereka akan kehilangan akses sampai diundang kembali.',
@@ -356,6 +366,9 @@ export const id = {
 	'member.status.active': 'Aktif',
 	'member.status.invited': 'Diundang',
 	'member.status.suspended': 'Ditangguhkan',
+	'member.search': 'Cari nama atau email…',
+	'member.filter.all': 'Semua status',
+	'member.noMatch': 'Tidak ada anggota yang cocok dengan pencarian.',
 	'member.err.loadError': 'Gagal memuat anggota.',
 	'member.err.notFound': 'Anggota tidak ditemukan.',
 
@@ -416,6 +429,24 @@ export const id = {
 	'inv.err.notFound': 'Undangan tidak ditemukan.',
 	'inv.err.expired': 'Undangan sudah kedaluwarsa.',
 	'inv.err.notPending': 'Undangan sudah tidak berlaku.',
+
+	// magic-link signup — unregistered invitee (/invitations/accept)
+	'invAccept.title': 'Terima undangan',
+	'invAccept.subtitle': 'Buat akun untuk bergabung ke {name}.',
+	'invAccept.roleLine': 'Kamu diundang sebagai {role}.',
+	'invAccept.emailLabel': 'Email',
+	'invAccept.emailLocked': 'Email ini terkunci sesuai undangan.',
+	'invAccept.submit': 'Buat akun & gabung',
+	'invAccept.submitting': 'Memproses…',
+	'invAccept.invalid.title': 'Undangan tidak valid',
+	'invAccept.invalid.body':
+		'Tautan ini sudah kedaluwarsa, dicabut, atau telah digunakan. Minta pemilik ruang mengirim undangan baru.',
+	'invAccept.registered': 'Email ini sudah terdaftar. Silakan masuk, lalu buka halaman Undangan.',
+	'invAccept.loggedIn.title': 'Kamu sudah masuk',
+	'invAccept.loggedIn.body':
+		'Tautan ini untuk membuat akun baru. Jika undangan ini untuk akunmu, buka halaman Undangan.',
+	'invAccept.toLogin': 'Ke halaman masuk',
+	'invAccept.toInbox': 'Buka Undangan',
 
 	// permission resources
 	'perm.res.workspace': 'Ruang data',

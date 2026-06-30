@@ -37,9 +37,9 @@ func (s userStatusReader) UserStatus(ctx context.Context, userID string) (string
 	return user.Status, nil
 }
 
-func NewModule(pool *pgxpool.Pool, otp service.OTPService, jwt service.JWTService, mail service.MailService, limiter middleware.RateStore, providers map[string]oauth.Provider) *Module {
+func NewModule(pool *pgxpool.Pool, otp service.OTPService, jwt service.JWTService, mail service.MailService, limiter middleware.RateStore, providers map[string]oauth.Provider, invite service.InvitationConsumer) *Module {
 	r := repository.New(pool)
-	s := service.NewAuthService(r, otp, jwt, mail)
+	s := service.NewAuthService(r, otp, jwt, mail, invite)
 	h := handler.NewAuthHandler(s, providers)
 	mw := middleware.New(jwt, userStatusReader{repo: r}, limiter)
 
@@ -92,6 +92,11 @@ func (m *Module) RegisterRoutes(r chi.Router) {
 
 		r.Get("/sso/{provider}/url", m.handler.SSOAuthUrl)
 		r.Post("/sso/{provider}/exchange", m.handler.SSOExchange)
+
+		r.With(m.mw.RateLimit(bruteForce("invite-preview", nil))).
+			Get("/invitations/{token}", m.handler.PreviewInvitation)
+		r.With(m.mw.RateLimit(bruteForce("invite-accept", nil))).
+			Post("/invitations/{token}/accept", m.handler.AcceptInvitation)
 		// protected
 		r.Group(func(r chi.Router) {
 			r.Use(m.mw.RequireAuth)

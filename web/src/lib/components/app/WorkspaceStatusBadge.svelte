@@ -25,9 +25,24 @@
 					? t('ws.status.archive')
 					: String(status ?? '')
 	);
+	// What the status means — surfaced as a tooltip + accessible name so the
+	// dimmed/hollow dot isn't the only thing carrying it.
+	const hint = $derived(
+		status === 'prepare'
+			? t('ws.status.hint.prepare')
+			: status === 'active'
+				? t('ws.status.hint.active')
+				: status === 'archive'
+					? t('ws.status.hint.archive')
+					: ''
+	);
 </script>
 
-<span class="inline-flex items-center gap-1.5 {cls}">
+<span
+	class="inline-flex items-center gap-1.5 {cls}"
+	title={hint || undefined}
+	aria-label={hint ? `${label} — ${hint}` : undefined}
+>
 	<span class="h-1.5 w-1.5 flex-none rounded-full {c.dot}" aria-hidden="true"></span>
 	<span class="text-xs font-medium {c.text}">{label}</span>
 </span>

@@ -44,3 +44,9 @@ type ResetPasswordRequest struct {
 type SSOExchangeRequest struct {
 	Code string `json:"code" validate:"required"`
 }
+
+type AcceptInvitationRequest struct {
+	Token    string `json:"-"`
+	Username string `json:"username" validate:"required,min=6,max=255"`
+	Password string `json:"password" validate:"required,min=6,max=255"`
+}

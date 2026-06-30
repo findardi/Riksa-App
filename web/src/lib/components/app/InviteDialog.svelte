@@ -272,7 +272,7 @@
 								type="button"
 								onclick={() => removeEmail(email)}
 								aria-label={t('member.invite.removeChip', { email })}
-								class="grid h-5 w-5 place-items-center rounded-selector text-muted transition-colors hover:bg-base-content/10 hover:text-base-content"
+								class="grid h-6 w-6 place-items-center rounded-selector text-muted transition-colors hover:bg-base-content/10 hover:text-base-content"
 							>
 								<svg
 									class="h-3.5 w-3.5"

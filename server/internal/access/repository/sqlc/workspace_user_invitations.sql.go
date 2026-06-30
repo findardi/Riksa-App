@@ -46,6 +46,56 @@ func (q *Queries) AcceptWorkspaceInvitation(ctx context.Context, arg AcceptWorks
 	return i, err
 }
 
+const getInvitationByCodeHashDetailed = `-- name: GetInvitationByCodeHashDetailed :one
+select 
+    i.id, i.workspace_id, i.email, i.role_id, i.user_id, i.invited_by, i.code_hash, i.status, i.expires_at, i.accepted_at, i.created_at, i.updated_at,
+    w.name as workspace_name,
+    r.name as role_name
+from workspace_user_invitations i
+join workspaces w on w.id = i.workspace_id
+join workspace_roles r on r.id = i.role_id
+where i.code_hash = $1
+`
+
+type GetInvitationByCodeHashDetailedRow struct {
+	ID            pgtype.UUID        `json:"id"`
+	WorkspaceID   pgtype.UUID        `json:"workspace_id"`
+	Email         string             `json:"email"`
+	RoleID        pgtype.UUID        `json:"role_id"`
+	UserID        pgtype.UUID        `json:"user_id"`
+	InvitedBy     pgtype.UUID        `json:"invited_by"`
+	CodeHash      string             `json:"code_hash"`
+	Status        string             `json:"status"`
+	ExpiresAt     pgtype.Timestamptz `json:"expires_at"`
+	AcceptedAt    pgtype.Timestamptz `json:"accepted_at"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
+	WorkspaceName string             `json:"workspace_name"`
+	RoleName      string             `json:"role_name"`
+}
+
+func (q *Queries) GetInvitationByCodeHashDetailed(ctx context.Context, codeHash string) (GetInvitationByCodeHashDetailedRow, error) {
+	row := q.db.QueryRow(ctx, getInvitationByCodeHashDetailed, codeHash)
+	var i GetInvitationByCodeHashDetailedRow
+	err := row.Scan(
+		&i.ID,
+		&i.WorkspaceID,
+		&i.Email,
+		&i.RoleID,
+		&i.UserID,
+		&i.InvitedBy,
+		&i.CodeHash,
+		&i.Status,
+		&i.ExpiresAt,
+		&i.AcceptedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.WorkspaceName,
+		&i.RoleName,
+	)
+	return i, err
+}
+
 const getWorkspaceInvitation = `-- name: GetWorkspaceInvitation :one
 select id, workspace_id, email, role_id, user_id, invited_by, code_hash, status, expires_at, accepted_at, created_at, updated_at from workspace_user_invitations where id = $1
 `

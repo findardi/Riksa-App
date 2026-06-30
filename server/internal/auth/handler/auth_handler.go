@@ -393,3 +393,54 @@ func (h *AuthHandler) SSOExchange(w http.ResponseWriter, r *http.Request) {
 
 	response.Success(w, http.StatusOK, "login success", res)
 }
+
+func (h *AuthHandler) PreviewInvitation(w http.ResponseWriter, r *http.Request) {
+	token := chi.URLParam(r, "token")
+
+	res, err := h.svc.PreviewInvitationSignup(r.Context(), token)
+	if err != nil {
+		switch {
+		case errors.Is(err, service.ErrInvitationInvalid):
+			response.Error(w, http.StatusNotFound, err.Error(), nil)
+		default:
+			log.Printf("preview invitation internal error: %v", err)
+			response.Error(w, http.StatusInternalServerError, "internal server error", nil)
+		}
+		return
+	}
+
+	response.Success(w, http.StatusOK, "invitation valid", res)
+}
+
+func (h *AuthHandler) AcceptInvitation(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, MaxBodyBytes)
+
+	token := chi.URLParam(r, "token")
+
+	var req dto.AcceptInvitationRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid body request", nil)
+		return
+	}
+	if errs := validation.Validate(&req); errs != nil {
+		response.Error(w, http.StatusBadRequest, "validation failed", errs)
+		return
+	}
+	req.Token = token
+
+	res, err := h.svc.AcceptInvitationSignup(r.Context(), req)
+	if err != nil {
+		switch {
+		case errors.Is(err, service.ErrInvitationInvalid):
+			response.Error(w, http.StatusNotFound, err.Error(), nil)
+		case errors.Is(err, service.ErrInviteEmailRegistered), errors.Is(err, service.ErrUsernameUnique):
+			response.Error(w, http.StatusConflict, err.Error(), nil)
+		default:
+			log.Printf("accept invitation internal error: %v", err)
+			response.Error(w, http.StatusInternalServerError, "internal server error", nil)
+		}
+		return
+	}
+
+	response.Success(w, http.StatusCreated, "invitation accepted", res)
+}

@@ -29,6 +29,7 @@ type AccessRepository interface {
 	GetGroups(ctx context.Context, workspaceID pgtype.UUID) ([]accessdb.WorkspaceGroup, error)
 	GetGroup(ctx context.Context, id pgtype.UUID) (accessdb.WorkspaceGroup, error)
 	GetGroupMembers(ctx context.Context, groupID pgtype.UUID) ([]accessdb.GetGroupMembersRow, error)
+	GetInvitationByCodeHashDetailed(ctx context.Context, codeHash string) (accessdb.GetInvitationByCodeHashDetailedRow, error)
 
 	UpdateGroup(ctx context.Context, arg accessdb.UpdateGroupParams) (accessdb.WorkspaceGroup, error)
 

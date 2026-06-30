@@ -43,3 +43,11 @@ update users set
     password_hash = $2,
     updated_at = now()
 where id = $1;
+
+-- name: CreateUserVerified :one
+insert into users
+    (email, username, password_hash, status, email_verified_at)
+values
+    ($1, $2, $3, 'active', now())
+returning *;
+

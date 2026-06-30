@@ -22,6 +22,7 @@ type Querier interface {
 	GetGroup(ctx context.Context, id pgtype.UUID) (WorkspaceGroup, error)
 	GetGroupMembers(ctx context.Context, groupID pgtype.UUID) ([]GetGroupMembersRow, error)
 	GetGroups(ctx context.Context, workspaceID pgtype.UUID) ([]WorkspaceGroup, error)
+	GetInvitationByCodeHashDetailed(ctx context.Context, codeHash string) (GetInvitationByCodeHashDetailedRow, error)
 	GetMember(ctx context.Context, id pgtype.UUID) (GetMemberRow, error)
 	GetMemberByWorkspaceUser(ctx context.Context, arg GetMemberByWorkspaceUserParams) (WorkspaceMember, error)
 	GetMembers(ctx context.Context, workspaceID pgtype.UUID) ([]GetMembersRow, error)

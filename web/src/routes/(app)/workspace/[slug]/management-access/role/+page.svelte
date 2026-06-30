@@ -4,8 +4,8 @@
 	import { invalidateAll, replaceState } from '$app/navigation';
 	import { page } from '$app/state';
 	import type { SubmitFunction } from '@sveltejs/kit';
-	import { Alert, Button } from '$lib/components/common';
-	import { roleDisplayName } from '$lib/access/permissions';
+	import { Alert, Button, Toaster, showToast } from '$lib/components/common';
+	import { roleDescription, roleDisplayName } from '$lib/access/permissions';
 	import { canManageRoles } from '$lib/access/roles';
 	import { t } from '$lib/i18n';
 	import type { MyAccessWorkspace, WorkspaceRoleData } from '$lib/types/workspace';
@@ -23,17 +23,6 @@
 		r.permissions.length === 0
 			? t('role.permNone')
 			: t('role.permCount', { n: r.permissions.length });
-
-	// --- Toast ---
-	let toastMsg = $state<string | null>(null);
-	let toastVariant = $state<'success' | 'error'>('success');
-	let toastTimer: ReturnType<typeof setTimeout>;
-	function showToast(msg: string, variant: 'success' | 'error') {
-		toastMsg = msg;
-		toastVariant = variant;
-		clearTimeout(toastTimer);
-		toastTimer = setTimeout(() => (toastMsg = null), 4000);
-	}
 
 	// Flash from the editor redirect (?flash=created|updated) → confirm once, then strip.
 	onMount(() => {
@@ -105,6 +94,7 @@
 <ul class="mt-4 divide-y divide-base-content/10 border-y border-base-content/10">
 	{#each roles as role (role.id)}
 		{@const href = `${base}/${role.id}`}
+		{@const desc = roleDescription(role.name)}
 		<li class="flex items-center gap-4 py-3">
 			<div class="min-w-0 flex-1">
 				<div class="flex items-center gap-2">
@@ -116,6 +106,9 @@
 						>
 					{/if}
 				</div>
+				{#if desc}
+					<p class="mt-0.5 max-w-[60ch] text-sm text-muted text-pretty">{desc}</p>
+				{/if}
 				<p class="mt-0.5 font-mono text-xs text-muted">{permLabel(role)}</p>
 			</div>
 
@@ -228,8 +221,4 @@
 	</form>
 </dialog>
 
-{#if toastMsg}
-	<div class="pointer-events-none fixed inset-x-0 bottom-4 z-50 flex justify-center px-4">
-		<div class="pointer-events-auto"><Alert variant={toastVariant}>{toastMsg}</Alert></div>
-	</div>
-{/if}
+<Toaster />

@@ -17,3 +17,9 @@ type UserResponse struct {
 	Status        string `json:"status"`
 	EmailVerified bool   `json:"email_verified"`
 }
+
+type InvitePreviewResponse struct {
+	Email         string `json:"email"`
+	WorkspaceName string `json:"workspace_name"`
+	RoleName      string `json:"role_name"`
+}

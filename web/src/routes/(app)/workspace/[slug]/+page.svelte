@@ -3,7 +3,7 @@
 	import { applyAction, enhance } from '$app/forms';
 	import { invalidateAll } from '$app/navigation';
 	import type { SubmitFunction } from '@sveltejs/kit';
-	import { Alert, Button, Field, TextareaField } from '$lib/components/common';
+	import { Alert, Button, Field, TextareaField, Toaster, showToast } from '$lib/components/common';
 	import { WorkspaceStatusBadge } from '$lib/components/app';
 	import { canDeleteWorkspace, canEditWorkspace } from '$lib/access/roles';
 	import { t } from '$lib/i18n';
@@ -27,17 +27,6 @@
 
 	const statuses: WorkspaceStatus[] = ['prepare', 'active', 'archive'];
 	const statusHint = $derived(t(`ws.status.hint.${ws.status}`));
-
-	// --- Toast (transient feedback for in-place status changes) ---
-	let toastMsg = $state<string | null>(null);
-	let toastVariant = $state<'success' | 'error'>('success');
-	let toastTimer: ReturnType<typeof setTimeout>;
-	function showToast(msg: string, variant: 'success' | 'error') {
-		toastMsg = msg;
-		toastVariant = variant;
-		clearTimeout(toastTimer);
-		toastTimer = setTimeout(() => (toastMsg = null), 4000);
-	}
 
 	// --- Status change ---
 	let pendingStatus = $state<WorkspaceStatus | null>(null);
@@ -301,8 +290,4 @@
 	</form>
 </dialog>
 
-{#if toastMsg}
-	<div class="pointer-events-none fixed inset-x-0 bottom-4 z-50 flex justify-center px-4">
-		<div class="pointer-events-auto"><Alert variant={toastVariant}>{toastMsg}</Alert></div>
-	</div>
-{/if}
+<Toaster />

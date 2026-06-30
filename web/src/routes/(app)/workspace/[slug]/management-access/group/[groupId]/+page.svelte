@@ -22,6 +22,9 @@
 	const candidates = $derived(
 		data.workspaceMembers.filter((m) => m.role_name === 'guest' && !assignedIds.has(m.id))
 	);
+	// Distinguish "no Guests exist at all" from "all Guests already in this group".
+	const guestTotal = $derived(data.workspaceMembers.filter((m) => m.role_name === 'guest').length);
+	const memberBase = $derived(`/workspace/${page.params.slug}/management-access/member`);
 
 	// --- Assign dialog ---
 	let assignDialog = $state<HTMLDialogElement>();
@@ -318,6 +321,21 @@
 					</div>
 				</div>
 			</form>
+		{:else if guestTotal === 0}
+			<div class="mt-6 rounded-box bg-base-content/4 px-6 py-8 text-center">
+				<p class="text-sm font-medium">{t('group.assign.noGuests.title')}</p>
+				<p class="mx-auto mt-1 max-w-xs text-sm text-muted text-pretty">
+					{t('group.assign.noGuests.body')}
+				</p>
+				<a href={memberBase} class="btn btn-primary btn-sm mt-4">
+					{t('group.assign.noGuests.cta')}
+				</a>
+			</div>
+			<div class="mt-5 flex justify-end">
+				<Button type="button" variant="ghost" onclick={() => assignDialog?.close()}>
+					{t('group.detail.done')}
+				</Button>
+			</div>
 		{:else}
 			<div class="mt-6 rounded-box bg-base-content/4 px-6 py-8 text-center">
 				<p class="text-sm font-medium">{t('group.assign.allIn.title')}</p>
