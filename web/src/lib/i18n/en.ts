@@ -436,6 +436,24 @@ export const en: Record<keyof Dict, string> = {
 	'inv.err.expired': 'This invitation has expired.',
 	'inv.err.notPending': 'This invitation is no longer available.',
 
+	// magic-link signup — unregistered invitee (/invitations/accept)
+	'invAccept.title': 'Accept invitation',
+	'invAccept.subtitle': 'Create an account to join {name}.',
+	'invAccept.roleLine': "You've been invited as {role}.",
+	'invAccept.emailLabel': 'Email',
+	'invAccept.emailLocked': 'This email is locked to the invitation.',
+	'invAccept.submit': 'Create account & join',
+	'invAccept.submitting': 'Processing…',
+	'invAccept.invalid.title': 'Invalid invitation',
+	'invAccept.invalid.body':
+		'This link has expired, been revoked, or was already used. Ask the room owner to send a new invitation.',
+	'invAccept.registered': 'This email is already registered. Please sign in, then open Invitations.',
+	'invAccept.loggedIn.title': "You're already signed in",
+	'invAccept.loggedIn.body':
+		'This link is for creating a new account. If this invitation is for your account, open Invitations.',
+	'invAccept.toLogin': 'Go to sign in',
+	'invAccept.toInbox': 'Open Invitations',
+
 	// permission resources
 	'perm.res.workspace': 'Data room',
 	'perm.res.member': 'Member',
