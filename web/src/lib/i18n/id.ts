@@ -430,6 +430,24 @@ export const id = {
 	'inv.err.expired': 'Undangan sudah kedaluwarsa.',
 	'inv.err.notPending': 'Undangan sudah tidak berlaku.',
 
+	// magic-link signup — unregistered invitee (/invitations/accept)
+	'invAccept.title': 'Terima undangan',
+	'invAccept.subtitle': 'Buat akun untuk bergabung ke {name}.',
+	'invAccept.roleLine': 'Kamu diundang sebagai {role}.',
+	'invAccept.emailLabel': 'Email',
+	'invAccept.emailLocked': 'Email ini terkunci sesuai undangan.',
+	'invAccept.submit': 'Buat akun & gabung',
+	'invAccept.submitting': 'Memproses…',
+	'invAccept.invalid.title': 'Undangan tidak valid',
+	'invAccept.invalid.body':
+		'Tautan ini sudah kedaluwarsa, dicabut, atau telah digunakan. Minta pemilik ruang mengirim undangan baru.',
+	'invAccept.registered': 'Email ini sudah terdaftar. Silakan masuk, lalu buka halaman Undangan.',
+	'invAccept.loggedIn.title': 'Kamu sudah masuk',
+	'invAccept.loggedIn.body':
+		'Tautan ini untuk membuat akun baru. Jika undangan ini untuk akunmu, buka halaman Undangan.',
+	'invAccept.toLogin': 'Ke halaman masuk',
+	'invAccept.toInbox': 'Buka Undangan',
+
 	// permission resources
 	'perm.res.workspace': 'Ruang data',
 	'perm.res.member': 'Anggota',
