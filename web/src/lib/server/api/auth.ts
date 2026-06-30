@@ -7,6 +7,7 @@ import type {
 	RegisterData,
 	RegisterPayload
 } from '$lib/types';
+import type { InvitePreviewData } from '$lib/types/invitation';
 import { API_URL, get, post } from './client';
 import {
 	stubCheckEmail,
@@ -104,6 +105,26 @@ export async function resendOtp(token: string): Promise<{ sent: boolean; error?:
 	if (res.ok) return { sent: true };
 	if (res.status === 0) return { sent: false, error: res.message }; // network only
 	return { sent: true }; // anti-enumeration: hide other backend signals
+}
+
+// Magic-link signup (unregistered invitee). Both endpoints are PUBLIC — identity
+// comes from the opaque token in the URL, not a session.
+
+// Preview an invitation by raw token. 200 → {email, workspace_name, role_name};
+// 404 (ErrInvitationInvalid) → revoked/expired/already-used.
+export async function previewInvitation(token: string): Promise<ApiResult<InvitePreviewData>> {
+	return get<InvitePreviewData>(`/auth/invitations/${token}`, undefined);
+}
+
+// Create the account and auto-join the workspace in one atomic step, then
+// auto-login. 200 → {token, refresh_token}; 404 invalid token; 409 email already
+// registered / username taken.
+export async function acceptInvitationSignup(
+	token: string,
+	username: string,
+	password: string
+): Promise<ApiResult<LoginData>> {
+	return post<LoginData>(`/auth/invitations/${token}/accept`, { username, password });
 }
 
 // Step 2 — validate the reset OTP (read-only check).
