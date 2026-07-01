@@ -24,6 +24,7 @@ import (
 	"github.com/findardi/Wadi/server/internal/platform/ratelimit"
 	"github.com/findardi/Wadi/server/internal/platform/response"
 	"github.com/findardi/Wadi/server/internal/platform/sender"
+	"github.com/findardi/Wadi/server/internal/platform/storage"
 	"github.com/findardi/Wadi/server/internal/platform/token"
 	"github.com/findardi/Wadi/server/internal/workspace"
 	"github.com/go-chi/chi/v5"
@@ -35,7 +36,7 @@ type App struct {
 	addr   string
 }
 
-func New(pool *pgxpool.Pool, otpSecret, addr, jwtSecret string) *App {
+func New(pool *pgxpool.Pool, otpSecret, addr, jwtSecret string, store storage.Storage) *App {
 	otpGen := otp.New(otpSecret)
 	jwtGen := token.New(jwtSecret)
 
@@ -59,7 +60,7 @@ func New(pool *pgxpool.Pool, otpSecret, addr, jwtSecret string) *App {
 	workspaceModule := workspace.NewModule(pool, jwtGen, accessSvc)
 	accessModule := access.NewModule(pool, jwtGen, mailer, authsvc, otpGen, webURL)
 	invitationModule := invitation.NewModule(pool, jwtGen)
-	contentModule := content.NewModule(pool, jwtGen)
+	contentModule := content.NewModule(pool, jwtGen, store)
 
 	r := chi.NewRouter()
 	registerGlobalMiddleware(r)

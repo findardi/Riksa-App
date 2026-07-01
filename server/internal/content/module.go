@@ -12,6 +12,7 @@ import (
 	"github.com/findardi/Wadi/server/internal/content/service"
 	"github.com/findardi/Wadi/server/internal/platform/middleware"
 	"github.com/findardi/Wadi/server/internal/platform/permission"
+	"github.com/findardi/Wadi/server/internal/platform/storage"
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -39,9 +40,10 @@ type Module struct {
 	handler    *handler.ContentHandler
 	mw         *middleware.Middleware
 	accessRepo *accessrepo.Repository
+	storage    storage.Storage
 }
 
-func NewModule(pool *pgxpool.Pool, verifier middleware.TokenVerifier) *Module {
+func NewModule(pool *pgxpool.Pool, verifier middleware.TokenVerifier, store storage.Storage) *Module {
 	r := repository.New(pool)
 	s := service.NewContentService(r)
 	h := handler.NewContentHandler(s)
@@ -52,6 +54,7 @@ func NewModule(pool *pgxpool.Pool, verifier middleware.TokenVerifier) *Module {
 		handler:    h,
 		mw:         mw,
 		accessRepo: accessrepo.New(pool),
+		storage:    store,
 	}
 }
 
