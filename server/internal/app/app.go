@@ -16,6 +16,7 @@ import (
 	"github.com/findardi/Wadi/server/internal/auth"
 	authrepo "github.com/findardi/Wadi/server/internal/auth/repository"
 	authservice "github.com/findardi/Wadi/server/internal/auth/service"
+	"github.com/findardi/Wadi/server/internal/content"
 	"github.com/findardi/Wadi/server/internal/invitation"
 	"github.com/findardi/Wadi/server/internal/platform/config"
 	"github.com/findardi/Wadi/server/internal/platform/oauth"
@@ -58,6 +59,7 @@ func New(pool *pgxpool.Pool, otpSecret, addr, jwtSecret string) *App {
 	workspaceModule := workspace.NewModule(pool, jwtGen, accessSvc)
 	accessModule := access.NewModule(pool, jwtGen, mailer, authsvc, otpGen, webURL)
 	invitationModule := invitation.NewModule(pool, jwtGen)
+	contentModule := content.NewModule(pool, jwtGen)
 
 	r := chi.NewRouter()
 	registerGlobalMiddleware(r)
@@ -70,6 +72,7 @@ func New(pool *pgxpool.Pool, otpSecret, addr, jwtSecret string) *App {
 	workspaceModule.RegisterRoutes(r)
 	accessModule.RegisterRoutes(r)
 	invitationModule.RegisterRoutes(r)
+	contentModule.RegisterRoutes(r)
 
 	return &App{
 		router: r,
