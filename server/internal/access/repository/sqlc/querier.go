@@ -17,8 +17,6 @@ type Querier interface {
 	DeleteGroup(ctx context.Context, id pgtype.UUID) error
 	DeleteGroupMember(ctx context.Context, arg DeleteGroupMemberParams) error
 	DeleteMember(ctx context.Context, id pgtype.UUID) error
-	DeleteRole(ctx context.Context, id pgtype.UUID) error
-	EditRole(ctx context.Context, arg EditRoleParams) (WorkspaceRole, error)
 	GetGroup(ctx context.Context, id pgtype.UUID) (WorkspaceGroup, error)
 	GetGroupMembers(ctx context.Context, groupID pgtype.UUID) ([]GetGroupMembersRow, error)
 	GetGroups(ctx context.Context, workspaceID pgtype.UUID) ([]WorkspaceGroup, error)
