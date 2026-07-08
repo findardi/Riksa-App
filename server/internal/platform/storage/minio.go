@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net/url"
+	"time"
 
 	"github.com/findardi/Wadi/server/internal/platform/config"
 	"github.com/minio/minio-go/v7"
@@ -54,16 +56,34 @@ func (m *MinioStorage) ensureBucket(ctx context.Context) error {
 	return nil
 }
 
-func (m *MinioStorage) Put(ctx context.Context, key string, r io.Reader, size int64, contentType string) error {
-	_, err := m.client.PutObject(ctx, m.bucket, key, r, size, minio.PutObjectOptions{
-		ContentType: contentType,
-	})
-
+func (m *MinioStorage) PresignedPut(ctx context.Context, key string, expiry time.Duration) (string, error) {
+	u, err := m.client.PresignedPutObject(ctx, m.bucket, key, expiry)
 	if err != nil {
-		return fmt.Errorf("put object: %w", err)
+		return "", fmt.Errorf("presign put: %w", err)
 	}
 
-	return nil
+	return u.String(), nil
+}
+
+func (m *MinioStorage) PresignedGet(ctx context.Context, key, filename string, expiry time.Duration) (string, error) {
+	reqParams := make(url.Values)
+	reqParams.Set("response-content-disposition", fmt.Sprintf(`attachment; filename="%s"`, filename))
+
+	u, err := m.client.PresignedGetObject(ctx, m.bucket, key, expiry, reqParams)
+	if err != nil {
+		return "", fmt.Errorf("presign get: %w", err)
+	}
+
+	return u.String(), nil
+}
+
+func (m *MinioStorage) Stat(ctx context.Context, key string) (size int64, contentType string, err error) {
+	info, err := m.client.StatObject(ctx, m.bucket, key, minio.GetObjectOptions{})
+	if err != nil {
+		return 0, "", fmt.Errorf("stat object: %w", err)
+	}
+
+	return info.Size, info.ContentType, nil
 }
 
 func (m *MinioStorage) Get(ctx context.Context, key string) (io.ReadCloser, error) {
