@@ -11,13 +11,23 @@ import (
 )
 
 type Querier interface {
+	CreateDocument(ctx context.Context, arg CreateDocumentParams) (Document, error)
+	CreateDocumentVersion(ctx context.Context, arg CreateDocumentVersionParams) (DocumentVersion, error)
 	CreateFolder(ctx context.Context, arg CreateFolderParams) (Folder, error)
+	DeleteDocument(ctx context.Context, id pgtype.UUID) error
 	DeleteFolder(ctx context.Context, id pgtype.UUID) error
+	GetCurrentVersion(ctx context.Context, id pgtype.UUID) (DocumentVersion, error)
+	GetDocumentByID(ctx context.Context, id pgtype.UUID) (Document, error)
 	GetFolderByID(ctx context.Context, id pgtype.UUID) (Folder, error)
 	GetFoldersByWorkspace(ctx context.Context, workspaceID pgtype.UUID) ([]Folder, error)
 	GetMaxPositionInParent(ctx context.Context, arg GetMaxPositionInParentParams) (int32, error)
+	GetNextVersionNo(ctx context.Context, documentID pgtype.UUID) (int32, error)
+	GetVersionByID(ctx context.Context, id pgtype.UUID) (DocumentVersion, error)
+	ListDocumentsByFolder(ctx context.Context, folderID pgtype.UUID) ([]ListDocumentsByFolderRow, error)
+	ListVersionByDocument(ctx context.Context, documentID pgtype.UUID) ([]DocumentVersion, error)
 	MoveFolder(ctx context.Context, arg MoveFolderParams) error
 	RenameFolder(ctx context.Context, arg RenameFolderParams) (Folder, error)
+	SetCurrentVersion(ctx context.Context, arg SetCurrentVersionParams) error
 }
 
 var _ Querier = (*Queries)(nil)

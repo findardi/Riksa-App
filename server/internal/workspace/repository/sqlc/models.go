@@ -8,6 +8,28 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type Document struct {
+	ID               pgtype.UUID        `json:"id"`
+	WorkspaceID      pgtype.UUID        `json:"workspace_id"`
+	FolderID         pgtype.UUID        `json:"folder_id"`
+	Name             string             `json:"name"`
+	CurrentVersionID pgtype.UUID        `json:"current_version_id"`
+	UploadedBy       pgtype.UUID        `json:"uploaded_by"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+}
+
+type DocumentVersion struct {
+	ID         pgtype.UUID        `json:"id"`
+	DocumentID pgtype.UUID        `json:"document_id"`
+	VersionNo  int32              `json:"version_no"`
+	Mime       string             `json:"mime"`
+	Size       int64              `json:"size"`
+	StorageKey string             `json:"storage_key"`
+	UploadedBy pgtype.UUID        `json:"uploaded_by"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+}
+
 type Folder struct {
 	ID          pgtype.UUID        `json:"id"`
 	WorkspaceID pgtype.UUID        `json:"workspace_id"`
