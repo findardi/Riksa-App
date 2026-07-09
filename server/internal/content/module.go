@@ -45,7 +45,7 @@ type Module struct {
 
 func NewModule(pool *pgxpool.Pool, verifier middleware.TokenVerifier, store storage.Storage) *Module {
 	r := repository.New(pool)
-	s := service.NewContentService(r)
+	s := service.NewContentService(r, store)
 	h := handler.NewContentHandler(s)
 
 	mw := middleware.New(verifier, userStatusReader{repo: auth.New(pool)}, nil)
