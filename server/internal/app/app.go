@@ -17,6 +17,8 @@ import (
 	authrepo "github.com/findardi/Wadi/server/internal/auth/repository"
 	authservice "github.com/findardi/Wadi/server/internal/auth/service"
 	"github.com/findardi/Wadi/server/internal/content"
+	contentrepo "github.com/findardi/Wadi/server/internal/content/repository"
+	contentservice "github.com/findardi/Wadi/server/internal/content/service"
 	"github.com/findardi/Wadi/server/internal/invitation"
 	"github.com/findardi/Wadi/server/internal/platform/config"
 	"github.com/findardi/Wadi/server/internal/platform/oauth"
@@ -55,9 +57,10 @@ func New(pool *pgxpool.Pool, otpSecret, addr, jwtSecret string, store storage.St
 
 	authsvc := authservice.NewAuthService(authrepo.New(pool), otpGen, jwtGen, mailer, nil)
 	accessSvc := accessservice.NewAccessService(accessrepo.New(pool), mailer, authsvc, otpGen, webURL)
+	contentSvc := contentservice.NewContentService(contentrepo.New(pool), store)
 
 	authModule := auth.NewModule(pool, otpGen, jwtGen, mailer, limiter, providers, accessSvc)
-	workspaceModule := workspace.NewModule(pool, jwtGen, accessSvc)
+	workspaceModule := workspace.NewModule(pool, jwtGen, accessSvc, contentSvc)
 	accessModule := access.NewModule(pool, jwtGen, mailer, authsvc, otpGen, webURL)
 	invitationModule := invitation.NewModule(pool, jwtGen)
 	contentModule := content.NewModule(pool, jwtGen, store)

@@ -29,3 +29,10 @@ where id = $1;
 
 -- name: DeleteFolder :exec
 delete from folders where id = $1;
+
+-- name: CreateDefaultFolder :one
+insert into folders
+    (workspace_id, parent_id, name, position, created_by, is_default)
+values
+    ($1, null, $2, 0, $3, true)
+returning *;

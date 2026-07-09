@@ -265,6 +265,20 @@ func (q *Queries) ListVersionByDocument(ctx context.Context, documentID pgtype.U
 	return items, nil
 }
 
+const moveDocument = `-- name: MoveDocument :exec
+update documents set folder_id = $2, updated_at = now() where id = $1
+`
+
+type MoveDocumentParams struct {
+	ID       pgtype.UUID `json:"id"`
+	FolderID pgtype.UUID `json:"folder_id"`
+}
+
+func (q *Queries) MoveDocument(ctx context.Context, arg MoveDocumentParams) error {
+	_, err := q.db.Exec(ctx, moveDocument, arg.ID, arg.FolderID)
+	return err
+}
+
 const setCurrentVersion = `-- name: SetCurrentVersion :exec
 update documents set 
     current_version_id = $2,

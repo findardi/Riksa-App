@@ -14,3 +14,9 @@ type CompleteVersionRequest struct {
 	UploadedBy  string `json:"-"`
 	StorageKey  string `json:"storage_key" validate:"required"`
 }
+
+type MoveDocumentRequest struct {
+	WorkspaceID string `json:"-"`
+	DocumentID  string `json:"-"`
+	FolderID    string `json:"folder_id" validate:"required,uuid"`
+}

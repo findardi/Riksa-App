@@ -111,6 +111,7 @@ func (m *Module) RegisterRoutes(r chi.Router) {
 				r.With(m.mw.RequirePermission(permission.PermDocumentUpload)).Post("/versions/upload-url", m.handler.RequestUploadVersion)
 				r.With(m.mw.RequirePermission(permission.PermDocumentUpload)).Post("/versions", m.handler.CompletedVersionUpload)
 				r.With(m.mw.RequirePermission(permission.PermDocumentDownload)).Get("/download", m.handler.GetDownloadURL)
+				r.With(m.mw.RequirePermission(permission.PermDocumentEdit)).Patch("/move", m.handler.MoveDocument)
 				r.With(m.mw.RequirePermission(permission.PermDocumentDelete)).Delete("/", m.handler.DeleteDocument)
 			})
 		})
