@@ -5,15 +5,22 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"time"
 
 	"github.com/findardi/Wadi/server/internal/content/dto"
 	contentdb "github.com/findardi/Wadi/server/internal/content/repository/sqlc"
+	"github.com/findardi/Wadi/server/internal/platform/storage"
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const maxFolderDepth = 256
+const (
+	maxFolderDepth = 256
+	uploadURLTTL   = 15 * time.Minute
+	downloadURLTTL = 5 * time.Minute
+)
 
 var (
 	ErrParentCrossWorkspace = errors.New("parent cross workspace")
@@ -22,15 +29,19 @@ var (
 	ErrFolderNotFound       = errors.New("folder not found")
 	ErrCycle                = errors.New("cannot move folder into its own subtree")
 	ErrFolderTreeTooDeep    = errors.New("folder nesting is too deep")
+	ErrDocumentNotFound     = errors.New("document not found")
+	ErrUploadNotFound       = errors.New("uploaded object not found")
 )
 
 type ContentService struct {
-	repo ContentRepository
+	repo  ContentRepository
+	store storage.Storage
 }
 
-func NewContentService(repo ContentRepository) *ContentService {
+func NewContentService(repo ContentRepository, store storage.Storage) *ContentService {
 	return &ContentService{
-		repo: repo,
+		repo:  repo,
+		store: store,
 	}
 }
 
@@ -48,6 +59,10 @@ func deref(s *string) string {
 		return ""
 	}
 	return *s
+}
+
+func storageKey(workspaceID, folderID string) string {
+	return fmt.Sprintf("%s/%s/%s", workspaceID, folderID, uuid.NewString())
 }
 
 func isUniqueViolation(err error, constraint string) bool {

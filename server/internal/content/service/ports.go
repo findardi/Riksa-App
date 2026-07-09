@@ -26,4 +26,6 @@ type ContentRepository interface {
 	GetVersionByID(ctx context.Context, id pgtype.UUID) (contentdb.DocumentVersion, error)
 	GetCurrentVersion(ctx context.Context, id pgtype.UUID) (contentdb.DocumentVersion, error)
 	DeleteDocument(ctx context.Context, id pgtype.UUID) error
+
+	ExecTx(ctx context.Context, fn func(*contentdb.Queries) error) error
 }
