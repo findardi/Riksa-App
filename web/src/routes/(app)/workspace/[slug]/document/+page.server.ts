@@ -1,28 +1,13 @@
-import { error, fail, redirect } from '@sveltejs/kit';
+import { fail, redirect } from '@sveltejs/kit';
 import {
 	createFolder,
 	deleteFolder,
-	getFoldersTree,
 	moveFolder,
 	renameFolder,
 	resolveWorkspaceId
 } from '$lib/server/api';
 import { t } from '$lib/i18n';
-import type { Actions, PageServerLoad } from './$types';
-
-export const load: PageServerLoad = async ({ locals, parent }) => {
-	if (!locals.session) redirect(303, '/login');
-
-	const { workspace } = await parent();
-
-	const res = await getFoldersTree(locals.session, workspace.id);
-	if (!res.ok) {
-		if (res.status === 401) redirect(303, '/login');
-		error(res.status || 500, t('doc.err.load'));
-	}
-
-	return { folders: res.data ?? [] };
-};
+import type { Actions } from './$types';
 
 export const actions: Actions = {
 	create: async ({ locals, params, request }) => {
@@ -83,6 +68,7 @@ export const actions: Actions = {
 		const res = await moveFolder(locals.session, wsId, folderId, { parent_id: parentId });
 		if (!res.ok) {
 			if (res.status === 401) redirect(303, '/login');
+			if (res.status === 403) return fail(403, { message: t('doc.err.defaultLocked') });
 			if (res.status === 409) return fail(409, { message: t('doc.err.nameTaken') });
 			if (res.status === 404) return fail(404, { message: t('doc.err.notFound') });
 			if (res.status === 400) return fail(400, { message: t('doc.err.invalidMove') });
@@ -105,6 +91,7 @@ export const actions: Actions = {
 		const res = await deleteFolder(locals.session, wsId, folderId);
 		if (!res.ok) {
 			if (res.status === 401) redirect(303, '/login');
+			if (res.status === 403) return fail(403, { message: t('doc.err.defaultLocked') });
 			if (res.status === 404) return fail(404, { message: t('doc.err.notFound') });
 			return fail(res.status || 400, { message: res.message || t('err.generic') });
 		}

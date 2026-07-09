@@ -7,4 +7,5 @@ export * from './workspace.member';
 export * from './workspace.group';
 export * from './invitation';
 export * from './document.folder';
+export * from './document';
 export * from './resolve';
