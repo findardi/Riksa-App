@@ -55,3 +55,6 @@ where d.id = $1;
 
 -- name: DeleteDocument :exec
 delete from documents where id = $1;
+
+-- name: MoveDocument :exec
+update documents set folder_id = $2, updated_at = now() where id = $1;

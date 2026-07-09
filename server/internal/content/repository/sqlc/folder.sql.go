@@ -11,12 +11,43 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const createDefaultFolder = `-- name: CreateDefaultFolder :one
+insert into folders
+    (workspace_id, parent_id, name, position, created_by, is_default)
+values
+    ($1, null, $2, 0, $3, true)
+returning id, workspace_id, parent_id, name, position, created_by, created_at, updated_at, is_default
+`
+
+type CreateDefaultFolderParams struct {
+	WorkspaceID pgtype.UUID `json:"workspace_id"`
+	Name        string      `json:"name"`
+	CreatedBy   pgtype.UUID `json:"created_by"`
+}
+
+func (q *Queries) CreateDefaultFolder(ctx context.Context, arg CreateDefaultFolderParams) (Folder, error) {
+	row := q.db.QueryRow(ctx, createDefaultFolder, arg.WorkspaceID, arg.Name, arg.CreatedBy)
+	var i Folder
+	err := row.Scan(
+		&i.ID,
+		&i.WorkspaceID,
+		&i.ParentID,
+		&i.Name,
+		&i.Position,
+		&i.CreatedBy,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.IsDefault,
+	)
+	return i, err
+}
+
 const createFolder = `-- name: CreateFolder :one
 insert into folders
     (workspace_id, parent_id, name, position, created_by)
 values
     ($1, $2, $3, $4, $5)
-returning id, workspace_id, parent_id, name, position, created_by, created_at, updated_at
+returning id, workspace_id, parent_id, name, position, created_by, created_at, updated_at, is_default
 `
 
 type CreateFolderParams struct {
@@ -45,6 +76,7 @@ func (q *Queries) CreateFolder(ctx context.Context, arg CreateFolderParams) (Fol
 		&i.CreatedBy,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.IsDefault,
 	)
 	return i, err
 }
@@ -59,7 +91,7 @@ func (q *Queries) DeleteFolder(ctx context.Context, id pgtype.UUID) error {
 }
 
 const getFolderByID = `-- name: GetFolderByID :one
-select id, workspace_id, parent_id, name, position, created_by, created_at, updated_at from folders where id = $1
+select id, workspace_id, parent_id, name, position, created_by, created_at, updated_at, is_default from folders where id = $1
 `
 
 func (q *Queries) GetFolderByID(ctx context.Context, id pgtype.UUID) (Folder, error) {
@@ -74,12 +106,13 @@ func (q *Queries) GetFolderByID(ctx context.Context, id pgtype.UUID) (Folder, er
 		&i.CreatedBy,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.IsDefault,
 	)
 	return i, err
 }
 
 const getFoldersByWorkspace = `-- name: GetFoldersByWorkspace :many
-select id, workspace_id, parent_id, name, position, created_by, created_at, updated_at from folders where workspace_id = $1
+select id, workspace_id, parent_id, name, position, created_by, created_at, updated_at, is_default from folders where workspace_id = $1
 order by parent_id nulls first, position, created_at
 `
 
@@ -101,6 +134,7 @@ func (q *Queries) GetFoldersByWorkspace(ctx context.Context, workspaceID pgtype.
 			&i.CreatedBy,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.IsDefault,
 		); err != nil {
 			return nil, err
 		}
@@ -150,7 +184,7 @@ func (q *Queries) MoveFolder(ctx context.Context, arg MoveFolderParams) error {
 }
 
 const renameFolder = `-- name: RenameFolder :one
-update folders set name = $2, updated_at = now() where id = $1 returning id, workspace_id, parent_id, name, position, created_by, created_at, updated_at
+update folders set name = $2, updated_at = now() where id = $1 returning id, workspace_id, parent_id, name, position, created_by, created_at, updated_at, is_default
 `
 
 type RenameFolderParams struct {
@@ -170,6 +204,7 @@ func (q *Queries) RenameFolder(ctx context.Context, arg RenameFolderParams) (Fol
 		&i.CreatedBy,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.IsDefault,
 	)
 	return i, err
 }

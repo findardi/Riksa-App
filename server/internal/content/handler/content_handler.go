@@ -85,6 +85,8 @@ func (h *ContentHandler) MoveFolder(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case errors.Is(err, service.ErrFolderNotFound), errors.Is(err, service.ErrParentNotFound):
 			response.Error(w, http.StatusNotFound, err.Error(), nil)
+		case errors.Is(err, service.ErrMoveDefault):
+			response.Error(w, http.StatusForbidden, err.Error(), nil)
 		case errors.Is(err, service.ErrParentCrossWorkspace), errors.Is(err, service.ErrCycle), errors.Is(err, service.ErrFolderTreeTooDeep):
 			response.Error(w, http.StatusBadRequest, err.Error(), nil)
 		case errors.Is(err, service.ErrFolderNameTaken):
@@ -150,6 +152,8 @@ func (h *ContentHandler) DeleteFolder(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case errors.Is(err, service.ErrFolderNotFound):
 			response.Error(w, http.StatusNotFound, err.Error(), nil)
+		case errors.Is(err, service.ErrDeleteDefault):
+			response.Error(w, http.StatusForbidden, err.Error(), nil)
 		default:
 			log.Printf("delete folder internal error: %v", err)
 			response.Error(w, http.StatusInternalServerError, "internal server error", nil)
@@ -353,4 +357,37 @@ func (h *ContentHandler) DeleteDocument(w http.ResponseWriter, r *http.Request) 
 	}
 
 	response.Success(w, http.StatusOK, "delete document success", nil)
+}
+
+func (h *ContentHandler) MoveDocument(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, MaxBodyBytes)
+
+	var req dto.MoveDocumentRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid body request", nil)
+		return
+	}
+
+	if errs := validation.Validate(&req); errs != nil {
+		response.Error(w, http.StatusBadRequest, "validation failed", errs)
+		return
+	}
+
+	req.WorkspaceID = chi.URLParam(r, "workspaceID")
+	req.DocumentID = chi.URLParam(r, "documentID")
+
+	if err := h.svc.MoveDocument(r.Context(), req); err != nil {
+		switch {
+		case errors.Is(err, service.ErrDocumentNotFound), errors.Is(err, service.ErrFolderNotFound):
+			response.Error(w, http.StatusNotFound, err.Error(), nil)
+		case errors.Is(err, service.ErrParentCrossWorkspace):
+			response.Error(w, http.StatusBadRequest, err.Error(), nil)
+		default:
+			log.Printf("move document internal error: %v", err)
+			response.Error(w, http.StatusInternalServerError, "internal server error", nil)
+		}
+		return
+	}
+
+	response.Success(w, http.StatusOK, "move document success", nil)
 }

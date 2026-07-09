@@ -379,3 +379,40 @@ func (s *ContentService) DeleteDocument(ctx context.Context, workspaceID, docume
 
 	return nil
 }
+
+func (s *ContentService) MoveDocument(ctx context.Context, req dto.MoveDocumentRequest) error {
+	var dID, fID pgtype.UUID
+	if err := dID.Scan(req.DocumentID); err != nil {
+		return fmt.Errorf("document id parse: %w", err)
+	}
+	if err := fID.Scan(req.FolderID); err != nil {
+		return fmt.Errorf("folder id parse: %w", err)
+	}
+
+	doc, err := s.repo.GetDocumentByID(ctx, dID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return ErrDocumentNotFound
+	}
+	if err != nil {
+		return fmt.Errorf("get document: %w", err)
+	}
+	if uuidString(doc.WorkspaceID) != req.WorkspaceID {
+		return ErrDocumentNotFound
+	}
+
+	folder, err := s.repo.GetFolderByID(ctx, fID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return ErrFolderNotFound
+	}
+	if err != nil {
+		return fmt.Errorf("get target folder: %w", err)
+	}
+	if uuidString(folder.WorkspaceID) != req.WorkspaceID {
+		return ErrParentCrossWorkspace
+	}
+
+	return s.repo.MoveDocument(ctx, contentdb.MoveDocumentParams{
+		ID:       dID,
+		FolderID: fID,
+	})
+}

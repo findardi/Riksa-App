@@ -11,6 +11,7 @@ import (
 )
 
 type Querier interface {
+	CreateDefaultFolder(ctx context.Context, arg CreateDefaultFolderParams) (Folder, error)
 	CreateDocument(ctx context.Context, arg CreateDocumentParams) (Document, error)
 	CreateDocumentVersion(ctx context.Context, arg CreateDocumentVersionParams) (DocumentVersion, error)
 	CreateFolder(ctx context.Context, arg CreateFolderParams) (Folder, error)
@@ -25,6 +26,7 @@ type Querier interface {
 	GetVersionByID(ctx context.Context, id pgtype.UUID) (DocumentVersion, error)
 	ListDocumentsByFolder(ctx context.Context, folderID pgtype.UUID) ([]ListDocumentsByFolderRow, error)
 	ListVersionByDocument(ctx context.Context, documentID pgtype.UUID) ([]DocumentVersion, error)
+	MoveDocument(ctx context.Context, arg MoveDocumentParams) error
 	MoveFolder(ctx context.Context, arg MoveFolderParams) error
 	RenameFolder(ctx context.Context, arg RenameFolderParams) (Folder, error)
 	SetCurrentVersion(ctx context.Context, arg SetCurrentVersionParams) error

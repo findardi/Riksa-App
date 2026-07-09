@@ -31,6 +31,8 @@ var (
 	ErrFolderTreeTooDeep    = errors.New("folder nesting is too deep")
 	ErrDocumentNotFound     = errors.New("document not found")
 	ErrUploadNotFound       = errors.New("uploaded object not found")
+	ErrDeleteDefault        = errors.New("folder is default by system, cant deleted")
+	ErrMoveDefault          = errors.New("folder is default by system, cant moved")
 )
 
 type ContentService struct {
@@ -43,6 +45,18 @@ func NewContentService(repo ContentRepository, store storage.Storage) *ContentSe
 		repo:  repo,
 		store: store,
 	}
+}
+
+func (s *ContentService) ProvisionWorkspace(ctx context.Context, tx pgx.Tx, workspaceID, ownerID pgtype.UUID) error {
+	q := contentdb.New(tx)
+	if _, err := q.CreateDefaultFolder(ctx, contentdb.CreateDefaultFolderParams{
+		WorkspaceID: workspaceID,
+		Name:        "General",
+		CreatedBy:   ownerID,
+	}); err != nil {
+		return fmt.Errorf("seed default folder: %w", err)
+	}
+	return nil
 }
 
 func uuidString(u pgtype.UUID) string {
@@ -133,6 +147,7 @@ func (s *ContentService) CreateFolder(ctx context.Context, req dto.CreateFolderR
 		ParentID:    uuidString(f.ParentID),
 		Name:        f.Name,
 		Position:    f.Position,
+		IsDefault:   f.IsDefault,
 		CreatedBy:   uuidString(f.CreatedBy),
 		CreatedAt:   f.CreatedAt.Time,
 		UpdatedAt:   f.UpdatedAt.Time,
@@ -154,6 +169,10 @@ func (s *ContentService) MoveFolder(ctx context.Context, req dto.MoveFolderReque
 
 	if err != nil {
 		return fmt.Errorf("get folder: %w", err)
+	}
+
+	if folder.IsDefault {
+		return ErrMoveDefault
 	}
 
 	if req.ParentID != "" {
@@ -251,11 +270,12 @@ func buildFolderTree(childrenOf map[string][]contentdb.Folder, parentKey, prefix
 		id := uuidString(f.ID)
 
 		nodes = append(nodes, dto.FolderTreeNode{
-			ID:       id,
-			Name:     f.Name,
-			Number:   number,
-			Position: f.Position,
-			Children: buildFolderTree(childrenOf, id, number+"."),
+			ID:        id,
+			Name:      f.Name,
+			Number:    number,
+			Position:  f.Position,
+			IsDefault: f.IsDefault,
+			Children:  buildFolderTree(childrenOf, id, number+"."),
 		})
 	}
 
@@ -291,6 +311,7 @@ func (s *ContentService) RenameFolder(ctx context.Context, req dto.RenameFolderR
 		ParentID:    uuidString(f.ParentID),
 		Name:        f.Name,
 		Position:    f.Position,
+		IsDefault:   f.IsDefault,
 		CreatedBy:   uuidString(f.CreatedBy),
 		CreatedAt:   f.CreatedAt.Time,
 		UpdatedAt:   f.UpdatedAt.Time,
@@ -303,10 +324,15 @@ func (s *ContentService) DeleteFolder(ctx context.Context, folderID string) erro
 		return fmt.Errorf("folder id parse: %w", err)
 	}
 
-	if _, err := s.repo.GetFolderByID(ctx, fID); errors.Is(err, pgx.ErrNoRows) {
+	doc, err := s.repo.GetFolderByID(ctx, fID)
+	if errors.Is(err, pgx.ErrNoRows) {
 		return ErrFolderNotFound
 	} else if err != nil {
 		return fmt.Errorf("get folder: %w", err)
+	}
+
+	if doc.IsDefault {
+		return ErrDeleteDefault
 	}
 
 	if err := s.repo.DeleteFolder(ctx, fID); err != nil {

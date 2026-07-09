@@ -27,3 +27,7 @@ type WorkspaceRepository interface {
 type AccessService interface {
 	ProvisionWorkspace(ctx context.Context, tx pgx.Tx, workspaceID, ownerID pgtype.UUID) error
 }
+
+type ContentProvisioner interface {
+	ProvisionWorkspace(ctx context.Context, tx pgx.Tx, workspaceID, ownerID pgtype.UUID) error
+}
