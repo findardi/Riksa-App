@@ -104,7 +104,7 @@ func (h *ContentHandler) GetFoldersTree(w http.ResponseWriter, r *http.Request) 
 
 	res, err := h.svc.GetFoldersTree(r.Context(), wID)
 	if err != nil {
-		log.Printf("move folder internal error: %v", err)
+		log.Printf("get folders tree internal error: %v", err)
 		response.Error(w, http.StatusInternalServerError, "internal server error", nil)
 		return
 	}
@@ -136,7 +136,7 @@ func (h *ContentHandler) RenameFolder(w http.ResponseWriter, r *http.Request) {
 		case errors.Is(err, service.ErrFolderNotFound):
 			response.Error(w, http.StatusNotFound, err.Error(), nil)
 		default:
-			log.Printf("move folder internal error: %v", err)
+			log.Printf("rename folder internal error: %v", err)
 			response.Error(w, http.StatusInternalServerError, "internal server error", nil)
 		}
 		return
@@ -151,11 +151,206 @@ func (h *ContentHandler) DeleteFolder(w http.ResponseWriter, r *http.Request) {
 		case errors.Is(err, service.ErrFolderNotFound):
 			response.Error(w, http.StatusNotFound, err.Error(), nil)
 		default:
-			log.Printf("move folder internal error: %v", err)
+			log.Printf("delete folder internal error: %v", err)
 			response.Error(w, http.StatusInternalServerError, "internal server error", nil)
 		}
 		return
 	}
 
 	response.Success(w, http.StatusOK, "delete folder success", nil)
+}
+
+func (h *ContentHandler) RequestUploadURL(w http.ResponseWriter, r *http.Request) {
+	wID := chi.URLParam(r, "workspaceID")
+	fID := chi.URLParam(r, "folderID")
+
+	res, err := h.svc.RequestUploadURL(r.Context(), wID, fID)
+	if err != nil {
+		switch {
+		case errors.Is(err, service.ErrFolderNotFound):
+			response.Error(w, http.StatusNotFound, err.Error(), nil)
+		default:
+			log.Printf("request upload url internal error: %v", err)
+			response.Error(w, http.StatusInternalServerError, "internal server error", nil)
+		}
+		return
+	}
+
+	response.Success(w, http.StatusOK, "request upload url success", res)
+}
+
+func (h *ContentHandler) CompletedUpload(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, MaxBodyBytes)
+
+	claims, ok := middleware.ClaimsFromContext(r.Context())
+	if !ok {
+		response.Error(w, http.StatusUnauthorized, "unauthorized", nil)
+		return
+	}
+
+	var req dto.CompleteUploadRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid body request", nil)
+		return
+	}
+
+	if errs := validation.Validate(&req); errs != nil {
+		response.Error(w, http.StatusBadRequest, "validation failed", errs)
+		return
+	}
+
+	req.WorkspaceID = chi.URLParam(r, "workspaceID")
+	req.FolderID = chi.URLParam(r, "folderID")
+	req.UploadedBy = claims.ID
+
+	res, err := h.svc.CompletedUpload(r.Context(), req)
+	if err != nil {
+		switch {
+		case errors.Is(err, service.ErrFolderNotFound):
+			response.Error(w, http.StatusNotFound, err.Error(), nil)
+		case errors.Is(err, service.ErrUploadNotFound):
+			response.Error(w, http.StatusBadRequest, err.Error(), nil)
+		default:
+			log.Printf("complete upload internal error: %v", err)
+			response.Error(w, http.StatusInternalServerError, "internal server error", nil)
+		}
+		return
+	}
+
+	response.Success(w, http.StatusCreated, "upload document success", res)
+}
+
+func (h *ContentHandler) ListDocuments(w http.ResponseWriter, r *http.Request) {
+	wID := chi.URLParam(r, "workspaceID")
+	fID := chi.URLParam(r, "folderID")
+
+	res, err := h.svc.ListDocuments(r.Context(), wID, fID)
+	if err != nil {
+		switch {
+		case errors.Is(err, service.ErrFolderNotFound):
+			response.Error(w, http.StatusNotFound, err.Error(), nil)
+		default:
+			log.Printf("list documents internal error: %v", err)
+			response.Error(w, http.StatusInternalServerError, "internal server error", nil)
+		}
+		return
+	}
+
+	response.Success(w, http.StatusOK, "list documents success", res)
+}
+
+func (h *ContentHandler) ListVersions(w http.ResponseWriter, r *http.Request) {
+	wID := chi.URLParam(r, "workspaceID")
+	dID := chi.URLParam(r, "documentID")
+
+	res, err := h.svc.ListVersions(r.Context(), wID, dID)
+	if err != nil {
+		switch {
+		case errors.Is(err, service.ErrDocumentNotFound):
+			response.Error(w, http.StatusNotFound, err.Error(), nil)
+		default:
+			log.Printf("list versions internal error: %v", err)
+			response.Error(w, http.StatusInternalServerError, "internal server error", nil)
+		}
+		return
+	}
+
+	response.Success(w, http.StatusOK, "list versions success", res)
+}
+
+func (h *ContentHandler) RequestUploadVersion(w http.ResponseWriter, r *http.Request) {
+	wID := chi.URLParam(r, "workspaceID")
+	dID := chi.URLParam(r, "documentID")
+
+	res, err := h.svc.RequestVersionUpload(r.Context(), wID, dID)
+	if err != nil {
+		switch {
+		case errors.Is(err, service.ErrDocumentNotFound):
+			response.Error(w, http.StatusNotFound, err.Error(), nil)
+		default:
+			log.Printf("request version upload internal error: %v", err)
+			response.Error(w, http.StatusInternalServerError, "internal server error", nil)
+		}
+		return
+	}
+
+	response.Success(w, http.StatusOK, "request version upload url success", res)
+}
+
+func (h *ContentHandler) CompletedVersionUpload(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, MaxBodyBytes)
+
+	claims, ok := middleware.ClaimsFromContext(r.Context())
+	if !ok {
+		response.Error(w, http.StatusUnauthorized, "unauthorized", nil)
+		return
+	}
+
+	var req dto.CompleteVersionRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid body request", nil)
+		return
+	}
+
+	if errs := validation.Validate(&req); errs != nil {
+		response.Error(w, http.StatusBadRequest, "validation failed", errs)
+		return
+	}
+
+	req.WorkspaceID = chi.URLParam(r, "workspaceID")
+	req.DocumentID = chi.URLParam(r, "documentID")
+	req.UploadedBy = claims.ID
+
+	res, err := h.svc.CompletedVersion(r.Context(), req)
+	if err != nil {
+		switch {
+		case errors.Is(err, service.ErrDocumentNotFound):
+			response.Error(w, http.StatusNotFound, err.Error(), nil)
+		case errors.Is(err, service.ErrUploadNotFound):
+			response.Error(w, http.StatusBadRequest, err.Error(), nil)
+		default:
+			log.Printf("complete version internal error: %v", err)
+			response.Error(w, http.StatusInternalServerError, "internal server error", nil)
+		}
+		return
+	}
+
+	response.Success(w, http.StatusCreated, "upload version success", res)
+}
+
+func (h *ContentHandler) GetDownloadURL(w http.ResponseWriter, r *http.Request) {
+	wID := chi.URLParam(r, "workspaceID")
+	dID := chi.URLParam(r, "documentID")
+
+	res, err := h.svc.GetDownloadURL(r.Context(), wID, dID)
+	if err != nil {
+		switch {
+		case errors.Is(err, service.ErrDocumentNotFound):
+			response.Error(w, http.StatusNotFound, err.Error(), nil)
+		default:
+			log.Printf("get download url internal error: %v", err)
+			response.Error(w, http.StatusInternalServerError, "internal server error", nil)
+		}
+		return
+	}
+
+	response.Success(w, http.StatusOK, "get download url success", res)
+}
+
+func (h *ContentHandler) DeleteDocument(w http.ResponseWriter, r *http.Request) {
+	wID := chi.URLParam(r, "workspaceID")
+	dID := chi.URLParam(r, "documentID")
+
+	if err := h.svc.DeleteDocument(r.Context(), wID, dID); err != nil {
+		switch {
+		case errors.Is(err, service.ErrDocumentNotFound):
+			response.Error(w, http.StatusNotFound, err.Error(), nil)
+		default:
+			log.Printf("delete document internal error: %v", err)
+			response.Error(w, http.StatusInternalServerError, "internal server error", nil)
+		}
+		return
+	}
+
+	response.Success(w, http.StatusOK, "delete document success", nil)
 }

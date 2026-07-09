@@ -91,14 +91,28 @@ func (m *Module) RegisterRoutes(r chi.Router) {
 		r.Use(m.mw.RequireAuth)
 		r.Use(m.mw.RequireActive)
 
-		r.Route("/workspaces/{workspaceID}/folders", func(r chi.Router) {
+		r.Route("/workspaces/{workspaceID}", func(r chi.Router) {
 			r.Use(m.mw.RequireMember("workspaceID", m.workspaceMember))
 
-			r.With(m.mw.RequirePermission(permission.PermFolderView)).Get("/", m.handler.GetFoldersTree)
-			r.With(m.mw.RequirePermission(permission.PermFolderCreate)).Post("/", m.handler.CreateFolder)
-			r.With(m.mw.RequirePermission(permission.PermFolderEdit)).Put("/{folderID}", m.handler.RenameFolder)
-			r.With(m.mw.RequirePermission(permission.PermFolderEdit)).Patch("/{folderID}/move", m.handler.MoveFolder)
-			r.With(m.mw.RequirePermission(permission.PermFolderDelete)).Delete("/{folderID}", m.handler.DeleteFolder)
+			r.Route("/folders", func(r chi.Router) {
+				r.With(m.mw.RequirePermission(permission.PermFolderView)).Get("/", m.handler.GetFoldersTree)
+				r.With(m.mw.RequirePermission(permission.PermFolderCreate)).Post("/", m.handler.CreateFolder)
+				r.With(m.mw.RequirePermission(permission.PermFolderEdit)).Put("/{folderID}", m.handler.RenameFolder)
+				r.With(m.mw.RequirePermission(permission.PermFolderEdit)).Patch("/{folderID}/move", m.handler.MoveFolder)
+				r.With(m.mw.RequirePermission(permission.PermFolderDelete)).Delete("/{folderID}", m.handler.DeleteFolder)
+
+				r.With(m.mw.RequirePermission(permission.PermDocumentView)).Get("/{folderID}/documents", m.handler.ListDocuments)
+				r.With(m.mw.RequirePermission(permission.PermDocumentUpload)).Post("/{folderID}/documents/upload-url", m.handler.RequestUploadURL)
+				r.With(m.mw.RequirePermission(permission.PermDocumentUpload)).Post("/{folderID}/documents", m.handler.CompletedUpload)
+			})
+
+			r.Route("/documents/{documentID}", func(r chi.Router) {
+				r.With(m.mw.RequirePermission(permission.PermDocumentView)).Get("/versions", m.handler.ListVersions)
+				r.With(m.mw.RequirePermission(permission.PermDocumentUpload)).Post("/versions/upload-url", m.handler.RequestUploadVersion)
+				r.With(m.mw.RequirePermission(permission.PermDocumentUpload)).Post("/versions", m.handler.CompletedVersionUpload)
+				r.With(m.mw.RequirePermission(permission.PermDocumentDownload)).Get("/download", m.handler.GetDownloadURL)
+				r.With(m.mw.RequirePermission(permission.PermDocumentDelete)).Delete("/", m.handler.DeleteDocument)
+			})
 		})
 	})
 }
