@@ -4,9 +4,9 @@ import (
 	"context"
 	"testing"
 
-	"github.com/findardi/Wadi/server/internal/access/dto"
-	accessdb "github.com/findardi/Wadi/server/internal/access/repository/sqlc"
-	"github.com/findardi/Wadi/server/internal/platform/permission"
+	"github.com/findardi/Riksa-App/server/internal/access/dto"
+	accessdb "github.com/findardi/Riksa-App/server/internal/access/repository/sqlc"
+	"github.com/findardi/Riksa-App/server/internal/platform/permission"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/stretchr/testify/assert"

@@ -4,10 +4,10 @@ import (
 	"context"
 	"log"
 
-	"github.com/findardi/Wadi/server/internal/app"
-	"github.com/findardi/Wadi/server/internal/platform/config"
-	"github.com/findardi/Wadi/server/internal/platform/database"
-	"github.com/findardi/Wadi/server/internal/platform/storage"
+	"github.com/findardi/Riksa-App/server/internal/app"
+	"github.com/findardi/Riksa-App/server/internal/platform/config"
+	"github.com/findardi/Riksa-App/server/internal/platform/database"
+	"github.com/findardi/Riksa-App/server/internal/platform/storage"
 )
 
 func main() {

@@ -45,7 +45,7 @@
 					class="grid h-6 w-6 flex-none place-items-center rounded-field text-muted transition-colors hover:bg-base-content/5 hover:text-base-content"
 				>
 					<svg
-						class="wadi-chevron h-3.5 w-3.5 {uploadQueue.open ? 'rotate-180' : ''}"
+						class="riksa-chevron h-3.5 w-3.5 {uploadQueue.open ? 'rotate-180' : ''}"
 						viewBox="0 0 24 24"
 						fill="none"
 						stroke="currentColor"
@@ -127,7 +127,7 @@
 									aria-valuemax={100}
 									aria-label={t('doc.upload.progressOf', { name: item.name })}
 								>
-									<div class="wadi-bar h-full bg-primary" style="width: {item.progress}%"></div>
+									<div class="riksa-bar h-full bg-primary" style="width: {item.progress}%"></div>
 								</div>
 							{:else if item.status === 'done'}
 								<div class="mt-1.5 h-0.5 rounded-full bg-success/60"></div>
@@ -145,15 +145,15 @@
 {/if}
 
 <style>
-	.wadi-bar {
+	.riksa-bar {
 		transition: width 200ms cubic-bezier(0.22, 1, 0.36, 1);
 	}
-	.wadi-chevron {
+	.riksa-chevron {
 		transition: transform 200ms cubic-bezier(0.22, 1, 0.36, 1);
 	}
 	@media (prefers-reduced-motion: reduce) {
-		.wadi-bar,
-		.wadi-chevron {
+		.riksa-bar,
+		.riksa-chevron {
 			transition: none;
 		}
 	}

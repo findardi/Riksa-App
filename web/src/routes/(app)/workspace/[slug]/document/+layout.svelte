@@ -672,7 +672,7 @@
 									class="mt-0.5 grid h-5 w-5 flex-none place-items-center rounded text-muted transition-colors hover:text-base-content"
 								>
 									<svg
-										class="wadi-caret h-3.5 w-3.5 {open ? 'rotate-90' : ''}"
+										class="riksa-caret h-3.5 w-3.5 {open ? 'rotate-90' : ''}"
 										viewBox="0 0 24 24"
 										fill="none"
 										stroke="currentColor"
@@ -896,7 +896,7 @@
 
 {#if fileDragging && canUpload}
 	<div
-		class="wadi-overlay pointer-events-none fixed inset-x-0 top-4 z-30 flex justify-center px-4"
+		class="riksa-overlay pointer-events-none fixed inset-x-0 top-4 z-30 flex justify-center px-4"
 		aria-hidden="true"
 	>
 		<div
@@ -1003,13 +1003,13 @@
 </dialog>
 
 <style>
-	.wadi-caret {
+	.riksa-caret {
 		transition: transform 150ms cubic-bezier(0.22, 1, 0.36, 1);
 	}
-	.wadi-overlay {
-		animation: wadi-fade-in 150ms ease-out;
+	.riksa-overlay {
+		animation: riksa-fade-in 150ms ease-out;
 	}
-	@keyframes wadi-fade-in {
+	@keyframes riksa-fade-in {
 		from {
 			opacity: 0;
 		}
@@ -1018,10 +1018,10 @@
 		}
 	}
 	@media (prefers-reduced-motion: reduce) {
-		.wadi-caret {
+		.riksa-caret {
 			transition: none;
 		}
-		.wadi-overlay {
+		.riksa-overlay {
 			animation: none;
 		}
 	}

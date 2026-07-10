@@ -3,11 +3,11 @@ package invitation
 import (
 	"context"
 
-	auth "github.com/findardi/Wadi/server/internal/auth/repository"
-	"github.com/findardi/Wadi/server/internal/invitation/handler"
-	"github.com/findardi/Wadi/server/internal/invitation/repository"
-	"github.com/findardi/Wadi/server/internal/invitation/service"
-	"github.com/findardi/Wadi/server/internal/platform/middleware"
+	auth "github.com/findardi/Riksa-App/server/internal/auth/repository"
+	"github.com/findardi/Riksa-App/server/internal/invitation/handler"
+	"github.com/findardi/Riksa-App/server/internal/invitation/repository"
+	"github.com/findardi/Riksa-App/server/internal/invitation/service"
+	"github.com/findardi/Riksa-App/server/internal/platform/middleware"
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"

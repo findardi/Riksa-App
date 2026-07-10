@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/findardi/Wadi/server/internal/invitation/dto"
-	invitationdb "github.com/findardi/Wadi/server/internal/invitation/repository/sqlc"
+	"github.com/findardi/Riksa-App/server/internal/invitation/dto"
+	invitationdb "github.com/findardi/Riksa-App/server/internal/invitation/repository/sqlc"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 )

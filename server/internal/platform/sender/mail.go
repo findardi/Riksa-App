@@ -3,7 +3,7 @@ package sender
 import (
 	"context"
 
-	"github.com/findardi/Wadi/server/internal/platform/config"
+	"github.com/findardi/Riksa-App/server/internal/platform/config"
 	"github.com/wneessen/go-mail"
 )
 
