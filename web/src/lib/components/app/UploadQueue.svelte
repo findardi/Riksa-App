@@ -12,12 +12,12 @@
 
 {#if total > 0}
 	<section
-		class="fixed inset-x-4 bottom-20 z-40 sm:inset-x-auto sm:right-4 sm:bottom-4 sm:w-96"
+		class="fixed inset-x-4 bottom-20 z-panel sm:inset-x-auto sm:right-4 sm:bottom-4 sm:w-96"
 		aria-label={t('doc.upload.title')}
 	>
 		<div class="overflow-hidden rounded-box border border-base-content/12 bg-base-100 shadow-lg">
 			<header class="flex items-center gap-2 border-b border-base-content/8 px-3 py-2">
-				<h2 class="min-w-0 flex-1 truncate text-sm font-medium">
+				<h2 aria-live="polite" class="min-w-0 flex-1 truncate text-sm font-medium">
 					{#if busy > 0}
 						{t('doc.upload.uploading', { n: busy })}
 					{:else if uploadQueue.failed > 0}
@@ -45,7 +45,7 @@
 					class="grid h-6 w-6 flex-none place-items-center rounded-field text-muted transition-colors hover:bg-base-content/5 hover:text-base-content"
 				>
 					<svg
-						class="riksa-chevron h-3.5 w-3.5 {uploadQueue.open ? 'rotate-180' : ''}"
+						class="riksa-chevron h-3.5 w-3.5 {uploadQueue.open ? '' : 'rotate-180'}"
 						viewBox="0 0 24 24"
 						fill="none"
 						stroke="currentColor"
@@ -127,7 +127,10 @@
 									aria-valuemax={100}
 									aria-label={t('doc.upload.progressOf', { name: item.name })}
 								>
-									<div class="riksa-bar h-full bg-primary" style="width: {item.progress}%"></div>
+									<div
+										class="riksa-bar h-full w-full origin-left bg-primary"
+										style="transform: scaleX({item.progress / 100})"
+									></div>
 								</div>
 							{:else if item.status === 'done'}
 								<div class="mt-1.5 h-0.5 rounded-full bg-success/60"></div>
@@ -146,7 +149,7 @@
 
 <style>
 	.riksa-bar {
-		transition: width 200ms cubic-bezier(0.22, 1, 0.36, 1);
+		transition: transform 200ms cubic-bezier(0.22, 1, 0.36, 1);
 	}
 	.riksa-chevron {
 		transition: transform 200ms cubic-bezier(0.22, 1, 0.36, 1);

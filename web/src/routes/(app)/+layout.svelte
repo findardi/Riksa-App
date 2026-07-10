@@ -39,14 +39,14 @@
 
 		<!-- Mobile: off-canvas drawer -->
 		<div
-			class="fixed inset-x-0 top-14 bottom-0 z-40 bg-base-content/40 transition-opacity duration-200 motion-reduce:transition-none md:hidden {navOpen
+			class="fixed inset-x-0 top-14 bottom-0 z-backdrop bg-base-content/40 transition-opacity duration-200 motion-reduce:transition-none md:hidden {navOpen
 				? 'opacity-100'
 				: 'pointer-events-none opacity-0'}"
 			onclick={() => (navOpen = false)}
 			aria-hidden="true"
 		></div>
 		<aside
-			class="fixed top-14 bottom-0 left-0 z-50 w-64 border-r border-base-content/10 bg-base-300 transition-transform duration-200 ease-out motion-reduce:transition-none md:hidden {navOpen
+			class="fixed top-14 bottom-0 left-0 z-drawer w-64 border-r border-base-content/10 bg-base-300 transition-transform duration-200 ease-out motion-reduce:transition-none md:hidden {navOpen
 				? 'translate-x-0'
 				: '-translate-x-full'}"
 			aria-label="Navigasi"

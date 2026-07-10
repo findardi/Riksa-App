@@ -270,7 +270,7 @@
 </dialog>
 
 {#if toast}
-	<div class="pointer-events-none fixed inset-x-0 bottom-4 z-50 flex justify-center px-4">
+	<div class="pointer-events-none fixed inset-x-0 bottom-4 z-toast flex justify-center px-4">
 		<div class="pointer-events-auto"><Alert variant="success">{toast}</Alert></div>
 	</div>
 {/if}
