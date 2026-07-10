@@ -5,9 +5,9 @@
 	themes: false;
 }
 
-/* "Wadi" theme — "The Clean Room". Palette + sharp radii from DESIGN.md. */
+/* "Riksa" theme — "The Clean Room". Palette + sharp radii from DESIGN.md. */
 @plugin 'daisyui/theme' {
-	name: 'wadi';
+	name: 'riksa';
 	default: true;
 	prefersdark: false;
 	color-scheme: 'light';

@@ -7,9 +7,9 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/findardi/Wadi/server/internal/content/dto"
-	contentdb "github.com/findardi/Wadi/server/internal/content/repository/sqlc"
-	"github.com/findardi/Wadi/server/internal/platform/storage"
+	"github.com/findardi/Riksa-App/server/internal/content/dto"
+	contentdb "github.com/findardi/Riksa-App/server/internal/content/repository/sqlc"
+	"github.com/findardi/Riksa-App/server/internal/platform/storage"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"

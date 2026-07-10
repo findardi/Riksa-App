@@ -14,8 +14,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/findardi/Wadi/server/internal/platform/response"
-	"github.com/findardi/Wadi/server/internal/platform/token"
+	"github.com/findardi/Riksa-App/server/internal/platform/response"
+	"github.com/findardi/Riksa-App/server/internal/platform/token"
 	"github.com/go-chi/chi/v5"
 )
 

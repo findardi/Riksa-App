@@ -3,7 +3,7 @@ package service
 import (
 	"context"
 
-	contentdb "github.com/findardi/Wadi/server/internal/content/repository/sqlc"
+	contentdb "github.com/findardi/Riksa-App/server/internal/content/repository/sqlc"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 

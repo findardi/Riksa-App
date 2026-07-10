@@ -6,7 +6,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	accessdb "github.com/findardi/Wadi/server/internal/access/repository/sqlc"
+	accessdb "github.com/findardi/Riksa-App/server/internal/access/repository/sqlc"
 )
 
 type Repository struct {

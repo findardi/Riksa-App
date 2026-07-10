@@ -1,4 +1,4 @@
-module github.com/findardi/Wadi/server
+module github.com/findardi/Riksa-App/server
 
 go 1.26.3
 

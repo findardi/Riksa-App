@@ -3,8 +3,8 @@ package service
 import (
 	"context"
 
-	accessdb "github.com/findardi/Wadi/server/internal/access/repository/sqlc"
-	authdto "github.com/findardi/Wadi/server/internal/auth/dto"
+	accessdb "github.com/findardi/Riksa-App/server/internal/access/repository/sqlc"
+	authdto "github.com/findardi/Riksa-App/server/internal/auth/dto"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 

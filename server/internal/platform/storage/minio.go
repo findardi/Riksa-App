@@ -7,7 +7,7 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/findardi/Wadi/server/internal/platform/config"
+	"github.com/findardi/Riksa-App/server/internal/platform/config"
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
 )

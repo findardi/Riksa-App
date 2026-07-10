@@ -6,11 +6,11 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/findardi/Wadi/server/internal/content/dto"
-	"github.com/findardi/Wadi/server/internal/content/service"
-	"github.com/findardi/Wadi/server/internal/platform/middleware"
-	"github.com/findardi/Wadi/server/internal/platform/response"
-	"github.com/findardi/Wadi/server/internal/platform/validation"
+	"github.com/findardi/Riksa-App/server/internal/content/dto"
+	"github.com/findardi/Riksa-App/server/internal/content/service"
+	"github.com/findardi/Riksa-App/server/internal/platform/middleware"
+	"github.com/findardi/Riksa-App/server/internal/platform/response"
+	"github.com/findardi/Riksa-App/server/internal/platform/validation"
 	"github.com/go-chi/chi/v5"
 )
 

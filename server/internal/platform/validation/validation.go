@@ -6,7 +6,7 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/findardi/Wadi/server/internal/platform/response"
+	"github.com/findardi/Riksa-App/server/internal/platform/response"
 	"github.com/go-playground/validator/v10"
 )
 

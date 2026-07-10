@@ -7,7 +7,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	authdb "github.com/findardi/Wadi/server/internal/auth/repository/sqlc"
+	authdb "github.com/findardi/Riksa-App/server/internal/auth/repository/sqlc"
 )
 
 type Repository struct {
