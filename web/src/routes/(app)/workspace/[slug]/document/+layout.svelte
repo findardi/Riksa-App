@@ -6,9 +6,10 @@
 	import { page } from '$app/state';
 	import type { ActionResult, SubmitFunction } from '@sveltejs/kit';
 	import { UploadQueue } from '$lib/components/app';
-	import { Alert, Button, showToast } from '$lib/components/common';
-	import { DOCUMENT_MIME, FOLDER_MIME } from '$lib/dnd';
+	import { Alert, Button, Field, showToast } from '$lib/components/common';
+	import { DOCUMENT_MIME, FOLDER_MIME, filesFrom } from '$lib/dnd';
 	import { t } from '$lib/i18n';
+	import { findNode } from '$lib/tree';
 	import type { FolderTreeNode } from '$lib/types/content';
 	import type { MyAccessWorkspace } from '$lib/types/workspace';
 	import { uploadQueue } from '$lib/upload/queue.svelte';
@@ -38,18 +39,47 @@
 	const activeFolder = $derived(activeId ? findNode(folders, activeId) : null);
 	const fallbackFolder = $derived(activeFolder ?? defaultFolder);
 
+	// Top-level folders reveal their children; deeper levels start closed, so a
+	// 300-folder index opens as a readable table of contents rather than a wall.
+	const DEFAULT_OPEN_DEPTH = 1;
+
 	let expanded = $state<Record<string, boolean>>({});
-	const isExpanded = (id: string) => expanded[id] ?? true;
-	function toggle(id: string) {
-		expanded[id] = !isExpanded(id);
+	const isExpanded = (id: string, depth: number) => expanded[id] ?? depth < DEFAULT_OPEN_DEPTH;
+	function toggle(id: string, depth: number) {
+		expanded[id] = !isExpanded(id, depth);
 	}
 
-	type Row = { node: FolderTreeNode; depth: number; hasChildren: boolean };
+	let query = $state('');
+	const q = $derived(query.trim().toLowerCase());
+
+	// `null` = no search. Otherwise the ids to render: every match plus the
+	// ancestors needed to reach it, so a hit never appears without its context.
+	const matched = $derived.by(() => {
+		if (!q) return null;
+		const keep: Record<string, true> = {};
+		const visit = (nodes: FolderTreeNode[], trail: string[]): void => {
+			for (const n of nodes) {
+				const hit = n.name.toLowerCase().includes(q) || n.number.toLowerCase().includes(q);
+				if (hit) {
+					keep[n.id] = true;
+					for (const id of trail) keep[id] = true;
+				}
+				visit(n.children ?? [], [...trail, n.id]);
+			}
+		};
+		visit(folders, []);
+		return keep;
+	});
+
+	type Row = { node: FolderTreeNode; depth: number; hasChildren: boolean; open: boolean };
 	function walk(nodes: FolderTreeNode[], depth: number, out: Row[]) {
 		for (const n of nodes) {
-			const kids = n.children ?? [];
-			out.push({ node: n, depth, hasChildren: kids.length > 0 });
-			if (kids.length && isExpanded(n.id)) walk(kids, depth + 1, out);
+			if (matched && !matched[n.id]) continue;
+			const kids = (n.children ?? []).filter((k) => !matched || matched[k.id]);
+			// A search result is always drilled open; otherwise honour the toggle.
+			const open = matched ? true : isExpanded(n.id, depth);
+			out.push({ node: n, depth, hasChildren: kids.length > 0, open });
+			if (kids.length && open) walk(kids, depth + 1, out);
 		}
 	}
 	const rows = $derived.by(() => {
@@ -57,6 +87,38 @@
 		walk(folders, 0, out);
 		return out;
 	});
+
+	const depthOf = $derived.by(() => {
+		const map: Record<string, number> = {};
+		const build = (nodes: FolderTreeNode[], depth: number) => {
+			for (const n of nodes) {
+				map[n.id] = depth;
+				if (n.children?.length) build(n.children, depth + 1);
+			}
+		};
+		build(folders, 0);
+		return map;
+	});
+
+	const branchIds = $derived.by(() => {
+		const out: string[] = [];
+		const visit = (nodes: FolderTreeNode[]) => {
+			for (const n of nodes) {
+				if (n.children?.length) out.push(n.id);
+				visit(n.children ?? []);
+			}
+		};
+		visit(folders);
+		return out;
+	});
+
+	const anyCollapsed = $derived(branchIds.some((id) => !isExpanded(id, depthOf[id] ?? 0)));
+
+	function setAll(open: boolean) {
+		const next: Record<string, boolean> = {};
+		for (const id of branchIds) next[id] = open;
+		expanded = next;
+	}
 
 	const totalCount = $derived.by(() => {
 		let n = 0;
@@ -85,15 +147,6 @@
 		let n = 0;
 		for (const c of node.children ?? []) n += 1 + descendantCount(c);
 		return n;
-	}
-
-	function findNode(nodes: FolderTreeNode[], id: string): FolderTreeNode | null {
-		for (const n of nodes) {
-			if (n.id === id) return n;
-			const hit = findNode(n.children ?? [], id);
-			if (hit) return hit;
-		}
-		return null;
 	}
 
 	function subtreeIds(node: FolderTreeNode, into: string[] = []): string[] {
@@ -134,21 +187,6 @@
 		fileDragging = false;
 		dropTarget = null;
 		draggingId = null;
-	}
-
-	function filesFrom(dt: DataTransfer | null): File[] {
-		if (!dt) return [];
-		if (dt.items?.length) {
-			const out: File[] = [];
-			for (const item of Array.from(dt.items)) {
-				if (item.kind !== 'file') continue;
-				if (item.webkitGetAsEntry?.()?.isFile === false) continue;
-				const f = item.getAsFile();
-				if (f) out.push(f);
-			}
-			return out;
-		}
-		return Array.from(dt.files);
 	}
 
 	function uploadTo(folderId: string, folderName: string, files: File[]) {
@@ -472,15 +510,19 @@
 	let deleting = $state<FolderTreeNode | null>(null);
 	let deleteError = $state<string | null>(null);
 	let deleteSubmitting = $state(false);
+	let deleteConfirm = $state('');
 	const deletingKids = $derived(deleting ? descendantCount(deleting) : 0);
+	const deleteReady = $derived(!!deleting && deleteConfirm.trim() === deleting.name);
 
 	function openDelete(node: FolderTreeNode) {
 		deleting = node;
+		deleteConfirm = '';
 		deleteError = null;
 		deleteDialog?.showModal();
 	}
 
-	const submitDelete: SubmitFunction = () => {
+	const submitDelete: SubmitFunction = ({ cancel }) => {
+		if (!deleteReady) return cancel();
 		deleteSubmitting = true;
 
 		// The server cascades to descendants, so viewing any of them strands the
@@ -536,7 +578,7 @@
 
 {#snippet createInputRow(depth: number, parentId: string)}
 	<li class="flex items-start gap-1.5 py-1.5 pr-2" style={indent(depth)}>
-		<span class="mt-1.5 w-5 flex-none"></span>
+		<span class="mt-1.5 w-6 flex-none pointer-coarse:w-9"></span>
 		<span class="mt-1.5">{@render folderIcon(false)}</span>
 		<div class="min-w-0 flex-1">
 			<form
@@ -576,7 +618,9 @@
 				{t('doc.desc')}
 				{#if totalCount > 0}
 					<span aria-hidden="true"> · </span>
-					<span class="font-mono text-xs">{t('doc.count', { n: totalCount })}</span>
+					<span class="font-mono text-xs">
+						{t(totalCount === 1 ? 'doc.countOne' : 'doc.countMany', { n: totalCount })}
+					</span>
 				{/if}
 			</p>
 		</div>
@@ -606,12 +650,57 @@
 			ondragover={railDragOver}
 			ondragleave={rowDragLeave}
 			ondrop={railDrop}
-			class="flex min-h-64 flex-col rounded-box border bg-base-100 transition-colors lg:sticky lg:top-6
+			class="flex min-h-64 flex-col rounded-box border bg-base-100 transition-colors lg:sticky lg:top-6 lg:max-h-[calc(100dvh-3rem)]
 				{dropTarget === ROOT ? 'border-primary/50 bg-primary/[0.04]' : 'border-base-content/10'}"
 		>
-			<h2 class="border-b border-base-content/8 px-3 py-2 text-xs font-medium text-muted">
-				{t('doc.index')}
-			</h2>
+			<div class="flex-none border-b border-base-content/8">
+				<div class="flex items-center justify-between gap-2 px-3 py-2">
+					<h2 class="text-xs font-medium text-muted">{t('doc.index')}</h2>
+					{#if branchIds.length > 0}
+						<button
+							type="button"
+							onclick={() => setAll(anyCollapsed)}
+							class="rounded-field px-1.5 py-0.5 text-xs text-muted transition-colors hover:bg-base-content/5 hover:text-base-content"
+						>
+							{anyCollapsed ? t('doc.expandAll') : t('doc.collapseAll')}
+						</button>
+					{/if}
+				</div>
+
+				{#if folders.length > 0}
+					<div class="relative px-2 pb-2">
+						<input
+							type="search"
+							bind:value={query}
+							placeholder={t('doc.search.placeholder')}
+							aria-label={t('doc.search.label')}
+							autocomplete="off"
+							class="input input-sm w-full pr-7"
+						/>
+						{#if query}
+							<button
+								type="button"
+								onclick={() => (query = '')}
+								aria-label={t('doc.search.clear')}
+								class="absolute inset-y-0 right-3.5 my-auto grid h-6 w-6 place-items-center rounded-field text-muted transition-colors hover:bg-base-content/5 hover:text-base-content"
+							>
+								<svg
+									class="h-3.5 w-3.5"
+									viewBox="0 0 24 24"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="2"
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									aria-hidden="true"
+								>
+									<path d="M18 6 6 18M6 6l12 12" />
+								</svg>
+							</button>
+						{/if}
+					</div>
+				{/if}
+			</div>
 
 			{#if folders.length === 0 && creatingParent === null}
 				<div class="flex flex-1 flex-col items-center justify-center gap-3 px-6 py-12 text-center">
@@ -640,11 +729,22 @@
 						<p class="text-xs text-muted">{t('doc.empty.readonly')}</p>
 					{/if}
 				</div>
+			{:else if matched && rows.length === 0}
+				<div class="flex flex-1 flex-col items-center justify-center gap-3 px-6 py-12 text-center">
+					<p class="text-sm text-muted text-pretty">{t('doc.search.none', { q: query.trim() })}</p>
+					<button
+						type="button"
+						onclick={() => (query = '')}
+						class="rounded-field px-1.5 py-1 text-xs font-medium text-muted transition-colors hover:text-primary"
+					>
+						{t('doc.search.clear')}
+					</button>
+				</div>
 			{:else}
-				<ul class="flex-1 py-1">
+				<ul class="flex-1 overflow-y-auto py-1">
 					{#each rows as row (row.node.id)}
 						{@const node = row.node}
-						{@const open = isExpanded(node.id)}
+						{@const open = row.open}
 						{@const renaming = renamingId === node.id}
 						{@const active = activeId === node.id}
 						{@const targeted = dropTarget === node.id}
@@ -659,17 +759,17 @@
 								? 'bg-primary/8 ring-1 ring-primary/40 ring-inset'
 								: active
 									? 'bg-primary/6'
-									: 'hover:bg-base-content/[0.025]'}
+									: 'hover:bg-base-content/[0.045]'}
 								{draggingId === node.id ? 'opacity-40' : ''}"
 							style={indent(row.depth)}
 						>
 							{#if row.hasChildren}
 								<button
 									type="button"
-									onclick={() => toggle(node.id)}
+									onclick={() => toggle(node.id, row.depth)}
 									aria-expanded={open}
 									aria-label={open ? t('doc.collapse') : t('doc.expand')}
-									class="mt-0.5 grid h-5 w-5 flex-none place-items-center rounded text-muted transition-colors hover:text-base-content"
+									class="grid h-6 w-6 flex-none place-items-center rounded text-muted transition-colors hover:text-base-content pointer-coarse:h-9 pointer-coarse:w-9"
 								>
 									<svg
 										class="riksa-caret h-3.5 w-3.5 {open ? 'rotate-90' : ''}"
@@ -685,10 +785,10 @@
 									</svg>
 								</button>
 							{:else}
-								<span class="mt-0.5 w-5 flex-none"></span>
+								<span class="w-6 flex-none pointer-coarse:w-9"></span>
 							{/if}
 
-							<span class="mt-0.5">{@render folderIcon(open && row.hasChildren)}</span>
+							<span class="mt-1">{@render folderIcon((open && row.hasChildren) || active)}</span>
 
 							{#if renaming}
 								<div class="min-w-0 flex-1">
@@ -727,7 +827,7 @@
 									href={folderHref(node.id)}
 									draggable="false"
 									aria-current={active ? 'page' : undefined}
-									class="mt-0 flex min-w-0 flex-1 items-baseline gap-1.5 rounded-field no-underline"
+									class="mt-0.5 flex min-w-0 flex-1 items-baseline gap-1.5 rounded-field no-underline"
 								>
 									<span class="font-mono text-xs tabular-nums text-muted">{node.number}</span>
 									<span class="min-w-0 flex-1 truncate text-sm {active ? 'font-medium' : ''}">
@@ -746,7 +846,10 @@
 								{#if row.hasChildren && !open}
 									<span
 										class="mt-0.5 flex-none rounded-selector bg-base-content/5 px-1.5 py-0.5 font-mono text-[0.6875rem] text-muted"
-										title={t('doc.childCount', { n: node.children.length })}
+										title={t(
+											node.children.length === 1 ? 'doc.childCountOne' : 'doc.childCountMany',
+											{ n: node.children.length }
+										)}
 									>
 										{node.children.length}
 									</span>
@@ -754,7 +857,7 @@
 
 								{#if canAct}
 									<div
-										class="ml-1 flex flex-none items-center gap-0.5 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100"
+										class="-mt-1 ml-1 flex flex-none items-center gap-0.5 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100 pointer-coarse:-mt-2.5 pointer-coarse:gap-1 pointer-coarse:opacity-100"
 									>
 										{#if canCreate}
 											<button
@@ -762,7 +865,7 @@
 												onclick={() => startCreate(node.id)}
 												title={t('doc.action.addSub')}
 												aria-label={t('doc.action.addSubOf', { name: node.name })}
-												class="grid h-7 w-7 place-items-center rounded-field text-muted transition-colors hover:bg-base-content/5 hover:text-base-content"
+												class="grid h-8 w-8 place-items-center rounded-field text-muted transition-colors hover:bg-base-content/5 hover:text-base-content pointer-coarse:h-11 pointer-coarse:w-11"
 											>
 												<svg
 													class="h-4 w-4"
@@ -784,7 +887,7 @@
 												onclick={() => startRename(node)}
 												title={t('doc.action.rename')}
 												aria-label={t('doc.action.renameOf', { name: node.name })}
-												class="grid h-7 w-7 place-items-center rounded-field text-muted transition-colors hover:bg-base-content/5 hover:text-base-content"
+												class="grid h-8 w-8 place-items-center rounded-field text-muted transition-colors hover:bg-base-content/5 hover:text-base-content pointer-coarse:h-11 pointer-coarse:w-11"
 											>
 												<svg
 													class="h-4 w-4"
@@ -806,7 +909,7 @@
 													onclick={() => openMove(node)}
 													title={t('doc.action.move')}
 													aria-label={t('doc.action.moveOf', { name: node.name })}
-													class="grid h-7 w-7 place-items-center rounded-field text-muted transition-colors hover:bg-base-content/5 hover:text-base-content"
+													class="grid h-8 w-8 place-items-center rounded-field text-muted transition-colors hover:bg-base-content/5 hover:text-base-content pointer-coarse:h-11 pointer-coarse:w-11"
 												>
 													<svg
 														class="h-4 w-4"
@@ -829,7 +932,7 @@
 												onclick={() => openDelete(node)}
 												title={t('doc.action.delete')}
 												aria-label={t('doc.action.deleteOf', { name: node.name })}
-												class="grid h-7 w-7 place-items-center rounded-field text-muted transition-colors hover:bg-error/10 hover:text-error"
+												class="grid h-8 w-8 place-items-center rounded-field text-muted transition-colors hover:bg-error/10 hover:text-error pointer-coarse:h-11 pointer-coarse:w-11"
 											>
 												<svg
 													class="h-4 w-4"
@@ -867,7 +970,7 @@
 					<button
 						type="button"
 						onclick={() => startCreate(ROOT)}
-						class="m-2 mt-1 inline-flex items-center gap-1.5 self-start rounded-field px-1.5 py-1 text-xs font-medium text-muted transition-colors hover:text-primary"
+						class="m-2 mt-1 inline-flex flex-none items-center gap-1.5 self-start rounded-field px-1.5 py-1 text-xs font-medium text-muted transition-colors hover:text-primary"
 					>
 						<svg
 							class="h-3.5 w-3.5"
@@ -896,7 +999,7 @@
 
 {#if fileDragging && canUpload}
 	<div
-		class="riksa-overlay pointer-events-none fixed inset-x-0 top-4 z-30 flex justify-center px-4"
+		class="riksa-overlay pointer-events-none fixed inset-x-0 top-4 z-overlay flex justify-center px-4"
 		aria-hidden="true"
 	>
 		<div
@@ -912,6 +1015,12 @@
 		</div>
 	</div>
 {/if}
+
+<div aria-live="polite" class="sr-only">
+	{#if dropTarget !== null && dropLabel}
+		{t('doc.dropAnywhere.body', { name: dropLabel })}
+	{/if}
+</div>
 
 <UploadQueue />
 
@@ -971,9 +1080,12 @@
 			<p class="mt-1 text-sm text-muted text-pretty">
 				{t('doc.delete.warning', { name: deleting.name })}
 			</p>
+			<p class="mt-2 text-sm font-medium text-error text-pretty">{t('doc.delete.contents')}</p>
 			{#if deletingKids > 0}
-				<p class="mt-2 text-sm font-medium text-error text-pretty">
-					{t('doc.delete.cascade', { n: deletingKids })}
+				<p class="mt-1 text-sm text-error text-pretty">
+					{t(deletingKids === 1 ? 'doc.delete.cascadeOne' : 'doc.delete.cascadeMany', {
+						n: deletingKids
+					})}
 				</p>
 			{/if}
 		{/if}
@@ -986,15 +1098,25 @@
 			method="POST"
 			action="{actionBase}?/delete"
 			use:enhance={submitDelete}
-			class="mt-6 flex justify-end gap-2"
+			class="mt-5 flex flex-col gap-4"
 		>
 			<input type="hidden" name="folderId" value={deleting?.id ?? ''} />
-			<Button type="button" variant="ghost" onclick={() => deleteDialog?.close()}>
-				{t('doc.cancel')}
-			</Button>
-			<Button type="submit" variant="danger" loading={deleteSubmitting}>
-				{deleteSubmitting ? t('doc.delete.submitting') : t('doc.delete.submit')}
-			</Button>
+			<Field
+				id="folder-delete-confirm"
+				name="confirm"
+				label={t('doc.delete.confirmLabel', { name: deleting?.name ?? '' })}
+				bind:value={deleteConfirm}
+				placeholder={deleting?.name ?? ''}
+				autocomplete="off"
+			/>
+			<div class="mt-1 flex justify-end gap-2">
+				<Button type="button" variant="ghost" onclick={() => deleteDialog?.close()}>
+					{t('doc.cancel')}
+				</Button>
+				<Button type="submit" variant="danger" disabled={!deleteReady} loading={deleteSubmitting}>
+					{deleteSubmitting ? t('doc.delete.submitting') : t('doc.delete.submit')}
+				</Button>
+			</div>
 		</form>
 	</div>
 	<form method="dialog" class="modal-backdrop">

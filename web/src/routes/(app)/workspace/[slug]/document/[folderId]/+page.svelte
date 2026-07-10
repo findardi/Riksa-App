@@ -2,56 +2,64 @@
 	import { enhance } from '$app/forms';
 	import { invalidateAll } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import { page } from '$app/state';
+	import { navigating, page } from '$app/state';
 	import type { SubmitFunction } from '@sveltejs/kit';
+	import { normalizeRole } from '$lib/access/roles';
 	import { Alert, Button, showToast } from '$lib/components/common';
-	import { DOCUMENT_MIME } from '$lib/dnd';
-	import { formatBytes, formatDate } from '$lib/format';
+	import { DOCUMENT_MIME, filesFrom } from '$lib/dnd';
+	import { formatBytes, formatDate, formatDateTime } from '$lib/format';
 	import { t } from '$lib/i18n';
+	import { findNode } from '$lib/tree';
 	import type { DocumentData, FolderTreeNode } from '$lib/types/content';
 	import type { MyAccessWorkspace } from '$lib/types/workspace';
 	import { uploadQueue } from '$lib/upload/queue.svelte';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
-	const documents = $derived(data.documents);
 	const folders = $derived(data.folders);
 	const workspace = $derived(data.workspace);
 	const folderId = $derived(page.params.folderId!);
 
-	const perms = $derived((page.data as { access?: MyAccessWorkspace }).access?.permissions ?? []);
+	type SortKey = 'name' | 'updated' | 'size';
+	let sortBy = $state<SortKey>('name');
+
+	const SKELETON_ROWS = [46, 32, 58, 38, 51, 29];
+
+	const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
+	const documents = $derived.by(() => {
+		const list = [...data.documents];
+		if (sortBy === 'updated') {
+			return list.sort((a, b) => b.updated_at.localeCompare(a.updated_at));
+		}
+		if (sortBy === 'size') return list.sort((a, b) => b.size - a.size);
+		return list.sort((a, b) => collator.compare(a.name, b.name));
+	});
+
+	const access = $derived((page.data as { access?: MyAccessWorkspace }).access);
+	const perms = $derived(access?.permissions ?? []);
 	const canUpload = $derived(perms.includes('document:upload'));
 	const canDownload = $derived(perms.includes('document:download'));
 	const canDelete = $derived(perms.includes('document:delete'));
 	const canEditDoc = $derived(perms.includes('document:edit'));
 
-	function findNode(nodes: FolderTreeNode[], id: string): FolderTreeNode | null {
-		for (const n of nodes) {
-			if (n.id === id) return n;
-			const hit = findNode(n.children ?? [], id);
-			if (hit) return hit;
-		}
-		return null;
-	}
+	const ROLE_KEY = {
+		owner: 'role.sys.owner',
+		admin: 'role.sys.admin',
+		guest: 'role.sys.guest'
+	} as const;
+	const roleLabel = $derived(t(ROLE_KEY[normalizeRole(access?.role ?? '')]));
+
 	const folder = $derived(findNode(folders, folderId));
+
+	// The load blocks on the server, so the outgoing folder's list would sit
+	// frozen on screen until the new one lands. Show the shape instead, and name
+	// the folder being opened rather than the one being left.
+	const targetId = $derived(navigating.to?.params?.folderId ?? folderId);
+	const switching = $derived(targetId !== folderId);
+	const shownFolder = $derived(switching ? findNode(folders, targetId) : folder);
 
 	let fileInput = $state<HTMLInputElement>();
 	let paneTargeted = $state(false);
-
-	function filesFrom(dt: DataTransfer | null): File[] {
-		if (!dt) return [];
-		if (dt.items?.length) {
-			const out: File[] = [];
-			for (const item of Array.from(dt.items)) {
-				if (item.kind !== 'file') continue;
-				if (item.webkitGetAsEntry?.()?.isFile === false) continue;
-				const f = item.getAsFile();
-				if (f) out.push(f);
-			}
-			return out;
-		}
-		return Array.from(dt.files);
-	}
 
 	function enqueue(files: File[]) {
 		if (!canUpload || !files.length || !folder) return;
@@ -116,15 +124,17 @@
 	let moveTarget = $state('');
 	let moveError = $state<string | null>(null);
 	let moveSubmitting = $state(false);
+	const moveReady = $derived(moveTarget !== '');
 
 	function openMove(doc: DocumentData) {
 		movingDoc = doc;
-		moveTarget = moveOptions[0]?.id ?? '';
+		moveTarget = '';
 		moveError = null;
 		moveDialog?.showModal();
 	}
 
-	const submitMove: SubmitFunction = () => {
+	const submitMove: SubmitFunction = ({ cancel }) => {
+		if (!moveReady) return cancel();
 		moveSubmitting = true;
 		return async ({ result }) => {
 			moveSubmitting = false;
@@ -205,7 +215,7 @@
 	ondragover={paneDragOver}
 	ondragleave={paneDragLeave}
 	ondrop={paneDrop}
-	aria-label={folder?.name ?? t('doc.title')}
+	aria-label={shownFolder?.name ?? t('doc.title')}
 	class="min-h-64 rounded-box border transition-colors
 		{paneTargeted ? 'border-primary/50 bg-primary/[0.04]' : 'border-base-content/10 bg-base-100'}"
 >
@@ -213,19 +223,41 @@
 		class="flex flex-wrap items-center justify-between gap-3 border-b border-base-content/8 px-4 py-3"
 	>
 		<div class="flex min-w-0 items-baseline gap-2">
-			{#if folder}
-				<span class="font-mono text-xs tabular-nums text-muted">{folder.number}</span>
+			{#if shownFolder}
+				<span class="font-mono text-xs tabular-nums text-muted">{shownFolder.number}</span>
 			{/if}
 			<h2 class="min-w-0 truncate text-[0.9375rem] font-semibold tracking-[-0.01em]">
-				{folder?.name ?? t('doc.docs.unknownFolder')}
+				{shownFolder?.name ?? t('doc.docs.unknownFolder')}
 			</h2>
-			<span class="flex-none font-mono text-xs text-muted">
-				{t('doc.docs.count', { n: documents.length })}
+			{#if !switching}
+				<span class="flex-none font-mono text-xs text-muted">
+					{t(documents.length === 1 ? 'doc.docs.countOne' : 'doc.docs.countMany', {
+						n: documents.length
+					})}
+				</span>
+			{/if}
+			<span
+				class="flex-none rounded-selector bg-base-content/5 px-1.5 py-0.5 text-[0.6875rem] text-muted"
+				title={t('doc.access.chip', { role: roleLabel })}
+			>
+				<span class="sr-only">{t('doc.access.label')}: </span>{roleLabel}
 			</span>
 		</div>
 
-		{#if canUpload}
-			<div>
+		<div class="flex flex-none items-center gap-2">
+			{#if documents.length > 1 && !switching}
+				<select
+					bind:value={sortBy}
+					aria-label={t('doc.docs.sort.label')}
+					class="select select-sm w-auto"
+				>
+					<option value="name">{t('doc.docs.sort.name')}</option>
+					<option value="updated">{t('doc.docs.sort.updated')}</option>
+					<option value="size">{t('doc.docs.sort.size')}</option>
+				</select>
+			{/if}
+
+			{#if canUpload}
 				<input
 					bind:this={fileInput}
 					onchange={onPick}
@@ -249,11 +281,23 @@
 					</svg>
 					{t('doc.docs.upload')}
 				</Button>
-			</div>
-		{/if}
+			{/if}
+		</div>
 	</header>
 
-	{#if documents.length === 0}
+	{#if switching}
+		<ul class="divide-y divide-base-content/6" aria-hidden="true">
+			{#each SKELETON_ROWS as width (width)}
+				<li class="flex items-center gap-2.5 px-4 py-2.5">
+					<span class="riksa-skeleton h-4 w-4 flex-none rounded-selector"></span>
+					<span class="riksa-skeleton h-3.5 rounded-selector" style="width: {width}%"></span>
+					<span class="flex-1"></span>
+					<span class="riksa-skeleton hidden h-3.5 w-20 flex-none rounded-selector md:block"></span>
+					<span class="riksa-skeleton hidden h-3.5 w-24 flex-none rounded-selector sm:block"></span>
+				</li>
+			{/each}
+		</ul>
+	{:else if documents.length === 0}
 		<div class="flex flex-col items-center justify-center gap-3 px-6 py-16 text-center">
 			<svg
 				class="h-9 w-9 text-muted/70"
@@ -286,7 +330,7 @@
 					draggable={canEditDoc}
 					ondragstart={(e) => docDragStart(e, doc)}
 					ondragend={() => (draggingDocId = null)}
-					class="group flex items-center gap-2.5 px-4 py-2.5 transition-colors hover:bg-base-content/[0.025]
+					class="group flex items-center gap-2.5 px-4 py-2.5 transition-colors hover:bg-base-content/[0.045]
 						{draggingDocId === doc.id ? 'opacity-40' : ''}"
 				>
 					{@render fileIcon(kindOf(doc.mime))}
@@ -294,7 +338,7 @@
 					<span class="min-w-0 flex-1 truncate text-sm" title={doc.name}>{doc.name}</span>
 
 					<span
-						class="hidden flex-none rounded-selector bg-base-content/5 px-1.5 py-0.5 font-mono text-[0.6875rem] text-muted sm:inline"
+						class="flex-none rounded-selector bg-base-content/5 px-1.5 py-0.5 font-mono text-[0.6875rem] text-muted"
 						title={t('doc.docs.versionTitle', { n: doc.version_no })}
 					>
 						v{doc.version_no}
@@ -306,14 +350,16 @@
 						{formatBytes(doc.size)}
 					</span>
 
-					<span
-						class="hidden w-24 flex-none text-right font-mono text-xs text-muted tabular-nums lg:inline"
+					<time
+						datetime={doc.updated_at}
+						title={t('doc.docs.updatedTitle', { when: formatDateTime(doc.updated_at) })}
+						class="hidden w-24 flex-none text-right font-mono text-xs text-muted tabular-nums sm:inline"
 					>
 						{formatDate(doc.updated_at)}
-					</span>
+					</time>
 
 					<div
-						class="flex flex-none items-center gap-0.5 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100"
+						class="flex flex-none items-center gap-0.5 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100 pointer-coarse:gap-1 pointer-coarse:opacity-100"
 					>
 						{#if canDownload}
 							<a
@@ -323,7 +369,7 @@
 								draggable="false"
 								title={t('doc.docs.download')}
 								aria-label={t('doc.docs.downloadOf', { name: doc.name })}
-								class="grid h-7 w-7 place-items-center rounded-field text-muted transition-colors hover:bg-base-content/5 hover:text-base-content"
+								class="grid h-8 w-8 place-items-center rounded-field text-muted transition-colors hover:bg-base-content/5 hover:text-base-content pointer-coarse:h-11 pointer-coarse:w-11"
 							>
 								<svg
 									class="h-4 w-4"
@@ -346,7 +392,7 @@
 								onclick={() => openMove(doc)}
 								title={t('doc.docs.move')}
 								aria-label={t('doc.docs.moveOf', { name: doc.name })}
-								class="grid h-7 w-7 place-items-center rounded-field text-muted transition-colors hover:bg-base-content/5 hover:text-base-content"
+								class="grid h-8 w-8 place-items-center rounded-field text-muted transition-colors hover:bg-base-content/5 hover:text-base-content pointer-coarse:h-11 pointer-coarse:w-11"
 							>
 								<svg
 									class="h-4 w-4"
@@ -368,7 +414,7 @@
 								onclick={() => openDelete(doc)}
 								title={t('doc.docs.delete')}
 								aria-label={t('doc.docs.deleteOf', { name: doc.name })}
-								class="grid h-7 w-7 place-items-center rounded-field text-muted transition-colors hover:bg-error/10 hover:text-error"
+								class="grid h-8 w-8 place-items-center rounded-field text-muted transition-colors hover:bg-error/10 hover:text-error pointer-coarse:h-11 pointer-coarse:w-11"
 							>
 								<svg
 									class="h-4 w-4"
@@ -422,8 +468,10 @@
 				id="doc-move-dest"
 				name="folderId"
 				bind:value={moveTarget}
+				required
 				class="select select-sm w-full font-mono"
 			>
+				<option value="" disabled>{t('doc.docs.move.placeholder')}</option>
 				{#each moveOptions as opt (opt.id)}
 					<option value={opt.id}>{'  '.repeat(opt.depth)}{opt.number} {opt.name}</option>
 				{/each}
@@ -433,7 +481,7 @@
 				<Button type="button" variant="ghost" onclick={() => moveDialog?.close()}>
 					{t('doc.cancel')}
 				</Button>
-				<Button type="submit" loading={moveSubmitting}>
+				<Button type="submit" disabled={!moveReady} loading={moveSubmitting}>
 					{moveSubmitting ? t('doc.docs.move.submitting') : t('doc.docs.move.submit')}
 				</Button>
 			</div>
@@ -483,3 +531,20 @@
 		<button aria-label={t('doc.cancel')}></button>
 	</form>
 </dialog>
+
+<style>
+	.riksa-skeleton {
+		background-color: color-mix(in oklch, var(--color-base-content) 8%, transparent);
+		animation: riksa-pulse 1400ms ease-in-out infinite;
+	}
+	@keyframes riksa-pulse {
+		50% {
+			opacity: 0.45;
+		}
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.riksa-skeleton {
+			animation: none;
+		}
+	}
+</style>

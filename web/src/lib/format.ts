@@ -20,3 +20,10 @@ export function formatDate(iso: string): string {
 	const d = new Date(iso);
 	return Number.isNaN(d.getTime()) ? '—' : d.toISOString().slice(0, 10);
 }
+
+export function formatDateTime(iso: string): string {
+	const d = new Date(iso);
+	if (Number.isNaN(d.getTime())) return '—';
+	const s = d.toISOString();
+	return `${s.slice(0, 10)} ${s.slice(11, 16)} UTC`;
+}
