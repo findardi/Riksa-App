@@ -4,9 +4,10 @@ import (
 	"context"
 	"log"
 
-	"github.com/findardi/Wadi/server/internal/app"
-	"github.com/findardi/Wadi/server/internal/platform/config"
-	"github.com/findardi/Wadi/server/internal/platform/database"
+	"github.com/findardi/Riksa-App/server/internal/app"
+	"github.com/findardi/Riksa-App/server/internal/platform/config"
+	"github.com/findardi/Riksa-App/server/internal/platform/database"
+	"github.com/findardi/Riksa-App/server/internal/platform/storage"
 )
 
 func main() {
@@ -26,6 +27,12 @@ func main() {
 
 	defer db.Close()
 
+	minioCfg := config.LoadMinioConfig()
+	store, err := storage.NewMinio(minioCfg)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	otpSecret := config.GetEnv("OTP_SECRET", "")
 	jwtSecret := config.GetEnv("JWT_SECRET", "")
 	addr := config.GetEnv("ADDR", ":8181")
@@ -34,7 +41,7 @@ func main() {
 		log.Fatal("OTP_SECRET and JWT_SECRET must be set")
 	}
 
-	if err := app.New(db, otpSecret, addr, jwtSecret).Run(); err != nil {
+	if err := app.New(db, otpSecret, addr, jwtSecret, store).Run(); err != nil {
 		log.Fatal(err)
 	}
 }

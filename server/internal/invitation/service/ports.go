@@ -3,7 +3,7 @@ package service
 import (
 	"context"
 
-	invitationdb "github.com/findardi/Wadi/server/internal/invitation/repository/sqlc"
+	invitationdb "github.com/findardi/Riksa-App/server/internal/invitation/repository/sqlc"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 

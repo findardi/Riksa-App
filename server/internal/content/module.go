@@ -1,0 +1,125 @@
+package content
+
+import (
+	"context"
+	"errors"
+
+	accessrepo "github.com/findardi/Riksa-App/server/internal/access/repository"
+	accessdb "github.com/findardi/Riksa-App/server/internal/access/repository/sqlc"
+	auth "github.com/findardi/Riksa-App/server/internal/auth/repository"
+	"github.com/findardi/Riksa-App/server/internal/content/handler"
+	"github.com/findardi/Riksa-App/server/internal/content/repository"
+	"github.com/findardi/Riksa-App/server/internal/content/service"
+	"github.com/findardi/Riksa-App/server/internal/platform/middleware"
+	"github.com/findardi/Riksa-App/server/internal/platform/permission"
+	"github.com/findardi/Riksa-App/server/internal/platform/storage"
+	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/jackc/pgx/v5/pgxpool"
+)
+
+type userStatusReader struct {
+	repo *auth.Repository
+}
+
+func (s userStatusReader) UserStatus(ctx context.Context, userID string) (string, error) {
+	var uid pgtype.UUID
+	if err := uid.Scan(userID); err != nil {
+		return "", err
+	}
+
+	user, err := s.repo.GetUserById(ctx, uid)
+	if err != nil {
+		return "", err
+	}
+	return user.Status, nil
+}
+
+type Module struct {
+	handler    *handler.ContentHandler
+	mw         *middleware.Middleware
+	accessRepo *accessrepo.Repository
+	storage    storage.Storage
+}
+
+func NewModule(pool *pgxpool.Pool, verifier middleware.TokenVerifier, store storage.Storage) *Module {
+	r := repository.New(pool)
+	s := service.NewContentService(r, store)
+	h := handler.NewContentHandler(s)
+
+	mw := middleware.New(verifier, userStatusReader{repo: auth.New(pool)}, nil)
+
+	return &Module{
+		handler:    h,
+		mw:         mw,
+		accessRepo: accessrepo.New(pool),
+		storage:    store,
+	}
+}
+
+func (m *Module) workspaceMember(ctx context.Context, workspaceID, userID string) (*middleware.Membership, error) {
+	var wID, uID pgtype.UUID
+
+	if err := wID.Scan(workspaceID); err != nil {
+		return nil, middleware.ErrResourceNotFound
+	}
+	if err := uID.Scan(userID); err != nil {
+		return nil, middleware.ErrResourceNotFound
+	}
+
+	row, err := m.accessRepo.GetMembershipWithPermissions(ctx, accessdb.GetMembershipWithPermissionsParams{
+		WorkspaceID: wID,
+		UserID:      uID,
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, middleware.ErrResourceNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	return &middleware.Membership{
+		Role:        row.RoleName,
+		Permissions: row.Permissions,
+		Status:      row.Status,
+	}, nil
+}
+
+func (m *Module) RegisterRoutes(r chi.Router) {
+	r.Route("/content", func(r chi.Router) {
+		r.Use(m.mw.RequireAuth)
+		r.Use(m.mw.RequireActive)
+
+		r.Route("/workspaces/{workspaceID}", func(r chi.Router) {
+			r.Use(m.mw.RequireMember("workspaceID", m.workspaceMember))
+
+			r.With(m.mw.RequirePermission(permission.PermGroupView)).Get("/access-levels", m.handler.ListAccessLevel)
+
+			r.Route("/folders", func(r chi.Router) {
+				r.With(m.mw.RequirePermission(permission.PermFolderView)).Get("/", m.handler.GetFoldersTree)
+				r.With(m.mw.RequirePermission(permission.PermFolderCreate)).Post("/", m.handler.CreateFolder)
+				r.With(m.mw.RequirePermission(permission.PermFolderEdit)).Put("/{folderID}", m.handler.RenameFolder)
+				r.With(m.mw.RequirePermission(permission.PermFolderEdit)).Patch("/{folderID}/move", m.handler.MoveFolder)
+				r.With(m.mw.RequirePermission(permission.PermFolderDelete)).Delete("/{folderID}", m.handler.DeleteFolder)
+
+				r.With(m.mw.RequirePermission(permission.PermGroupView)).Get("/{folderID}/access", m.handler.ListFolderAccess)
+				r.With(m.mw.RequirePermission(permission.PermGroupAssign)).Put("/{folderID}/access", m.handler.SetFolderAccess)
+				r.With(m.mw.RequirePermission(permission.PermGroupAssign)).Delete("/{folderID}/access/{groupID}", m.handler.RemoveFolderAccess)
+
+				r.With(m.mw.RequirePermission(permission.PermDocumentView)).Get("/{folderID}/documents", m.handler.ListDocuments)
+				r.With(m.mw.RequirePermission(permission.PermDocumentUpload)).Post("/{folderID}/documents/upload-url", m.handler.RequestUploadURL)
+				r.With(m.mw.RequirePermission(permission.PermDocumentUpload)).Post("/{folderID}/documents", m.handler.CompletedUpload)
+			})
+
+			r.Route("/documents/{documentID}", func(r chi.Router) {
+				r.With(m.mw.RequirePermission(permission.PermDocumentView)).Get("/versions", m.handler.ListVersions)
+				r.With(m.mw.RequirePermission(permission.PermDocumentUpload)).Post("/versions/upload-url", m.handler.RequestUploadVersion)
+				r.With(m.mw.RequirePermission(permission.PermDocumentUpload)).Post("/versions", m.handler.CompletedVersionUpload)
+				r.With(m.mw.RequirePermission(permission.PermDocumentDownload)).Get("/download", m.handler.GetDownloadURL)
+				r.With(m.mw.RequirePermission(permission.PermDocumentEdit)).Patch("/move", m.handler.MoveDocument)
+				r.With(m.mw.RequirePermission(permission.PermDocumentDelete)).Delete("/", m.handler.DeleteDocument)
+			})
+		})
+	})
+}

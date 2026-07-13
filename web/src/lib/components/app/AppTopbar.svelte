@@ -87,7 +87,7 @@
 			</svg>
 		</button>
 		<ul
-			class="dropdown-content z-50 mt-2 w-64 rounded-box border border-base-content/10 bg-base-100 p-2 shadow-lg"
+			class="dropdown-content z-dropdown mt-2 w-64 rounded-box border border-base-content/10 bg-base-100 p-2 shadow-lg"
 		>
 			<li class="px-3 py-2">
 				<p class="text-xs text-muted">{t('app.account.signedInAs')}</p>

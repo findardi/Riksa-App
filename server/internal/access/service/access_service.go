@@ -8,9 +8,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/findardi/Wadi/server/internal/access/dto"
-	accessdb "github.com/findardi/Wadi/server/internal/access/repository/sqlc"
-	"github.com/findardi/Wadi/server/internal/platform/permission"
+	"github.com/findardi/Riksa-App/server/internal/access/dto"
+	accessdb "github.com/findardi/Riksa-App/server/internal/access/repository/sqlc"
+	"github.com/findardi/Riksa-App/server/internal/platform/permission"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -20,6 +20,11 @@ const (
 	MemberStatusInvited   = "invited"
 	MemberStatusActive    = "active"
 	MemberStatusSuspended = "suspended"
+)
+
+const (
+	DefaultGroupName       = "Umum"
+	DefaultAccessLevelName = "view"
 )
 
 const (
@@ -47,12 +52,9 @@ var validInvitationStatuses = map[string]struct{}{
 }
 
 var (
-	ErrRoleNameTaken       = errors.New("role name already taken")
-	ErrRoleNotFound        = errors.New("role not found")
-	ErrRoleInUse           = errors.New("role is still assigned to members")
-	ErrSystemRoleImmutable = errors.New("system roles cannot be modified or deleted")
-	ErrMemberAlreadyAdd    = errors.New("user already a member of this workspace")
-	ErrMemberNotFound      = errors.New("member not found")
+	ErrRoleNotFound     = errors.New("role not found")
+	ErrMemberAlreadyAdd = errors.New("user already a member of this workspace")
+	ErrMemberNotFound   = errors.New("member not found")
 
 	ErrCannotRemoveOwner     = errors.New("the workspace owner cannot be removed")
 	ErrCannotAssignOwnerRole = errors.New("the owner role cannot be assigned")
@@ -66,8 +68,9 @@ var (
 	ErrInvitationNotRevocable  = errors.New("invitation can no longer be revoked")
 	ErrInvalidInvitationStatus = errors.New("invalid invitation status")
 
-	ErrGroupNameTaken = errors.New("group name already taken")
-	ErrGroupNotFound  = errors.New("group not found")
+	ErrGroupNameTaken     = errors.New("group name already taken")
+	ErrGroupNotFound      = errors.New("group not found")
+	ErrDeleteDefaultGroup = errors.New("group is default by system, cant deleted")
 
 	ErrAssignMemberRole = errors.New("only can assign guest role")
 )
@@ -114,14 +117,6 @@ func isUniqueViolation(err error, constraint string) bool {
 	return false
 }
 
-func isForeignKeyViolation(err error) bool {
-	var pgErr *pgconn.PgError
-	if errors.As(err, &pgErr) {
-		return pgErr.Code == "23503"
-	}
-	return false
-}
-
 // guardRoleAssignment enforces who may grant which privileged system role when
 // inviting or changing a member. The owner role is never assignable via the API;
 // the admin role may only be granted by the owner. Any other role (guest, custom)
@@ -136,45 +131,6 @@ func guardRoleAssignment(actorRole, targetRole string) error {
 		}
 	}
 	return nil
-}
-
-func (s *AccessService) InsertRole(ctx context.Context, req dto.CreateWorkspaceRoleRequest) (dto.WorkspaceRoleResponse, error) {
-	var uid pgtype.UUID
-	if err := uid.Scan(req.WorkspaceID); err != nil {
-		return dto.WorkspaceRoleResponse{}, fmt.Errorf("parse owner id: %w", err)
-	}
-
-	for _, r := range req.Permission {
-		if ok := permission.IsValid(r); !ok {
-			return dto.WorkspaceRoleResponse{}, fmt.Errorf("invalid permission: %s", r)
-		}
-	}
-
-	// is_system is never settable via the API; only ProvisionWorkspace seeds
-	// system roles. User-created roles are always non-system.
-	role, err := s.repo.InsertRole(ctx, accessdb.InsertRoleParams{
-		WorkspaceID: uid,
-		Name:        req.Name,
-		Permissions: req.Permission,
-		IsSystem:    false,
-	})
-
-	if isUniqueViolation(err, "workspace_roles_name_key") {
-		return dto.WorkspaceRoleResponse{}, ErrRoleNameTaken
-	}
-	if err != nil {
-		return dto.WorkspaceRoleResponse{}, fmt.Errorf("insert role: %w", err)
-	}
-
-	return dto.WorkspaceRoleResponse{
-		ID:          uuidString(role.ID),
-		WorkspaceID: uuidString(role.WorkspaceID),
-		Name:        role.Name,
-		Permissions: role.Permissions,
-		IsSystem:    role.IsSystem,
-		CreatedAt:   role.CreatedAt.Time,
-		UpdatedAt:   role.UpdatedAt.Time,
-	}, nil
 }
 
 func (s *AccessService) ProvisionWorkspace(ctx context.Context, tx pgx.Tx, workspaceID, ownerID pgtype.UUID) error {
@@ -203,6 +159,22 @@ func (s *AccessService) ProvisionWorkspace(ctx context.Context, tx pgx.Tx, works
 		Status:      MemberStatusActive,
 	}); err != nil {
 		return fmt.Errorf("add owner member: %w", err)
+	}
+
+	g, err := q.CreateDefaultGroup(ctx, accessdb.CreateDefaultGroupParams{
+		WorkspaceID: workspaceID,
+		Name:        DefaultGroupName,
+	})
+	if err != nil {
+		return fmt.Errorf("seed default group: %w", err)
+	}
+
+	if err := q.GrantDefaultFolderAccess(ctx, accessdb.GrantDefaultFolderAccessParams{
+		GroupID:     g.ID,
+		WorkspaceID: workspaceID,
+		LevelName:   DefaultAccessLevelName,
+	}); err != nil {
+		return fmt.Errorf("grant default folder access: %w", err)
 	}
 
 	return nil
@@ -517,77 +489,6 @@ func (s *AccessService) GetRole(ctx context.Context, roleId string) (dto.Workspa
 	}, nil
 }
 
-func (s *AccessService) UpdateRole(ctx context.Context, req dto.UpdateWorkspaceRoleRequest) (dto.WorkspaceRoleResponse, error) {
-	var roleID pgtype.UUID
-	if err := roleID.Scan(req.RoleID); err != nil {
-		return dto.WorkspaceRoleResponse{}, fmt.Errorf("parse role id: %w", err)
-	}
-
-	existing, err := s.repo.GetRole(ctx, roleID)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return dto.WorkspaceRoleResponse{}, ErrRoleNotFound
-	}
-	if err != nil {
-		return dto.WorkspaceRoleResponse{}, fmt.Errorf("get role: %w", err)
-	}
-	if existing.IsSystem {
-		return dto.WorkspaceRoleResponse{}, ErrSystemRoleImmutable
-	}
-
-	role, err := s.repo.EditRole(ctx, accessdb.EditRoleParams{
-		ID:          roleID,
-		Name:        req.Name,
-		Permissions: req.Permission,
-	})
-
-	switch {
-	case errors.Is(err, pgx.ErrNoRows):
-		return dto.WorkspaceRoleResponse{}, ErrRoleNotFound
-	case isUniqueViolation(err, "workspace_roles_name_key"):
-		return dto.WorkspaceRoleResponse{}, ErrRoleNameTaken
-	case err != nil:
-		return dto.WorkspaceRoleResponse{}, fmt.Errorf("update role: %w", err)
-	}
-
-	return dto.WorkspaceRoleResponse{
-		ID:          uuidString(role.ID),
-		WorkspaceID: uuidString(role.WorkspaceID),
-		Name:        role.Name,
-		Permissions: role.Permissions,
-		IsSystem:    role.IsSystem,
-		CreatedAt:   role.CreatedAt.Time,
-		UpdatedAt:   role.UpdatedAt.Time,
-	}, nil
-}
-
-func (s *AccessService) DeleteRole(ctx context.Context, roleId string) error {
-	var roleID pgtype.UUID
-	if err := roleID.Scan(roleId); err != nil {
-		return fmt.Errorf("parse role id: %w", err)
-	}
-
-	existing, err := s.repo.GetRole(ctx, roleID)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return ErrRoleNotFound
-	}
-	if err != nil {
-		return fmt.Errorf("get role: %w", err)
-	}
-	if existing.IsSystem {
-		return ErrSystemRoleImmutable
-	}
-
-	err = s.repo.DeleteRole(ctx, roleID)
-	if isForeignKeyViolation(err) {
-		return ErrRoleInUse
-	}
-	if err != nil {
-		return fmt.Errorf("delete role: %w", err)
-	}
-
-	return nil
-}
-
 func (s *AccessService) GetMembers(ctx context.Context, workspaceID string) ([]dto.GetMemberResponse, error) {
 	var members []dto.GetMemberResponse
 	var wsID pgtype.UUID
@@ -772,18 +673,33 @@ func (s *AccessService) CreateGroup(ctx context.Context, req dto.CreateGroupRequ
 		return dto.GroupResponse{}, fmt.Errorf("parse workspace id: %w", err)
 	}
 
-	g, err := s.repo.CreateGroup(ctx, accessdb.CreateGroupParams{
-		WorkspaceID: wID,
-		Name:        req.Name,
-		Description: &req.Description,
+	var g accessdb.WorkspaceGroup
+	err := s.repo.ExecTx(ctx, func(q *accessdb.Queries) error {
+		created, err := q.CreateGroup(ctx, accessdb.CreateGroupParams{
+			WorkspaceID: wID,
+			Name:        req.Name,
+			Description: &req.Description,
+		})
+		if isUniqueViolation(err, "workspace_groups_name_key") {
+			return ErrGroupNameTaken
+		}
+		if err != nil {
+			return fmt.Errorf("create group: %w", err)
+		}
+
+		if err := q.GrantDefaultFolderAccess(ctx, accessdb.GrantDefaultFolderAccessParams{
+			GroupID:     created.ID,
+			WorkspaceID: wID,
+			LevelName:   DefaultAccessLevelName,
+		}); err != nil {
+			return fmt.Errorf("grant default folder access: %w", err)
+		}
+
+		g = created
+		return nil
 	})
-
-	if isUniqueViolation(err, "workspace_groups_name_key") {
-		return dto.GroupResponse{}, ErrGroupNameTaken
-	}
-
 	if err != nil {
-		return dto.GroupResponse{}, fmt.Errorf("create group: %w", err)
+		return dto.GroupResponse{}, err
 	}
 
 	return dto.GroupResponse{
@@ -791,6 +707,7 @@ func (s *AccessService) CreateGroup(ctx context.Context, req dto.CreateGroupRequ
 		WorkspaceID: uuidString(g.WorkspaceID),
 		Name:        g.Name,
 		Description: deref(g.Description),
+		IsDefault:   g.IsDefault,
 		CreatedAt:   g.CreatedAt.Time,
 		UpdatedAt:   g.UpdatedAt.Time,
 	}, nil
@@ -814,6 +731,7 @@ func (s *AccessService) GetGroups(ctx context.Context, workspaceID string) ([]dt
 			WorkspaceID: uuidString(g.WorkspaceID),
 			Name:        g.Name,
 			Description: deref(g.Description),
+			IsDefault:   g.IsDefault,
 			CreatedAt:   g.CreatedAt.Time,
 			UpdatedAt:   g.UpdatedAt.Time,
 		}
@@ -830,11 +748,16 @@ func (s *AccessService) DeleteGroup(ctx context.Context, groupID string) error {
 		return fmt.Errorf("parse group id: %w", err)
 	}
 
-	if _, err := s.repo.GetGroup(ctx, gID); err != nil {
+	g, err := s.repo.GetGroup(ctx, gID)
+	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return ErrGroupNotFound
 		}
 		return fmt.Errorf("get group: %w", err)
+	}
+
+	if g.IsDefault {
+		return ErrDeleteDefaultGroup
 	}
 
 	if err := s.repo.DeleteGroup(ctx, gID); err != nil {
@@ -870,6 +793,7 @@ func (s *AccessService) UpdateGroup(ctx context.Context, req dto.UpdateGroupRequ
 		WorkspaceID: uuidString(g.WorkspaceID),
 		Name:        g.Name,
 		Description: deref(g.Description),
+		IsDefault:   g.IsDefault,
 		CreatedAt:   g.CreatedAt.Time,
 		UpdatedAt:   g.UpdatedAt.Time,
 	}, nil
@@ -930,9 +854,9 @@ func (s *AccessService) AssignToGroup(ctx context.Context, req dto.GroupMemberRe
 			GroupID:  gID,
 			MemberID: mID,
 		})
-		if isUniqueViolation(err, "workspace_group_members_pkey") {
-			continue
-		}
+		// if isUniqueViolation(err, "workspace_group_members_pkey") {
+		// 	continue
+		// }
 		if err != nil {
 			return []dto.GroupMemberResponse{}, fmt.Errorf("assign member to group: %w", err)
 		}
@@ -948,6 +872,14 @@ func (s *AccessService) UnassignFromGroup(ctx context.Context, groupID, memberID
 	}
 	if err := mID.Scan(memberID); err != nil {
 		return fmt.Errorf("parse member id: %w", err)
+	}
+
+	moved, err := s.repo.MoveMemberToDefaultGroup(ctx, mID)
+	if err != nil {
+		return fmt.Errorf("move member to default group: %w", err)
+	}
+	if moved > 0 {
+		return nil
 	}
 
 	if err := s.repo.DeleteGroupMember(ctx, accessdb.DeleteGroupMemberParams{

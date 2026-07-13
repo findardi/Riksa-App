@@ -3,7 +3,7 @@ package service
 import (
 	"context"
 
-	workspacedb "github.com/findardi/Wadi/server/internal/workspace/repository/sqlc"
+	workspacedb "github.com/findardi/Riksa-App/server/internal/workspace/repository/sqlc"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 )
@@ -25,5 +25,9 @@ type WorkspaceRepository interface {
 }
 
 type AccessService interface {
+	ProvisionWorkspace(ctx context.Context, tx pgx.Tx, workspaceID, ownerID pgtype.UUID) error
+}
+
+type ContentProvisioner interface {
 	ProvisionWorkspace(ctx context.Context, tx pgx.Tx, workspaceID, ownerID pgtype.UUID) error
 }

@@ -71,7 +71,7 @@
 			<span>{localeLabels[localeState.current]}</span>
 		</button>
 		<ul
-			class="dropdown-content z-50 mt-2 w-44 rounded-box border border-base-content/10 bg-base-100 p-1.5 shadow-lg"
+			class="dropdown-content z-dropdown mt-2 w-44 rounded-box border border-base-content/10 bg-base-100 p-1.5 shadow-lg"
 		>
 			{@render options()}
 		</ul>

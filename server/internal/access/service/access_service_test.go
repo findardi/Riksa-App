@@ -4,9 +4,9 @@ import (
 	"context"
 	"testing"
 
-	"github.com/findardi/Wadi/server/internal/access/dto"
-	accessdb "github.com/findardi/Wadi/server/internal/access/repository/sqlc"
-	"github.com/findardi/Wadi/server/internal/platform/permission"
+	"github.com/findardi/Riksa-App/server/internal/access/dto"
+	accessdb "github.com/findardi/Riksa-App/server/internal/access/repository/sqlc"
+	"github.com/findardi/Riksa-App/server/internal/platform/permission"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/stretchr/testify/assert"
@@ -41,10 +41,8 @@ type fakeRepo struct {
 
 	getRoleFn      func(context.Context, pgtype.UUID) (accessdb.WorkspaceRole, error)
 	getMemberFn    func(context.Context, pgtype.UUID) (accessdb.GetMemberRow, error)
-	insertRoleFn   func(context.Context, accessdb.InsertRoleParams) (accessdb.WorkspaceRole, error)
 	addMemberFn    func(context.Context, accessdb.AddMemberParams) (accessdb.WorkspaceMember, error)
 	updateRoleFn   func(context.Context, accessdb.UpdateRoleParams) (accessdb.WorkspaceMember, error)
-	deleteRoleFn   func(context.Context, pgtype.UUID) error
 	deleteMemberFn func(context.Context, pgtype.UUID) error
 	getInvFn       func(context.Context, string) (accessdb.GetInvitationByCodeHashDetailedRow, error)
 }
@@ -57,20 +55,12 @@ func (f *fakeRepo) GetMember(ctx context.Context, id pgtype.UUID) (accessdb.GetM
 	return f.getMemberFn(ctx, id)
 }
 
-func (f *fakeRepo) InsertRole(ctx context.Context, arg accessdb.InsertRoleParams) (accessdb.WorkspaceRole, error) {
-	return f.insertRoleFn(ctx, arg)
-}
-
 func (f *fakeRepo) AddMember(ctx context.Context, arg accessdb.AddMemberParams) (accessdb.WorkspaceMember, error) {
 	return f.addMemberFn(ctx, arg)
 }
 
 func (f *fakeRepo) UpdateRole(ctx context.Context, arg accessdb.UpdateRoleParams) (accessdb.WorkspaceMember, error) {
 	return f.updateRoleFn(ctx, arg)
-}
-
-func (f *fakeRepo) DeleteRole(ctx context.Context, id pgtype.UUID) error {
-	return f.deleteRoleFn(ctx, id)
 }
 
 func (f *fakeRepo) DeleteMember(ctx context.Context, id pgtype.UUID) error {
@@ -106,52 +96,6 @@ func TestGuardRoleAssignment(t *testing.T) {
 			assert.ErrorIs(t, guardRoleAssignment(c.actorRole, c.target), c.wantErr)
 		})
 	}
-}
-
-func TestInsertRoleForcesNonSystem(t *testing.T) {
-	var captured accessdb.InsertRoleParams
-	repo := &fakeRepo{
-		insertRoleFn: func(ctx context.Context, arg accessdb.InsertRoleParams) (accessdb.WorkspaceRole, error) {
-			captured = arg
-			return accessdb.WorkspaceRole{ID: mustUUID(t, uuidRole), WorkspaceID: arg.WorkspaceID, Name: arg.Name, Permissions: arg.Permissions}, nil
-		},
-	}
-
-	_, err := newService(repo).InsertRole(context.Background(), dto.CreateWorkspaceRoleRequest{
-		WorkspaceID: uuidWS,
-		Name:        "auditor",
-		Permission:  []string{permission.PermMemberView},
-	})
-
-	require.NoError(t, err)
-	assert.False(t, captured.IsSystem)
-}
-
-func TestUpdateRoleSystemImmutable(t *testing.T) {
-	repo := &fakeRepo{
-		getRoleFn: func(ctx context.Context, id pgtype.UUID) (accessdb.WorkspaceRole, error) {
-			return accessdb.WorkspaceRole{ID: id, Name: permission.RoleOwner, IsSystem: true}, nil
-		},
-	}
-
-	_, err := newService(repo).UpdateRole(context.Background(), dto.UpdateWorkspaceRoleRequest{
-		RoleID: uuidRole,
-		Name:   "hacked",
-	})
-
-	assert.ErrorIs(t, err, ErrSystemRoleImmutable)
-}
-
-func TestDeleteRoleSystemImmutable(t *testing.T) {
-	repo := &fakeRepo{
-		getRoleFn: func(ctx context.Context, id pgtype.UUID) (accessdb.WorkspaceRole, error) {
-			return accessdb.WorkspaceRole{ID: id, Name: permission.RoleAdmin, IsSystem: true}, nil
-		},
-	}
-
-	err := newService(repo).DeleteRole(context.Background(), uuidRole)
-
-	assert.ErrorIs(t, err, ErrSystemRoleImmutable)
 }
 
 func TestAddMemberRejectsOwnerRole(t *testing.T) {

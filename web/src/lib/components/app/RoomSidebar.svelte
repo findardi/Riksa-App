@@ -9,8 +9,12 @@
 	let { workspace, access }: Props = $props();
 
 	const overviewHref = $derived(`/workspace/${workspace.slug}`);
+	const documentsHref = $derived(`/workspace/${workspace.slug}/document`);
 	const accessManagementHref = $derived(`/workspace/${workspace.slug}/management-access`);
 	const isActive = (href: string) => page.url.pathname === href;
+	// Active for the module's own route and any of its sub-routes.
+	const isSection = (href: string) =>
+		page.url.pathname === href || page.url.pathname.startsWith(`${href}/`);
 	// Members/roles/groups admin surface — managers only (owner/admin).
 	const showAccess = $derived(!!access && canManageAccess(access.role));
 </script>
@@ -77,12 +81,15 @@
 		{t('ws.section.overview')}
 	</a>
 
-	<!-- Documents — not built yet: present but inert, no broken links. -->
-	<button
-		type="button"
-		disabled
-		title={t('app.nav.soon')}
-		class="flex cursor-not-allowed items-center gap-3 rounded-field px-3 py-2 text-[0.9375rem] font-medium text-muted/70"
+	<!-- Documents — folder index for the data room. -->
+	<a
+		href={documentsHref}
+		class="flex items-center gap-3 rounded-field px-3 py-2 text-[0.9375rem] font-medium transition-colors {isSection(
+			documentsHref
+		)
+			? 'bg-primary/10 text-primary'
+			: 'text-base-content hover:bg-base-content/5'}"
+		aria-current={isSection(documentsHref) ? 'page' : undefined}
 	>
 		<svg
 			class="h-4.5 w-4.5 flex-none"
@@ -98,8 +105,7 @@
 			<path d="M5 3h9l5 5v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z" />
 		</svg>
 		<span class="flex-1 text-left">{t('ws.section.documents')}</span>
-		<span class="text-[0.6875rem] font-normal text-muted">{t('app.nav.soon')}</span>
-	</button>
+	</a>
 
 	<!-- Activity / audit trail — not built yet. -->
 	<button

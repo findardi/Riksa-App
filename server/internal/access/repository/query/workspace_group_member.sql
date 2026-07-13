@@ -3,11 +3,43 @@ insert into workspace_group_members
     (group_id, member_id)
 values
     ($1, $2)
+on conflict (member_id) do update
+    set group_id = excluded.group_id
 returning *;
 
 -- name: DeleteGroupMember :exec
 delete from workspace_group_members where
     group_id = $1 and member_id = $2;
+
+-- name: GrantDefaultFolderAccess :exec
+insert into folder_access (folder_id, group_id, level_id)
+select f.id, sqlc.arg(group_id), l.id
+from folders f
+cross join access_levels l
+where f.workspace_id = sqlc.arg(workspace_id) and f.is_default
+  and l.workspace_id is null and l.name = sqlc.arg(level_name)
+on conflict (folder_id, group_id) do nothing;
+
+-- name: AssignDefaultGroupIfGuest :exec
+insert into workspace_group_members (group_id, member_id)
+select g.id, m.id
+from workspace_members m
+join workspace_roles r
+    on r.id = m.role_id and r.name = 'guest'
+join workspace_groups g
+    on g.workspace_id = m.workspace_id and g.is_default
+where m.workspace_id = sqlc.arg(workspace_id) and m.user_id = sqlc.arg(user_id)
+on conflict (member_id) do nothing;
+
+-- name: MoveMemberToDefaultGroup :execrows
+insert into workspace_group_members (group_id, member_id)
+select g.id, m.id
+from workspace_members m
+join workspace_groups g
+    on g.workspace_id = m.workspace_id and g.is_default
+where m.id = sqlc.arg(member_id)
+on conflict (member_id) do update
+    set group_id = excluded.group_id;
 
 -- name: GetGroupMembers :many
 select

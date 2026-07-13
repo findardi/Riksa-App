@@ -10,11 +10,7 @@ const (
 	PermMemberEdit   = "member:edit"
 	PermMemberDelete = "member:delete"
 
-	PermRoleView   = "role:view"
-	PermRoleCreate = "role:create"
-	PermRoleEdit   = "role:edit"
-	PermRoleDelete = "role:delete"
-	PermRoleAssign = "role:assign"
+	PermRoleView = "role:view"
 
 	PermGroupView   = "group:view"
 	PermGroupCreate = "group:create"
@@ -37,7 +33,7 @@ const (
 var All = []string{
 	PermWorkspaceView, PermWorkspaceEdit, PermWorkspaceDelete,
 	PermMemberView, PermMemberAdd, PermMemberEdit, PermMemberDelete,
-	PermRoleView, PermRoleCreate, PermRoleEdit, PermRoleDelete, PermRoleAssign,
+	PermRoleView,
 	PermGroupView, PermGroupCreate, PermGroupEdit, PermGroupDelete, PermGroupAssign,
 	PermFolderView, PermFolderCreate, PermFolderEdit, PermFolderDelete,
 	PermDocumentView, PermDocumentUpload, PermDocumentDownload, PermDocumentEdit, PermDocumentDelete,
@@ -75,7 +71,7 @@ func GetAdmin() []string {
 	return []string{
 		PermWorkspaceView, PermWorkspaceEdit,
 		PermMemberView, PermMemberAdd, PermMemberEdit, PermMemberDelete,
-		PermRoleView, PermRoleCreate, PermRoleEdit, PermRoleDelete, PermRoleAssign,
+		PermRoleView,
 		PermGroupView, PermGroupCreate, PermGroupEdit, PermGroupDelete, PermGroupAssign,
 		PermFolderView, PermFolderCreate, PermFolderEdit, PermFolderDelete,
 		PermDocumentView, PermDocumentUpload, PermDocumentDownload, PermDocumentEdit, PermDocumentDelete,
@@ -87,6 +83,7 @@ func GetGuest() []string {
 		PermWorkspaceView,
 		PermFolderView,
 		PermDocumentView,
+		PermDocumentDownload,
 	}
 }
 

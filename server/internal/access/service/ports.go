@@ -3,8 +3,8 @@ package service
 import (
 	"context"
 
-	accessdb "github.com/findardi/Wadi/server/internal/access/repository/sqlc"
-	authdto "github.com/findardi/Wadi/server/internal/auth/dto"
+	accessdb "github.com/findardi/Riksa-App/server/internal/access/repository/sqlc"
+	authdto "github.com/findardi/Riksa-App/server/internal/auth/dto"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
@@ -12,12 +12,10 @@ type AccessRepository interface {
 	AddMember(ctx context.Context, arg accessdb.AddMemberParams) (accessdb.WorkspaceMember, error)
 	CreateGroup(ctx context.Context, arg accessdb.CreateGroupParams) (accessdb.WorkspaceGroup, error)
 
-	DeleteRole(ctx context.Context, id pgtype.UUID) error
 	DeleteMember(ctx context.Context, id pgtype.UUID) error
 	DeleteGroup(ctx context.Context, id pgtype.UUID) error
 	DeleteGroupMember(ctx context.Context, arg accessdb.DeleteGroupMemberParams) error
 
-	EditRole(ctx context.Context, arg accessdb.EditRoleParams) (accessdb.WorkspaceRole, error)
 	UpdateRole(ctx context.Context, arg accessdb.UpdateRoleParams) (accessdb.WorkspaceMember, error)
 
 	GetRole(ctx context.Context, id pgtype.UUID) (accessdb.WorkspaceRole, error)
@@ -36,6 +34,7 @@ type AccessRepository interface {
 	InsertRole(ctx context.Context, arg accessdb.InsertRoleParams) (accessdb.WorkspaceRole, error)
 	InsertWorkspaceInvitation(ctx context.Context, arg accessdb.InsertWorkspaceInvitationParams) (accessdb.WorkspaceUserInvitation, error)
 	InsertGroupMember(ctx context.Context, arg accessdb.InsertGroupMemberParams) (accessdb.WorkspaceGroupMember, error)
+	MoveMemberToDefaultGroup(ctx context.Context, memberID pgtype.UUID) (int64, error)
 	ListWorkspaceInvitations(ctx context.Context, arg accessdb.ListWorkspaceInvitationsParams) ([]accessdb.ListWorkspaceInvitationsRow, error)
 
 	RevokeWorkspaceInvitation(ctx context.Context, id pgtype.UUID) (accessdb.WorkspaceUserInvitation, error)

@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"time"
 
-	accessdb "github.com/findardi/Wadi/server/internal/access/repository/sqlc"
-	authservice "github.com/findardi/Wadi/server/internal/auth/service"
+	accessdb "github.com/findardi/Riksa-App/server/internal/access/repository/sqlc"
+	authservice "github.com/findardi/Riksa-App/server/internal/auth/service"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 )
@@ -69,6 +69,13 @@ func (s *AccessService) ConsumeInvitation(ctx context.Context, tx pgx.Tx, token,
 		Status:      MemberStatusActive,
 	}); err != nil {
 		return fmt.Errorf("add member: %w", err)
+	}
+
+	if err := q.AssignDefaultGroupIfGuest(ctx, accessdb.AssignDefaultGroupIfGuestParams{
+		WorkspaceID: inv.WorkspaceID,
+		UserID:      uID,
+	}); err != nil {
+		return fmt.Errorf("assign default group: %w", err)
 	}
 
 	return nil

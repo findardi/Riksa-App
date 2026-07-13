@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/findardi/Wadi/server/internal/invitation/dto"
-	invitationdb "github.com/findardi/Wadi/server/internal/invitation/repository/sqlc"
+	"github.com/findardi/Riksa-App/server/internal/invitation/dto"
+	invitationdb "github.com/findardi/Riksa-App/server/internal/invitation/repository/sqlc"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 )
@@ -112,6 +112,13 @@ func (s *InvitationService) AcceptInvitation(ctx context.Context, invitationID, 
 			RoleID:      inv.RoleID,
 		}); err != nil {
 			return fmt.Errorf("add member: %w", err)
+		}
+
+		if err := q.AssignDefaultGroupIfGuest(ctx, invitationdb.AssignDefaultGroupIfGuestParams{
+			WorkspaceID: inv.WorkspaceID,
+			UserID:      uID,
+		}); err != nil {
+			return fmt.Errorf("assign default group: %w", err)
 		}
 
 		return nil

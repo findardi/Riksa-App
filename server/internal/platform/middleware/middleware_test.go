@@ -7,7 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/findardi/Wadi/server/internal/platform/token"
+	"github.com/findardi/Riksa-App/server/internal/platform/token"
 	"github.com/go-chi/chi/v5"
 	"github.com/stretchr/testify/assert"
 )

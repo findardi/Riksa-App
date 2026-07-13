@@ -15,16 +15,16 @@
 	);
 </script>
 
-<div role="alert" class="wadi-alert-in alert alert-soft {variantClass} {alignClass} text-sm">
+<div role="alert" class="riksa-alert-in alert alert-soft {variantClass} {alignClass} text-sm">
 	{@render children()}
 </div>
 
 <style>
 	/* State feedback enters with a subtle settle; instant for reduced motion. */
-	.wadi-alert-in {
-		animation: wadi-alert-in 180ms ease-out;
+	.riksa-alert-in {
+		animation: riksa-alert-in 180ms ease-out;
 	}
-	@keyframes wadi-alert-in {
+	@keyframes riksa-alert-in {
 		from {
 			opacity: 0;
 			transform: translateY(-2px);
@@ -35,7 +35,7 @@
 		}
 	}
 	@media (prefers-reduced-motion: reduce) {
-		.wadi-alert-in {
+		.riksa-alert-in {
 			animation: none;
 		}
 	}

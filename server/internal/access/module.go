@@ -4,13 +4,13 @@ import (
 	"context"
 	"errors"
 
-	"github.com/findardi/Wadi/server/internal/access/handler"
-	"github.com/findardi/Wadi/server/internal/access/repository"
-	accessdb "github.com/findardi/Wadi/server/internal/access/repository/sqlc"
-	"github.com/findardi/Wadi/server/internal/access/service"
-	auth "github.com/findardi/Wadi/server/internal/auth/repository"
-	"github.com/findardi/Wadi/server/internal/platform/middleware"
-	"github.com/findardi/Wadi/server/internal/platform/permission"
+	"github.com/findardi/Riksa-App/server/internal/access/handler"
+	"github.com/findardi/Riksa-App/server/internal/access/repository"
+	accessdb "github.com/findardi/Riksa-App/server/internal/access/repository/sqlc"
+	"github.com/findardi/Riksa-App/server/internal/access/service"
+	auth "github.com/findardi/Riksa-App/server/internal/auth/repository"
+	"github.com/findardi/Riksa-App/server/internal/platform/middleware"
+	"github.com/findardi/Riksa-App/server/internal/platform/permission"
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -85,17 +85,16 @@ func (m *Module) RegisterRoutes(r chi.Router) {
 	r.Route("/access", func(r chi.Router) {
 		r.Use(m.mw.RequireAuth)
 		r.Use(m.mw.RequireActive)
+		// Read-only permission catalog — feeds the per-role permission view.
 		r.Get("/permissions", m.handler.GetPermissions)
 
 		r.Route("/workspaces/{workspaceID}", func(r chi.Router) {
 			r.Use(m.mw.RequireMember("workspaceID", m.workspaceMember))
 			r.Get("/me", m.handler.GetMyAccess)
+			// Roles are fixed system roles (owner/admin/guest); read-only via API.
 			r.Route("/roles", func(r chi.Router) {
-				r.With(m.mw.RequirePermission(permission.PermRoleCreate)).Post("/", m.handler.CreateRole)
 				r.With(m.mw.RequirePermission(permission.PermRoleView)).Get("/", m.handler.GetRoles)
 				r.With(m.mw.RequirePermission(permission.PermRoleView)).Get("/{roleID}", m.handler.GetRole)
-				r.With(m.mw.RequirePermission(permission.PermRoleEdit)).Put("/{roleID}", m.handler.UpdateRole)
-				r.With(m.mw.RequirePermission(permission.PermRoleDelete)).Delete("/{roleID}", m.handler.DeleteRole)
 			})
 
 			r.Route("/members", func(r chi.Router) {

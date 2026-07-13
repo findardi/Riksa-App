@@ -19,5 +19,5 @@
 			stroke-linecap="round"
 		/>
 	</svg>
-	<span class="text-[1.2rem] font-semibold tracking-[-0.01em] text-base-content">Wadi</span>
+	<span class="text-[1.2rem] font-semibold tracking-[-0.01em] text-base-content">Riksa</span>
 </span>

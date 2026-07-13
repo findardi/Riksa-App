@@ -1,35 +1,14 @@
 <script lang="ts">
-	import { untrack } from 'svelte';
-	import { applyAction, enhance } from '$app/forms';
 	import { page } from '$app/state';
-	import type { SubmitFunction } from '@sveltejs/kit';
-	import { Alert, Button } from '$lib/components/common';
-	import { RoleForm } from '$lib/components/app';
-	import { roleDisplayName } from '$lib/access/permissions';
+	import { RolePermissions } from '$lib/components/app';
+	import { roleDescription, roleDisplayName } from '$lib/access/permissions';
 	import { t } from '$lib/i18n';
 	import type { PageProps } from './$types';
 
-	let { data, form }: PageProps = $props();
+	let { data }: PageProps = $props();
 
 	const backHref = $derived(`/workspace/${page.params.slug}/management-access/role`);
-	const isSystem = $derived(data.role.is_system);
-
-	// Seed editable state from the loaded role (initial value only; the page
-	// remounts per role, so untrack keeps these out of the reactive graph).
-	let name = $state(untrack(() => data.role.name));
-	let selected = $state<string[]>(untrack(() => [...data.role.permissions]));
-
-	let submitting = $state(false);
-	const canSubmit = $derived(name.trim().length > 0 && selected.length > 0);
-
-	const submit: SubmitFunction = () => {
-		submitting = true;
-		return async ({ result, update }) => {
-			submitting = false;
-			if (result.type === 'redirect') await applyAction(result);
-			else await update();
-		};
-	};
+	const desc = $derived(roleDescription(data.role.name));
 </script>
 
 <svelte:head>
@@ -54,10 +33,8 @@
 </a>
 
 <header class="mt-3 flex items-center gap-2">
-	<h2 class="text-lg font-semibold tracking-[-0.01em]">
-		{isSystem ? t('role.view.title') : t('role.edit.title')}
-	</h2>
-	{#if isSystem}
+	<h2 class="text-lg font-semibold tracking-[-0.01em]">{roleDisplayName(data.role.name)}</h2>
+	{#if data.role.is_system}
 		<span
 			class="rounded-selector bg-base-content/10 px-1.5 py-0.5 text-[0.6875rem] font-medium text-muted"
 			>{t('role.system')}</span
@@ -65,29 +42,18 @@
 	{/if}
 </header>
 
-{#if isSystem}
-	<p class="mt-4 rounded-box bg-base-content/5 p-3 text-sm text-muted text-pretty">
-		{t('role.view.systemNote')}
-	</p>
-	<div class="mt-6">
-		<RoleForm catalog={data.catalog} {name} {selected} disabled />
-	</div>
-	<div class="mt-6 flex justify-end border-t border-base-content/10 pt-5">
-		<a href={backHref} class="btn btn-ghost btn-sm">{t('role.back')}</a>
-	</div>
-{:else}
-	{#if form?.message}
-		<div class="mt-4"><Alert align="start">{form.message}</Alert></div>
-	{/if}
-
-	<form method="POST" use:enhance={submit} class="mt-6">
-		<RoleForm catalog={data.catalog} bind:name bind:selected nameError={form?.fieldErrors?.name} />
-
-		<div class="mt-6 flex justify-end gap-2 border-t border-base-content/10 pt-5">
-			<a href={backHref} class="btn btn-ghost btn-sm">{t('role.cancel')}</a>
-			<Button type="submit" loading={submitting} disabled={!canSubmit}>
-				{submitting ? t('role.saving') : t('role.save')}
-			</Button>
-		</div>
-	</form>
+{#if desc}
+	<p class="mt-1 max-w-[60ch] text-sm text-muted text-pretty">{desc}</p>
 {/if}
+
+<p class="mt-4 rounded-box bg-base-content/5 p-3 text-sm text-muted text-pretty">
+	{t('role.view.systemNote')}
+</p>
+
+<div class="mt-6">
+	<RolePermissions catalog={data.catalog} granted={data.role.permissions} />
+</div>
+
+<div class="mt-6 flex justify-end border-t border-base-content/10 pt-5">
+	<a href={backHref} class="btn btn-ghost btn-sm">{t('role.back')}</a>
+</div>

@@ -11,6 +11,28 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const assignDefaultGroupIfGuest = `-- name: AssignDefaultGroupIfGuest :exec
+insert into workspace_group_members (group_id, member_id)
+select g.id, m.id
+from workspace_members m
+join workspace_roles r
+    on r.id = m.role_id and r.name = 'guest'
+join workspace_groups g
+    on g.workspace_id = m.workspace_id and g.is_default
+where m.workspace_id = $1 and m.user_id = $2
+on conflict (member_id) do nothing
+`
+
+type AssignDefaultGroupIfGuestParams struct {
+	WorkspaceID pgtype.UUID `json:"workspace_id"`
+	UserID      pgtype.UUID `json:"user_id"`
+}
+
+func (q *Queries) AssignDefaultGroupIfGuest(ctx context.Context, arg AssignDefaultGroupIfGuestParams) error {
+	_, err := q.db.Exec(ctx, assignDefaultGroupIfGuest, arg.WorkspaceID, arg.UserID)
+	return err
+}
+
 const deleteGroupMember = `-- name: DeleteGroupMember :exec
 delete from workspace_group_members where
     group_id = $1 and member_id = $2
@@ -86,11 +108,34 @@ func (q *Queries) GetGroupMembers(ctx context.Context, groupID pgtype.UUID) ([]G
 	return items, nil
 }
 
+const grantDefaultFolderAccess = `-- name: GrantDefaultFolderAccess :exec
+insert into folder_access (folder_id, group_id, level_id)
+select f.id, $1, l.id
+from folders f
+cross join access_levels l
+where f.workspace_id = $2 and f.is_default
+  and l.workspace_id is null and l.name = $3
+on conflict (folder_id, group_id) do nothing
+`
+
+type GrantDefaultFolderAccessParams struct {
+	GroupID     pgtype.UUID `json:"group_id"`
+	WorkspaceID pgtype.UUID `json:"workspace_id"`
+	LevelName   string      `json:"level_name"`
+}
+
+func (q *Queries) GrantDefaultFolderAccess(ctx context.Context, arg GrantDefaultFolderAccessParams) error {
+	_, err := q.db.Exec(ctx, grantDefaultFolderAccess, arg.GroupID, arg.WorkspaceID, arg.LevelName)
+	return err
+}
+
 const insertGroupMember = `-- name: InsertGroupMember :one
 insert into workspace_group_members
     (group_id, member_id)
 values
     ($1, $2)
+on conflict (member_id) do update
+    set group_id = excluded.group_id
 returning group_id, member_id, created_at
 `
 
@@ -104,4 +149,23 @@ func (q *Queries) InsertGroupMember(ctx context.Context, arg InsertGroupMemberPa
 	var i WorkspaceGroupMember
 	err := row.Scan(&i.GroupID, &i.MemberID, &i.CreatedAt)
 	return i, err
+}
+
+const moveMemberToDefaultGroup = `-- name: MoveMemberToDefaultGroup :execrows
+insert into workspace_group_members (group_id, member_id)
+select g.id, m.id
+from workspace_members m
+join workspace_groups g
+    on g.workspace_id = m.workspace_id and g.is_default
+where m.id = $1
+on conflict (member_id) do update
+    set group_id = excluded.group_id
+`
+
+func (q *Queries) MoveMemberToDefaultGroup(ctx context.Context, memberID pgtype.UUID) (int64, error) {
+	result, err := q.db.Exec(ctx, moveMemberToDefaultGroup, memberID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }

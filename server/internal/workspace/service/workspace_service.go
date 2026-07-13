@@ -7,8 +7,8 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/findardi/Wadi/server/internal/workspace/dto"
-	workspacedb "github.com/findardi/Wadi/server/internal/workspace/repository/sqlc"
+	"github.com/findardi/Riksa-App/server/internal/workspace/dto"
+	workspacedb "github.com/findardi/Riksa-App/server/internal/workspace/repository/sqlc"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -31,14 +31,16 @@ var (
 var slugInvalidChars = regexp.MustCompile(`[^a-z0-9]+`)
 
 type WorkspaceService struct {
-	repo   WorkspaceRepository
-	access AccessService
+	repo    WorkspaceRepository
+	access  AccessService
+	content ContentProvisioner
 }
 
-func NewWorkspaceService(repo WorkspaceRepository, access AccessService) *WorkspaceService {
+func NewWorkspaceService(repo WorkspaceRepository, access AccessService, content ContentProvisioner) *WorkspaceService {
 	return &WorkspaceService{
-		repo:   repo,
-		access: access,
+		repo:    repo,
+		access:  access,
+		content: content,
 	}
 }
 
@@ -123,6 +125,10 @@ func (s *WorkspaceService) CreateWorkspace(ctx context.Context, req dto.Workspac
 		})
 		if err != nil {
 			return fmt.Errorf("create workspace: %w", err)
+		}
+
+		if err := s.content.ProvisionWorkspace(ctx, tx, w.ID, uid); err != nil {
+			return fmt.Errorf("provision workspace content: %w", err)
 		}
 
 		if err := s.access.ProvisionWorkspace(ctx, tx, w.ID, uid); err != nil {

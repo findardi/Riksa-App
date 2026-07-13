@@ -6,4 +6,7 @@ export * from './workspace.role';
 export * from './workspace.member';
 export * from './workspace.group';
 export * from './invitation';
+export * from './document.folder';
+export * from './document';
+export * from './content.access';
 export * from './resolve';

@@ -10,21 +10,25 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/findardi/Wadi/server/internal/access"
-	accessrepo "github.com/findardi/Wadi/server/internal/access/repository"
-	accessservice "github.com/findardi/Wadi/server/internal/access/service"
-	"github.com/findardi/Wadi/server/internal/auth"
-	authrepo "github.com/findardi/Wadi/server/internal/auth/repository"
-	authservice "github.com/findardi/Wadi/server/internal/auth/service"
-	"github.com/findardi/Wadi/server/internal/invitation"
-	"github.com/findardi/Wadi/server/internal/platform/config"
-	"github.com/findardi/Wadi/server/internal/platform/oauth"
-	"github.com/findardi/Wadi/server/internal/platform/otp"
-	"github.com/findardi/Wadi/server/internal/platform/ratelimit"
-	"github.com/findardi/Wadi/server/internal/platform/response"
-	"github.com/findardi/Wadi/server/internal/platform/sender"
-	"github.com/findardi/Wadi/server/internal/platform/token"
-	"github.com/findardi/Wadi/server/internal/workspace"
+	"github.com/findardi/Riksa-App/server/internal/access"
+	accessrepo "github.com/findardi/Riksa-App/server/internal/access/repository"
+	accessservice "github.com/findardi/Riksa-App/server/internal/access/service"
+	"github.com/findardi/Riksa-App/server/internal/auth"
+	authrepo "github.com/findardi/Riksa-App/server/internal/auth/repository"
+	authservice "github.com/findardi/Riksa-App/server/internal/auth/service"
+	"github.com/findardi/Riksa-App/server/internal/content"
+	contentrepo "github.com/findardi/Riksa-App/server/internal/content/repository"
+	contentservice "github.com/findardi/Riksa-App/server/internal/content/service"
+	"github.com/findardi/Riksa-App/server/internal/invitation"
+	"github.com/findardi/Riksa-App/server/internal/platform/config"
+	"github.com/findardi/Riksa-App/server/internal/platform/oauth"
+	"github.com/findardi/Riksa-App/server/internal/platform/otp"
+	"github.com/findardi/Riksa-App/server/internal/platform/ratelimit"
+	"github.com/findardi/Riksa-App/server/internal/platform/response"
+	"github.com/findardi/Riksa-App/server/internal/platform/sender"
+	"github.com/findardi/Riksa-App/server/internal/platform/storage"
+	"github.com/findardi/Riksa-App/server/internal/platform/token"
+	"github.com/findardi/Riksa-App/server/internal/workspace"
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -34,7 +38,7 @@ type App struct {
 	addr   string
 }
 
-func New(pool *pgxpool.Pool, otpSecret, addr, jwtSecret string) *App {
+func New(pool *pgxpool.Pool, otpSecret, addr, jwtSecret string, store storage.Storage) *App {
 	otpGen := otp.New(otpSecret)
 	jwtGen := token.New(jwtSecret)
 
@@ -53,11 +57,13 @@ func New(pool *pgxpool.Pool, otpSecret, addr, jwtSecret string) *App {
 
 	authsvc := authservice.NewAuthService(authrepo.New(pool), otpGen, jwtGen, mailer, nil)
 	accessSvc := accessservice.NewAccessService(accessrepo.New(pool), mailer, authsvc, otpGen, webURL)
+	contentSvc := contentservice.NewContentService(contentrepo.New(pool), store)
 
 	authModule := auth.NewModule(pool, otpGen, jwtGen, mailer, limiter, providers, accessSvc)
-	workspaceModule := workspace.NewModule(pool, jwtGen, accessSvc)
+	workspaceModule := workspace.NewModule(pool, jwtGen, accessSvc, contentSvc)
 	accessModule := access.NewModule(pool, jwtGen, mailer, authsvc, otpGen, webURL)
 	invitationModule := invitation.NewModule(pool, jwtGen)
+	contentModule := content.NewModule(pool, jwtGen, store)
 
 	r := chi.NewRouter()
 	registerGlobalMiddleware(r)
@@ -70,6 +76,7 @@ func New(pool *pgxpool.Pool, otpSecret, addr, jwtSecret string) *App {
 	workspaceModule.RegisterRoutes(r)
 	accessModule.RegisterRoutes(r)
 	invitationModule.RegisterRoutes(r)
+	contentModule.RegisterRoutes(r)
 
 	return &App{
 		router: r,

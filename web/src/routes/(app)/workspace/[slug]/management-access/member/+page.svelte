@@ -168,7 +168,8 @@
 		{#each shown as m (m.id)}
 			{@const status = statusMeta(m.status)}
 			{@const owner = isOwner(m)}
-			{@const groups = m.group_names ?? []}
+			{@const memberGroup = m.group_names?.[0] ?? ''}
+			{@const guest = m.role_name === 'guest'}
 			<li class="flex flex-wrap items-center gap-x-3 gap-y-2 py-3">
 				<span
 					class="grid h-9 w-9 flex-none place-items-center rounded-full bg-primary/10 text-sm font-semibold text-primary"
@@ -193,14 +194,16 @@
 							{status.label}
 						</span>
 					</p>
-					{#if groups.length}
-						<div class="mt-1.5 flex flex-wrap gap-1">
-							{#each groups as g (g)}
-								<span
-									class="rounded-selector bg-base-content/5 px-1.5 py-0.5 text-[0.6875rem] text-muted"
-									>{g}</span
-								>
-							{/each}
+					{#if memberGroup}
+						<div class="mt-1.5">
+							<span
+								class="rounded-selector bg-base-content/5 px-1.5 py-0.5 text-[0.6875rem] text-muted"
+								>{memberGroup}</span
+							>
+						</div>
+					{:else if guest}
+						<div class="mt-1.5">
+							<span class="text-[0.6875rem] text-muted">{t('group.member.none')}</span>
 						</div>
 					{/if}
 				</div>

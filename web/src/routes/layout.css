@@ -5,9 +5,9 @@
 	themes: false;
 }
 
-/* "Wadi" theme — "The Clean Room". Palette + sharp radii from DESIGN.md. */
+/* "Riksa" theme — "The Clean Room". Palette + sharp radii from DESIGN.md. */
 @plugin 'daisyui/theme' {
-	name: 'wadi';
+	name: 'riksa';
 	default: true;
 	prefersdark: false;
 	color-scheme: 'light';
@@ -56,6 +56,34 @@
 	--font-mono: 'JetBrains Mono Variable', ui-monospace, 'SF Mono', monospace;
 	/* Secondary text — kept explicit for ≥4.5:1 (don't rely on faded opacity). */
 	--color-muted: oklch(0.48 0.02 235);
+
+	/* Stacking order, named. Native <dialog> lives in the top layer and needs
+	   no z-index, so modals are absent by design. */
+	--z-overlay: 10;
+	--z-panel: 20;
+	--z-dropdown: 30;
+	--z-backdrop: 40;
+	--z-drawer: 50;
+	--z-toast: 60;
+}
+
+@utility z-overlay {
+	z-index: var(--z-overlay);
+}
+@utility z-panel {
+	z-index: var(--z-panel);
+}
+@utility z-dropdown {
+	z-index: var(--z-dropdown);
+}
+@utility z-backdrop {
+	z-index: var(--z-backdrop);
+}
+@utility z-drawer {
+	z-index: var(--z-drawer);
+}
+@utility z-toast {
+	z-index: var(--z-toast);
 }
 
 @layer base {
