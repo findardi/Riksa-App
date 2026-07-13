@@ -85,6 +85,10 @@ function translateMessage(status: number, raw: string): string {
 		if (m.includes('email')) return t('err.emailTaken');
 		if (m.includes('username')) return t('err.usernameTaken');
 	}
+	if (status === 403) {
+		if (raw.toLowerCase().includes('no access')) return t('err.forbiddenContent');
+		return t('err.forbidden');
+	}
 	if (status >= 500 || status === 0) return t('err.generic');
 	return raw || t('err.generic');
 }

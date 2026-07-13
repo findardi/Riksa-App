@@ -39,6 +39,7 @@ export const load: PageServerLoad = async ({ locals, params, parent }) => {
 
 	return {
 		group,
+		defaultGroup: groupsRes.data.find((g) => g.is_default) ?? null,
 		members: detailRes.data ?? [],
 		workspaceMembers: membersRes.data ?? []
 	};

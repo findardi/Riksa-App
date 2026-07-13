@@ -5,8 +5,8 @@
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import type { ActionResult, SubmitFunction } from '@sveltejs/kit';
-	import { UploadQueue } from '$lib/components/app';
-	import { Alert, Button, Field, showToast } from '$lib/components/common';
+	import { FolderAccessDialog, UploadQueue } from '$lib/components/app';
+	import { Alert, Button, Field, Toaster, showToast } from '$lib/components/common';
 	import { DOCUMENT_MIME, FOLDER_MIME, filesFrom } from '$lib/dnd';
 	import { t } from '$lib/i18n';
 	import { findNode } from '$lib/tree';
@@ -18,6 +18,9 @@
 	let { data, children }: LayoutProps = $props();
 	const folders = $derived(data.folders);
 	const workspace = $derived(data.workspace);
+	const groups = $derived(data.groups);
+	const levels = $derived(data.levels);
+	const noAccess = $derived(data.noAccess);
 
 	const ROOT = '';
 
@@ -33,7 +36,16 @@
 	const canDelete = $derived(perms.includes('folder:delete'));
 	const canUpload = $derived(perms.includes('document:upload'));
 	const canEditDoc = $derived(perms.includes('document:edit'));
-	const canAct = $derived(canCreate || canEdit || canDelete);
+	const canAssign = $derived(perms.includes('group:assign'));
+	const canAct = $derived(canCreate || canEdit || canDelete || canAssign);
+
+	let accessFolder = $state<FolderTreeNode | null>(null);
+	let accessOpen = $state(false);
+
+	function openAccess(node: FolderTreeNode) {
+		accessFolder = node;
+		accessOpen = true;
+	}
 
 	const defaultFolder = $derived(folders.find((f) => f.is_default) ?? null);
 	const activeFolder = $derived(activeId ? findNode(folders, activeId) : null);
@@ -718,12 +730,16 @@
 						<path d="M12 11v5M9.5 13.5h5" />
 					</svg>
 					<div>
-						<p class="text-sm font-medium">{t('doc.empty.title')}</p>
+						<p class="text-sm font-medium">
+							{noAccess ? t('doc.noAccess.title') : t('doc.empty.title')}
+						</p>
 						<p class="mx-auto mt-1 max-w-xs text-xs text-muted text-pretty">
-							{t('doc.empty.body')}
+							{noAccess ? t('doc.noAccess.body') : t('doc.empty.body')}
 						</p>
 					</div>
-					{#if canCreate}
+					{#if noAccess}
+						<span></span>
+					{:else if canCreate}
 						<Button onclick={() => startCreate(ROOT)}>{t('doc.empty.cta')}</Button>
 					{:else}
 						<p class="text-xs text-muted">{t('doc.empty.readonly')}</p>
@@ -926,6 +942,30 @@
 												</button>
 											{/if}
 										{/if}
+										{#if canAssign}
+											<button
+												type="button"
+												onclick={() => openAccess(node)}
+												title={t('doc.action.access')}
+												aria-label={t('doc.action.accessOf', { name: node.name })}
+												class="grid h-8 w-8 place-items-center rounded-field text-muted transition-colors hover:bg-base-content/5 hover:text-base-content pointer-coarse:h-11 pointer-coarse:w-11"
+											>
+												<svg
+													class="h-4 w-4"
+													viewBox="0 0 24 24"
+													fill="none"
+													stroke="currentColor"
+													stroke-width="1.8"
+													stroke-linecap="round"
+													stroke-linejoin="round"
+													aria-hidden="true"
+												>
+													<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+													<circle cx="9" cy="7" r="4" />
+													<path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
+												</svg>
+											</button>
+										{/if}
 										{#if canDelete && !node.is_default}
 											<button
 												type="button"
@@ -1123,6 +1163,21 @@
 		<button aria-label={t('doc.cancel')}></button>
 	</form>
 </dialog>
+
+{#if canAssign}
+	<FolderAccessDialog
+		folder={accessFolder}
+		{groups}
+		{levels}
+		{slug}
+		{actionBase}
+		ready={data.accessReady}
+		workspaceId={workspace.id}
+		bind:open={accessOpen}
+	/>
+{/if}
+
+<Toaster />
 
 <style>
 	.riksa-caret {

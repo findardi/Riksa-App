@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { invalidateAll } from '$app/navigation';
-	import { resolve } from '$app/paths';
 	import { navigating, page } from '$app/state';
 	import type { SubmitFunction } from '@sveltejs/kit';
 	import { normalizeRole } from '$lib/access/roles';
@@ -35,10 +34,36 @@
 		return list.sort((a, b) => collator.compare(a.name, b.name));
 	});
 
+	const forbidden = $derived(data.forbidden ?? false);
+
 	const access = $derived((page.data as { access?: MyAccessWorkspace }).access);
 	const perms = $derived(access?.permissions ?? []);
-	const canUpload = $derived(perms.includes('document:upload'));
+	const canUpload = $derived(perms.includes('document:upload') && !forbidden);
 	const canDownload = $derived(perms.includes('document:download'));
+
+	let downloadingId = $state<string | null>(null);
+
+	async function download(doc: DocumentData) {
+		downloadingId = doc.id;
+		try {
+			const q = new URLSearchParams({ workspaceId: workspace.id, documentId: doc.id });
+			const res = await fetch(`/api/content/download?${q}`);
+			if (res.status === 403) {
+				showToast(t('doc.docs.err.forbiddenDownload'), 'error');
+				return;
+			}
+			if (!res.ok) {
+				showToast(t('err.generic'), 'error');
+				return;
+			}
+			const { download_url } = (await res.json()) as { download_url: string };
+			window.location.href = download_url;
+		} catch {
+			showToast(t('err.network'), 'error');
+		} finally {
+			downloadingId = null;
+		}
+	}
 	const canDelete = $derived(perms.includes('document:delete'));
 	const canEditDoc = $derived(perms.includes('document:edit'));
 
@@ -297,6 +322,28 @@
 				</li>
 			{/each}
 		</ul>
+	{:else if forbidden}
+		<div class="flex flex-col items-center justify-center gap-3 px-6 py-16 text-center">
+			<svg
+				class="h-9 w-9 text-muted/70"
+				viewBox="0 0 24 24"
+				fill="none"
+				stroke="currentColor"
+				stroke-width="1.4"
+				stroke-linecap="round"
+				stroke-linejoin="round"
+				aria-hidden="true"
+			>
+				<rect x="4" y="10.5" width="16" height="10" rx="2" />
+				<path d="M8 10.5V7a4 4 0 0 1 8 0v3.5" />
+			</svg>
+			<div>
+				<p class="text-[0.9375rem] font-medium">{t('doc.docs.noAccess.title')}</p>
+				<p class="mx-auto mt-1 max-w-sm text-sm text-muted text-pretty">
+					{t('doc.docs.noAccess.body')}
+				</p>
+			</div>
+		</div>
 	{:else if documents.length === 0}
 		<div class="flex flex-col items-center justify-center gap-3 px-6 py-16 text-center">
 			<svg
@@ -362,29 +409,33 @@
 						class="flex flex-none items-center gap-0.5 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100 pointer-coarse:gap-1 pointer-coarse:opacity-100"
 					>
 						{#if canDownload}
-							<a
-								href={resolve(
-									`/api/content/download?workspaceId=${workspace.id}&documentId=${doc.id}`
-								)}
+							<button
+								type="button"
+								onclick={() => download(doc)}
+								disabled={downloadingId === doc.id}
 								draggable="false"
 								title={t('doc.docs.download')}
 								aria-label={t('doc.docs.downloadOf', { name: doc.name })}
-								class="grid h-8 w-8 place-items-center rounded-field text-muted transition-colors hover:bg-base-content/5 hover:text-base-content pointer-coarse:h-11 pointer-coarse:w-11"
+								class="grid h-8 w-8 place-items-center rounded-field text-muted transition-colors hover:bg-base-content/5 hover:text-base-content disabled:pointer-events-none disabled:opacity-50 pointer-coarse:h-11 pointer-coarse:w-11"
 							>
-								<svg
-									class="h-4 w-4"
-									viewBox="0 0 24 24"
-									fill="none"
-									stroke="currentColor"
-									stroke-width="1.8"
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									aria-hidden="true"
-								>
-									<path d="M12 4v11M7.5 10.5 12 15l4.5-4.5" />
-									<path d="M5 19h14" />
-								</svg>
-							</a>
+								{#if downloadingId === doc.id}
+									<span class="loading loading-spinner loading-xs"></span>
+								{:else}
+									<svg
+										class="h-4 w-4"
+										viewBox="0 0 24 24"
+										fill="none"
+										stroke="currentColor"
+										stroke-width="1.8"
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										aria-hidden="true"
+									>
+										<path d="M12 4v11M7.5 10.5 12 15l4.5-4.5" />
+										<path d="M5 19h14" />
+									</svg>
+								{/if}
+							</button>
 						{/if}
 						{#if canEditDoc && moveOptions.length > 0}
 							<button

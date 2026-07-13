@@ -123,6 +123,13 @@
 						class="inline-flex max-w-full items-center gap-1 text-[0.9375rem] font-medium transition-colors hover:text-primary"
 					>
 						<span class="truncate">{group.name}</span>
+						{#if group.is_default}
+							<span
+								class="ml-1 flex-none rounded-selector bg-base-content/10 px-1.5 py-0.5 text-[0.6875rem] font-medium text-muted"
+							>
+								{t('group.default.badge')}
+							</span>
+						{/if}
 						<svg
 							class="h-3.5 w-3.5 flex-none text-muted"
 							viewBox="0 0 24 24"
@@ -136,7 +143,11 @@
 							<path d="m9 18 6-6-6-6" />
 						</svg>
 					</a>
-					{#if group.description}
+					{#if group.is_default}
+						<p class="mt-0.5 max-w-[60ch] text-xs text-muted text-pretty">
+							{t('group.default.note')}
+						</p>
+					{:else if group.description}
 						<p class="mt-0.5 max-w-[60ch] truncate text-xs text-muted">{group.description}</p>
 					{/if}
 				</div>
@@ -163,28 +174,30 @@
 							</svg>
 							{t('group.edit')}
 						</button>
-						<button
-							type="button"
-							onclick={() => openDelete(group)}
-							class="inline-flex items-center gap-1.5 rounded-field px-2.5 py-2.5 text-sm font-medium text-muted transition-colors hover:bg-error/10 hover:text-error"
-						>
-							<svg
-								class="h-4 w-4"
-								viewBox="0 0 24 24"
-								fill="none"
-								stroke="currentColor"
-								stroke-width="1.8"
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								aria-hidden="true"
+						{#if !group.is_default}
+							<button
+								type="button"
+								onclick={() => openDelete(group)}
+								class="inline-flex items-center gap-1.5 rounded-field px-2.5 py-2.5 text-sm font-medium text-muted transition-colors hover:bg-error/10 hover:text-error"
 							>
-								<path
-									d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"
-								/>
-								<path d="M10 11v6M14 11v6" />
-							</svg>
-							{t('group.delete')}
-						</button>
+								<svg
+									class="h-4 w-4"
+									viewBox="0 0 24 24"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="1.8"
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									aria-hidden="true"
+								>
+									<path
+										d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"
+									/>
+									<path d="M10 11v6M14 11v6" />
+								</svg>
+								{t('group.delete')}
+							</button>
+						{/if}
 					</div>
 				{/if}
 			</li>

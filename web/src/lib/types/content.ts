@@ -60,3 +60,39 @@ export interface CompleteUploadPayload {
 export interface MoveDocumentPayload {
 	folder_id: string;
 }
+
+export interface AccessLevelData {
+	id: string;
+	name: string;
+	is_system: boolean;
+	can_view: boolean;
+	can_download: boolean;
+	can_watermark: boolean;
+}
+
+export interface FolderAccessData {
+	folder_id: string;
+	group_id: string;
+	group_name: string;
+	level_id: string;
+	level_name: string;
+	can_view: boolean;
+	can_download: boolean;
+	can_watermark: boolean;
+}
+
+export interface SetFolderAccessPayload {
+	group_id: string;
+	level_id: string;
+}
+
+export interface InheritedFolderAccess extends FolderAccessData {
+	source_folder_id: string;
+	source_folder_name: string;
+}
+
+export interface FolderAccessPanel {
+	folder_id: string;
+	direct: FolderAccessData[];
+	inherited: InheritedFolderAccess[];
+}
