@@ -11,12 +11,12 @@ export const load: PageServerLoad = async ({ locals, params, parent }) => {
 	const res = await listDocuments(locals.session, workspace.id, params.folderId);
 	if (!res.ok) {
 		if (res.status === 401) redirect(303, '/login');
-		if (res.status === 403) error(403, t('ws.detail.forbidden'));
+		if (res.status === 403) return { documents: [], forbidden: true };
 		if (res.status === 404) error(404, t('doc.err.notFound'));
 		error(res.status || 500, t('doc.docs.err.load'));
 	}
 
-	return { documents: res.data ?? [] };
+	return { documents: res.data ?? [], forbidden: false };
 };
 
 export const actions: Actions = {

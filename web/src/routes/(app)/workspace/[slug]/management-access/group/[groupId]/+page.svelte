@@ -12,19 +12,22 @@
 	let { data }: PageProps = $props();
 	const group = $derived(data.group);
 	const members = $derived(data.members);
+	const isDefault = $derived(group.is_default);
+	const defaultName = $derived(data.defaultGroup?.name ?? '');
+	const canReturn = $derived(!isDefault && !!data.defaultGroup);
 
 	const base = $derived(`/workspace/${page.params.slug}/management-access/group`);
 
 	const initial = (name: string, email: string) => (name || email || '?').charAt(0).toUpperCase();
 
-	// Candidates = guest-role workspace members not already in this group.
 	const assignedIds = $derived(new Set(members.map((m) => m.member_id)));
 	const candidates = $derived(
 		data.workspaceMembers.filter((m) => m.role_name === 'guest' && !assignedIds.has(m.id))
 	);
-	// Distinguish "no Guests exist at all" from "all Guests already in this group".
 	const guestTotal = $derived(data.workspaceMembers.filter((m) => m.role_name === 'guest').length);
 	const memberBase = $derived(`/workspace/${page.params.slug}/management-access/member`);
+
+	const currentGroupOf = (m: WorkspaceMemberData) => m.group_names?.[0] ?? '';
 
 	// --- Assign dialog ---
 	let assignDialog = $state<HTMLDialogElement>();
@@ -59,7 +62,7 @@
 				const n = (result.data?.assigned as number) ?? selectedIds.length;
 				assignDialog?.close();
 				await invalidateAll();
-				showToast(t('group.assign.toast', { n }), 'success');
+				showToast(t('group.move.toast', { n, name: group.name }), 'success');
 			} else if (result.type === 'failure') {
 				assignMessage = (result.data?.message as string) ?? t('err.generic');
 			} else {
@@ -68,7 +71,6 @@
 		};
 	};
 
-	// --- Unassign (direct, per row) ---
 	let unassigningId = $state<string | null>(null);
 	const submitUnassign = (m: GroupMemberData): SubmitFunction => {
 		return () => {
@@ -77,7 +79,10 @@
 				unassigningId = null;
 				if (result.type === 'success') {
 					await invalidateAll();
-					showToast(t('group.unassign.toast', { name: m.username || m.email }), 'success');
+					showToast(
+						t('group.back.toast', { member: m.username || m.email, name: defaultName }),
+						'success'
+					);
 				} else if (result.type === 'failure') {
 					showToast((result.data?.message as string) ?? t('err.generic'), 'error');
 				} else {
@@ -111,8 +116,19 @@
 
 <div class="mt-4 flex flex-wrap items-start justify-between gap-4">
 	<div class="min-w-0">
-		<h1 class="text-xl font-semibold tracking-[-0.01em] text-balance">{group.name}</h1>
-		{#if group.description}
+		<div class="flex flex-wrap items-center gap-2">
+			<h1 class="text-xl font-semibold tracking-[-0.01em] text-balance">{group.name}</h1>
+			{#if isDefault}
+				<span
+					class="rounded-selector bg-base-content/10 px-1.5 py-0.5 text-[0.6875rem] font-medium text-muted"
+				>
+					{t('group.default.badge')}
+				</span>
+			{/if}
+		</div>
+		{#if isDefault}
+			<p class="mt-1 max-w-[60ch] text-sm text-muted text-pretty">{t('group.default.note')}</p>
+		{:else if group.description}
 			<p class="mt-1 max-w-[60ch] text-sm text-muted text-pretty">{group.description}</p>
 		{/if}
 		<p class="mt-1.5 text-xs text-muted">
@@ -133,13 +149,15 @@
 			stroke-linejoin="round"
 			aria-hidden="true"
 		>
-			<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-			<circle cx="9" cy="7" r="4" />
-			<path d="M19 8v6M22 11h-6" />
+			<path d="M5 12h14M13 6l6 6-6 6" />
 		</svg>
-		{t('group.detail.add')}
+		{t('group.move')}
 	</button>
 </div>
+
+{#if canReturn}
+	<p class="mt-4 text-xs text-muted text-pretty">{t('group.back.note', { name: defaultName })}</p>
+{/if}
 
 {#if members.length}
 	<ul class="mt-6 divide-y divide-base-content/10 border-y border-base-content/10">
@@ -162,34 +180,38 @@
 					<p class="mt-0.5 truncate font-mono text-xs text-muted">{m.email}</p>
 				</div>
 
-				<form method="POST" action="?/unassign" use:enhance={submitUnassign(m)} class="contents">
-					<input type="hidden" name="memberId" value={m.member_id} />
-					<button
-						type="submit"
-						disabled={busy}
-						class="inline-flex flex-none items-center gap-1.5 rounded-field px-2.5 py-2.5 text-sm text-muted transition-colors hover:bg-error/10 hover:text-error disabled:pointer-events-none disabled:opacity-50"
-					>
-						{#if busy}
-							<span class="loading loading-spinner loading-xs"></span>
-						{:else}
-							<svg
-								class="h-4 w-4"
-								viewBox="0 0 24 24"
-								fill="none"
-								stroke="currentColor"
-								stroke-width="1.8"
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								aria-hidden="true"
-							>
-								<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-								<circle cx="9" cy="7" r="4" />
-								<path d="M22 11h-6" />
-							</svg>
-						{/if}
-						{t('group.unassign')}
-					</button>
-				</form>
+				{#if canReturn}
+					<form method="POST" action="?/unassign" use:enhance={submitUnassign(m)} class="contents">
+						<input type="hidden" name="memberId" value={m.member_id} />
+						<button
+							type="submit"
+							disabled={busy}
+							aria-label={t('group.back.actionOf', {
+								member: m.username || m.email,
+								name: defaultName
+							})}
+							class="inline-flex flex-none items-center gap-1.5 rounded-field px-2.5 py-2.5 text-sm text-muted transition-colors hover:bg-base-content/5 hover:text-base-content disabled:pointer-events-none disabled:opacity-50"
+						>
+							{#if busy}
+								<span class="loading loading-spinner loading-xs"></span>
+							{:else}
+								<svg
+									class="h-4 w-4"
+									viewBox="0 0 24 24"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="1.8"
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									aria-hidden="true"
+								>
+									<path d="M19 12H5M11 18l-6-6 6-6" />
+								</svg>
+							{/if}
+							{t('group.back.action', { name: defaultName })}
+						</button>
+					</form>
+				{/if}
 			</li>
 		{/each}
 	</ul>
@@ -218,7 +240,7 @@
 			{t('group.detail.empty.body')}
 		</p>
 		<button type="button" onclick={openAssign} class="btn btn-primary btn-sm mt-4">
-			{t('group.detail.add')}
+			{t('group.move')}
 		</button>
 	</div>
 {/if}
@@ -229,10 +251,10 @@
 		class="modal-box flex max-h-[80vh] w-full max-w-md flex-col rounded-box border border-base-content/10 bg-base-100 p-6"
 	>
 		<h2 id="group-assign-title" class="text-lg font-semibold tracking-[-0.01em]">
-			{t('group.assign.title')}
+			{t('group.move')}
 		</h2>
 		<p class="mt-1 text-sm text-muted text-pretty">
-			{t('group.assign.desc', { name: group.name })}
+			{t('group.move.desc', { name: group.name })}
 		</p>
 
 		{#if assignMessage}
@@ -293,6 +315,11 @@
 								<span class="min-w-0 flex-1">
 									<span class="block truncate text-sm font-medium">{m.username || m.email}</span>
 									<span class="block truncate font-mono text-xs text-muted">{m.email}</span>
+									{#if currentGroupOf(m)}
+										<span class="mt-0.5 block truncate text-xs text-muted">
+											{t('group.move.currentGroup', { name: currentGroupOf(m) })}
+										</span>
+									{/if}
 								</span>
 								<span
 									class="flex-none rounded-selector bg-base-content/10 px-1.5 py-0.5 text-[0.6875rem] font-medium text-muted"
@@ -316,7 +343,7 @@
 							{t('group.cancel')}
 						</Button>
 						<Button type="submit" loading={assignSubmitting} disabled={selectedIds.length === 0}>
-							{assignSubmitting ? t('group.assign.submitting') : t('group.assign.submit')}
+							{assignSubmitting ? t('group.move.submitting') : t('group.move.submit')}
 						</Button>
 					</div>
 				</div>
@@ -338,9 +365,9 @@
 			</div>
 		{:else}
 			<div class="mt-6 rounded-box bg-base-content/4 px-6 py-8 text-center">
-				<p class="text-sm font-medium">{t('group.assign.allIn.title')}</p>
+				<p class="text-sm font-medium">{t('group.move.allIn.title')}</p>
 				<p class="mx-auto mt-1 max-w-xs text-sm text-muted text-pretty">
-					{t('group.assign.allIn.body')}
+					{t('group.move.allIn.body')}
 				</p>
 			</div>
 			<div class="mt-5 flex justify-end">
