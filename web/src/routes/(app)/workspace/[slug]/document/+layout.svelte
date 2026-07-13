@@ -5,7 +5,7 @@
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import type { ActionResult, SubmitFunction } from '@sveltejs/kit';
-	import { FolderAccessDialog, UploadQueue } from '$lib/components/app';
+	import { UploadQueue } from '$lib/components/app';
 	import { Alert, Button, Field, Toaster, showToast } from '$lib/components/common';
 	import { DOCUMENT_MIME, FOLDER_MIME, filesFrom } from '$lib/dnd';
 	import { t } from '$lib/i18n';
@@ -18,17 +18,20 @@
 	let { data, children }: LayoutProps = $props();
 	const folders = $derived(data.folders);
 	const workspace = $derived(data.workspace);
-	const groups = $derived(data.groups);
-	const levels = $derived(data.levels);
 	const noAccess = $derived(data.noAccess);
 
 	const ROOT = '';
 
 	const slug = $derived(page.params.slug!);
 	const actionBase = $derived(resolve('/(app)/workspace/[slug]/document', { slug }));
-	const folderHref = (folderId: string) =>
+	const docHref = (folderId: string) =>
 		resolve('/(app)/workspace/[slug]/document/[folderId]', { slug, folderId });
+	const accessHref = (folderId: string) =>
+		resolve('/(app)/workspace/[slug]/document/[folderId]/access', { slug, folderId });
 	const activeId = $derived(page.params.folderId ?? null);
+
+	const onAccess = $derived(page.url.pathname.endsWith('/access'));
+	const rowHref = (folderId: string) => (onAccess ? accessHref(folderId) : docHref(folderId));
 
 	const perms = $derived((page.data as { access?: MyAccessWorkspace }).access?.permissions ?? []);
 	const canCreate = $derived(perms.includes('folder:create'));
@@ -38,14 +41,6 @@
 	const canEditDoc = $derived(perms.includes('document:edit'));
 	const canAssign = $derived(perms.includes('group:assign'));
 	const canAct = $derived(canCreate || canEdit || canDelete || canAssign);
-
-	let accessFolder = $state<FolderTreeNode | null>(null);
-	let accessOpen = $state(false);
-
-	function openAccess(node: FolderTreeNode) {
-		accessFolder = node;
-		accessOpen = true;
-	}
 
 	const defaultFolder = $derived(folders.find((f) => f.is_default) ?? null);
 	const activeFolder = $derived(activeId ? findNode(folders, activeId) : null);
@@ -263,7 +258,7 @@
 		body.set('documentId', documentId);
 		body.set('folderId', folderId);
 
-		const res = await fetch(`${folderHref(activeId)}?/moveDocument`, {
+		const res = await fetch(`${docHref(activeId)}?/moveDocument`, {
 			method: 'POST',
 			body,
 			headers: { 'x-sveltekit-action': 'true' }
@@ -840,7 +835,7 @@
 								</div>
 							{:else}
 								<a
-									href={folderHref(node.id)}
+									href={rowHref(node.id)}
 									draggable="false"
 									aria-current={active ? 'page' : undefined}
 									class="mt-0.5 flex min-w-0 flex-1 items-baseline gap-1.5 rounded-field no-underline"
@@ -943,12 +938,12 @@
 											{/if}
 										{/if}
 										{#if canAssign}
-											<button
-												type="button"
-												onclick={() => openAccess(node)}
+											<a
+												href={accessHref(node.id)}
+												draggable="false"
 												title={t('doc.action.access')}
 												aria-label={t('doc.action.accessOf', { name: node.name })}
-												class="grid h-8 w-8 place-items-center rounded-field text-muted transition-colors hover:bg-base-content/5 hover:text-base-content pointer-coarse:h-11 pointer-coarse:w-11"
+												class="grid h-8 w-8 place-items-center rounded-field text-muted no-underline transition-colors hover:bg-base-content/5 hover:text-base-content pointer-coarse:h-11 pointer-coarse:w-11"
 											>
 												<svg
 													class="h-4 w-4"
@@ -964,7 +959,7 @@
 													<circle cx="9" cy="7" r="4" />
 													<path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
 												</svg>
-											</button>
+											</a>
 										{/if}
 										{#if canDelete && !node.is_default}
 											<button
@@ -1163,19 +1158,6 @@
 		<button aria-label={t('doc.cancel')}></button>
 	</form>
 </dialog>
-
-{#if canAssign}
-	<FolderAccessDialog
-		folder={accessFolder}
-		{groups}
-		{levels}
-		{slug}
-		{actionBase}
-		ready={data.accessReady}
-		workspaceId={workspace.id}
-		bind:open={accessOpen}
-	/>
-{/if}
 
 <Toaster />
 
