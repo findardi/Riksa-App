@@ -748,23 +748,29 @@ func (s *AccessService) DeleteGroup(ctx context.Context, groupID string) error {
 		return fmt.Errorf("parse group id: %w", err)
 	}
 
-	g, err := s.repo.GetGroup(ctx, gID)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return ErrGroupNotFound
+	return s.repo.ExecTx(ctx, func(q *accessdb.Queries) error {
+		g, err := q.GetGroup(ctx, gID)
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return ErrGroupNotFound
+			}
+			return fmt.Errorf("get group: %w", err)
 		}
-		return fmt.Errorf("get group: %w", err)
-	}
 
-	if g.IsDefault {
-		return ErrDeleteDefaultGroup
-	}
+		if g.IsDefault {
+			return ErrDeleteDefaultGroup
+		}
 
-	if err := s.repo.DeleteGroup(ctx, gID); err != nil {
-		return fmt.Errorf("delete group: %w", err)
-	}
+		if _, err := q.MoveGroupMembersToDefaultGroup(ctx, gID); err != nil {
+			return fmt.Errorf("move group members to default group: %w", err)
+		}
 
-	return nil
+		if err := q.DeleteGroup(ctx, gID); err != nil {
+			return fmt.Errorf("delete group: %w", err)
+		}
+
+		return nil
+	})
 }
 
 func (s *AccessService) UpdateGroup(ctx context.Context, req dto.UpdateGroupRequest) (dto.GroupResponse, error) {

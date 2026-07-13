@@ -31,6 +31,15 @@ join workspace_groups g
 where m.workspace_id = sqlc.arg(workspace_id) and m.user_id = sqlc.arg(user_id)
 on conflict (member_id) do nothing;
 
+-- name: MoveGroupMembersToDefaultGroup :execrows
+update workspace_group_members gm
+set group_id = dg.id
+from workspace_members m, workspace_groups dg
+where gm.member_id = m.id
+  and dg.workspace_id = m.workspace_id
+  and dg.is_default
+  and gm.group_id = sqlc.arg(group_id);
+
 -- name: MoveMemberToDefaultGroup :execrows
 insert into workspace_group_members (group_id, member_id)
 select g.id, m.id

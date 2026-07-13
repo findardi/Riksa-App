@@ -151,6 +151,24 @@ func (q *Queries) InsertGroupMember(ctx context.Context, arg InsertGroupMemberPa
 	return i, err
 }
 
+const moveGroupMembersToDefaultGroup = `-- name: MoveGroupMembersToDefaultGroup :execrows
+update workspace_group_members gm
+set group_id = dg.id
+from workspace_members m, workspace_groups dg
+where gm.member_id = m.id
+  and dg.workspace_id = m.workspace_id
+  and dg.is_default
+  and gm.group_id = $1
+`
+
+func (q *Queries) MoveGroupMembersToDefaultGroup(ctx context.Context, groupID pgtype.UUID) (int64, error) {
+	result, err := q.db.Exec(ctx, moveGroupMembersToDefaultGroup, groupID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const moveMemberToDefaultGroup = `-- name: MoveMemberToDefaultGroup :execrows
 insert into workspace_group_members (group_id, member_id)
 select g.id, m.id
