@@ -37,6 +37,7 @@ type Querier interface {
 	InsertRole(ctx context.Context, arg InsertRoleParams) (WorkspaceRole, error)
 	InsertWorkspaceInvitation(ctx context.Context, arg InsertWorkspaceInvitationParams) (WorkspaceUserInvitation, error)
 	ListWorkspaceInvitations(ctx context.Context, arg ListWorkspaceInvitationsParams) ([]ListWorkspaceInvitationsRow, error)
+	MoveGroupMembersToDefaultGroup(ctx context.Context, groupID pgtype.UUID) (int64, error)
 	MoveMemberToDefaultGroup(ctx context.Context, memberID pgtype.UUID) (int64, error)
 	ReinviteWorkspaceInvitation(ctx context.Context, arg ReinviteWorkspaceInvitationParams) (WorkspaceUserInvitation, error)
 	RejectWorkspaceInvitation(ctx context.Context, id pgtype.UUID) (WorkspaceUserInvitation, error)
