@@ -17,19 +17,25 @@ type Querier interface {
 	CreateFolder(ctx context.Context, arg CreateFolderParams) (Folder, error)
 	DeleteDocument(ctx context.Context, id pgtype.UUID) error
 	DeleteFolder(ctx context.Context, id pgtype.UUID) error
+	GetAccessLevel(ctx context.Context, arg GetAccessLevelParams) (AccessLevel, error)
 	GetCurrentVersion(ctx context.Context, id pgtype.UUID) (DocumentVersion, error)
 	GetDocumentByID(ctx context.Context, id pgtype.UUID) (Document, error)
 	GetFolderByID(ctx context.Context, id pgtype.UUID) (Folder, error)
 	GetFoldersByWorkspace(ctx context.Context, workspaceID pgtype.UUID) ([]Folder, error)
 	GetMaxPositionInParent(ctx context.Context, arg GetMaxPositionInParentParams) (int32, error)
 	GetNextVersionNo(ctx context.Context, documentID pgtype.UUID) (int32, error)
+	GetSystemAccessLevelByName(ctx context.Context, name string) (AccessLevel, error)
 	GetVersionByID(ctx context.Context, id pgtype.UUID) (DocumentVersion, error)
+	ListAccessLevels(ctx context.Context, workspaceID pgtype.UUID) ([]AccessLevel, error)
 	ListDocumentsByFolder(ctx context.Context, folderID pgtype.UUID) ([]ListDocumentsByFolderRow, error)
+	ListFolderAccess(ctx context.Context, arg ListFolderAccessParams) ([]ListFolderAccessRow, error)
 	ListVersionByDocument(ctx context.Context, documentID pgtype.UUID) ([]DocumentVersion, error)
 	MoveDocument(ctx context.Context, arg MoveDocumentParams) error
 	MoveFolder(ctx context.Context, arg MoveFolderParams) error
+	RemoveFolderAccess(ctx context.Context, arg RemoveFolderAccessParams) error
 	RenameFolder(ctx context.Context, arg RenameFolderParams) (Folder, error)
 	SetCurrentVersion(ctx context.Context, arg SetCurrentVersionParams) error
+	SetFolderAccess(ctx context.Context, arg SetFolderAccessParams) (FolderAccess, error)
 }
 
 var _ Querier = (*Queries)(nil)
