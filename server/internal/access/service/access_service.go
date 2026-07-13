@@ -809,9 +809,9 @@ func (s *AccessService) AssignToGroup(ctx context.Context, req dto.GroupMemberRe
 			GroupID:  gID,
 			MemberID: mID,
 		})
-		if isUniqueViolation(err, "workspace_group_members_pkey") {
-			continue
-		}
+		// if isUniqueViolation(err, "workspace_group_members_pkey") {
+		// 	continue
+		// }
 		if err != nil {
 			return []dto.GroupMemberResponse{}, fmt.Errorf("assign member to group: %w", err)
 		}

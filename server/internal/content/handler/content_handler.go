@@ -391,3 +391,87 @@ func (h *ContentHandler) MoveDocument(w http.ResponseWriter, r *http.Request) {
 
 	response.Success(w, http.StatusOK, "move document success", nil)
 }
+
+func (h *ContentHandler) SetFolderAccess(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, MaxBodyBytes)
+
+	var req dto.SetFolderAccessRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid body request", nil)
+		return
+	}
+
+	if errs := validation.Validate(&req); errs != nil {
+		response.Error(w, http.StatusBadRequest, "validation failed", errs)
+		return
+	}
+
+	req.WorkspaceID = chi.URLParam(r, "workspaceID")
+	req.FolderID = chi.URLParam(r, "folderID")
+
+	if err := h.svc.SetFolderAccess(r.Context(), req); err != nil {
+		switch {
+		case errors.Is(err, service.ErrFolderNotFound):
+			response.Error(w, http.StatusNotFound, err.Error(), nil)
+		case errors.Is(err, service.ErrAccessTargetInvalid):
+			response.Error(w, http.StatusBadRequest, err.Error(), nil)
+		default:
+			log.Printf("set folder access internal error: %v", err)
+			response.Error(w, http.StatusInternalServerError, "internal server error", nil)
+		}
+		return
+	}
+
+	response.Success(w, http.StatusOK, "success set folder access", nil)
+}
+
+func (h *ContentHandler) RemoveFolderAccess(w http.ResponseWriter, r *http.Request) {
+	WorkspaceID := chi.URLParam(r, "workspaceID")
+	FolderID := chi.URLParam(r, "folderID")
+	groupID := chi.URLParam(r, "groupID")
+
+	if err := h.svc.RemoveFolderAccess(r.Context(), WorkspaceID, groupID, FolderID); err != nil {
+		switch {
+		case errors.Is(err, service.ErrFolderNotFound):
+			response.Error(w, http.StatusNotFound, err.Error(), nil)
+		case errors.Is(err, service.ErrAccessTargetInvalid):
+			response.Error(w, http.StatusBadRequest, err.Error(), nil)
+		default:
+			log.Printf("remove folder access internal error: %v", err)
+			response.Error(w, http.StatusInternalServerError, "internal server error", nil)
+		}
+		return
+	}
+
+	response.Success(w, http.StatusOK, "success remove folder access", nil)
+}
+
+func (h *ContentHandler) ListAccessLevel(w http.ResponseWriter, r *http.Request) {
+	res, err := h.svc.ListAccessLevels(r.Context(), chi.URLParam(r, "workspaceID"))
+	if err != nil {
+		log.Printf("list access level internal error: %v", err)
+		response.Error(w, http.StatusInternalServerError, "internal server error", nil)
+		return
+	}
+
+	response.Success(w, http.StatusOK, "success get list level access", res)
+}
+
+func (h *ContentHandler) ListFolderAccess(w http.ResponseWriter, r *http.Request) {
+	WorkspaceID := chi.URLParam(r, "workspaceID")
+	FolderID := chi.URLParam(r, "folderID")
+
+	res, err := h.svc.ListFolderAccess(r.Context(), WorkspaceID, FolderID)
+	if err != nil {
+		switch {
+		case errors.Is(err, service.ErrFolderNotFound):
+			response.Error(w, http.StatusNotFound, err.Error(), nil)
+		default:
+			log.Printf("list folder access internal error: %v", err)
+			response.Error(w, http.StatusInternalServerError, "internal server error", nil)
+		}
+		return
+	}
+
+	response.Success(w, http.StatusOK, "success get list folder access", res)
+}

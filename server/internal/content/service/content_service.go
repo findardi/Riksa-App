@@ -33,6 +33,7 @@ var (
 	ErrUploadNotFound       = errors.New("uploaded object not found")
 	ErrDeleteDefault        = errors.New("folder is default by system, cant deleted")
 	ErrMoveDefault          = errors.New("folder is default by system, cant moved")
+	ErrAccessTargetInvalid  = errors.New("group or access level not found in this workspace")
 )
 
 type ContentService struct {

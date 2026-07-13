@@ -91,6 +91,8 @@ insert into workspace_group_members
     (group_id, member_id)
 values
     ($1, $2)
+on conflict (member_id) do update
+    set group_id = excluded.group_id
 returning group_id, member_id, created_at
 `
 
