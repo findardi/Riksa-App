@@ -12,6 +12,7 @@ import (
 
 type Querier interface {
 	AcceptWorkspaceInvitation(ctx context.Context, arg AcceptWorkspaceInvitationParams) (WorkspaceUserInvitation, error)
+	AssignDefaultGroupIfGuest(ctx context.Context, arg AssignDefaultGroupIfGuestParams) error
 	GetMyInvitations(ctx context.Context, userID pgtype.UUID) ([]GetMyInvitationsRow, error)
 	GetWorkspaceInvitation(ctx context.Context, id pgtype.UUID) (WorkspaceUserInvitation, error)
 	InsertMember(ctx context.Context, arg InsertMemberParams) error

@@ -11,12 +11,41 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const createDefaultGroup = `-- name: CreateDefaultGroup :one
+insert into workspace_groups
+    (workspace_id, name, description, is_default)
+values
+    ($1, $2, $3, true)
+returning id, workspace_id, name, description, created_at, updated_at, is_default
+`
+
+type CreateDefaultGroupParams struct {
+	WorkspaceID pgtype.UUID `json:"workspace_id"`
+	Name        string      `json:"name"`
+	Description *string     `json:"description"`
+}
+
+func (q *Queries) CreateDefaultGroup(ctx context.Context, arg CreateDefaultGroupParams) (WorkspaceGroup, error) {
+	row := q.db.QueryRow(ctx, createDefaultGroup, arg.WorkspaceID, arg.Name, arg.Description)
+	var i WorkspaceGroup
+	err := row.Scan(
+		&i.ID,
+		&i.WorkspaceID,
+		&i.Name,
+		&i.Description,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.IsDefault,
+	)
+	return i, err
+}
+
 const createGroup = `-- name: CreateGroup :one
 insert into workspace_groups
     (workspace_id, name, description)
 values
     ($1, $2, $3)
-returning id, workspace_id, name, description, created_at, updated_at
+returning id, workspace_id, name, description, created_at, updated_at, is_default
 `
 
 type CreateGroupParams struct {
@@ -35,6 +64,7 @@ func (q *Queries) CreateGroup(ctx context.Context, arg CreateGroupParams) (Works
 		&i.Description,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.IsDefault,
 	)
 	return i, err
 }
@@ -48,8 +78,28 @@ func (q *Queries) DeleteGroup(ctx context.Context, id pgtype.UUID) error {
 	return err
 }
 
+const getDefaultGroup = `-- name: GetDefaultGroup :one
+select id, workspace_id, name, description, created_at, updated_at, is_default from workspace_groups
+where workspace_id = $1 and is_default
+`
+
+func (q *Queries) GetDefaultGroup(ctx context.Context, workspaceID pgtype.UUID) (WorkspaceGroup, error) {
+	row := q.db.QueryRow(ctx, getDefaultGroup, workspaceID)
+	var i WorkspaceGroup
+	err := row.Scan(
+		&i.ID,
+		&i.WorkspaceID,
+		&i.Name,
+		&i.Description,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.IsDefault,
+	)
+	return i, err
+}
+
 const getGroup = `-- name: GetGroup :one
-select id, workspace_id, name, description, created_at, updated_at from workspace_groups
+select id, workspace_id, name, description, created_at, updated_at, is_default from workspace_groups
 where id = $1
 `
 
@@ -63,12 +113,13 @@ func (q *Queries) GetGroup(ctx context.Context, id pgtype.UUID) (WorkspaceGroup,
 		&i.Description,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.IsDefault,
 	)
 	return i, err
 }
 
 const getGroups = `-- name: GetGroups :many
-select id, workspace_id, name, description, created_at, updated_at from workspace_groups
+select id, workspace_id, name, description, created_at, updated_at, is_default from workspace_groups
 where workspace_id = $1
 order by created_at
 `
@@ -89,6 +140,7 @@ func (q *Queries) GetGroups(ctx context.Context, workspaceID pgtype.UUID) ([]Wor
 			&i.Description,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.IsDefault,
 		); err != nil {
 			return nil, err
 		}
@@ -106,7 +158,7 @@ update workspace_groups set
     description = $3,
     updated_at = now()
 where id = $1
-returning id, workspace_id, name, description, created_at, updated_at
+returning id, workspace_id, name, description, created_at, updated_at, is_default
 `
 
 type UpdateGroupParams struct {
@@ -125,6 +177,7 @@ func (q *Queries) UpdateGroup(ctx context.Context, arg UpdateGroupParams) (Works
 		&i.Description,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.IsDefault,
 	)
 	return i, err
 }

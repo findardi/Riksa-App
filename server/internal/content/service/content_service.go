@@ -34,6 +34,7 @@ var (
 	ErrDeleteDefault        = errors.New("folder is default by system, cant deleted")
 	ErrMoveDefault          = errors.New("folder is default by system, cant moved")
 	ErrAccessTargetInvalid  = errors.New("group or access level not found in this workspace")
+	ErrContentForbidden     = errors.New("no access to this content")
 )
 
 type ContentService struct {
@@ -241,21 +242,57 @@ func (s *ContentService) MoveFolder(ctx context.Context, req dto.MoveFolderReque
 	return err
 }
 
-func (s *ContentService) GetFoldersTree(ctx context.Context, workspaceID string) ([]dto.FolderTreeNode, error) {
+func (s *ContentService) GetFoldersTree(ctx context.Context, workspaceID string, actor Actor) ([]dto.FolderTreeNode, error) {
 
 	var wID pgtype.UUID
 	if err := wID.Scan(workspaceID); err != nil {
 		return nil, fmt.Errorf("workspace id parse: %w", err)
 	}
 
-	rows, err := s.repo.GetFoldersByWorkspace(ctx, wID)
-	if err != nil {
-		return nil, fmt.Errorf("get folders: %w", err)
+	var rows []contentdb.Folder
+	if actor.bypassesContentAccess() {
+		all, err := s.repo.GetFoldersByWorkspace(ctx, wID)
+		if err != nil {
+			return nil, fmt.Errorf("get folders: %w", err)
+		}
+		rows = all
+	} else {
+		var uID pgtype.UUID
+		if err := uID.Scan(actor.UserID); err != nil {
+			return nil, ErrContentForbidden
+		}
+
+		visible, err := s.repo.ListVisibleFolders(ctx, contentdb.ListVisibleFoldersParams{
+			WorkspaceID: wID,
+			UserID:      uID,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("list visible folders: %w", err)
+		}
+
+		rows = make([]contentdb.Folder, 0, len(visible))
+		for _, v := range visible {
+			rows = append(rows, contentdb.Folder{
+				ID:        v.ID,
+				ParentID:  v.ParentID,
+				Name:      v.Name,
+				Position:  v.Position,
+				IsDefault: v.IsDefault,
+			})
+		}
+	}
+
+	visibleIDs := make(map[string]struct{}, len(rows))
+	for _, f := range rows {
+		visibleIDs[uuidString(f.ID)] = struct{}{}
 	}
 
 	childrenOf := make(map[string][]contentdb.Folder)
 	for _, f := range rows {
 		key := uuidString(f.ParentID)
+		if _, ok := visibleIDs[key]; !ok {
+			key = ""
+		}
 		childrenOf[key] = append(childrenOf[key], f)
 	}
 

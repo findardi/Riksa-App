@@ -71,5 +71,12 @@ func (s *AccessService) ConsumeInvitation(ctx context.Context, tx pgx.Tx, token,
 		return fmt.Errorf("add member: %w", err)
 	}
 
+	if err := q.AssignDefaultGroupIfGuest(ctx, accessdb.AssignDefaultGroupIfGuestParams{
+		WorkspaceID: inv.WorkspaceID,
+		UserID:      uID,
+	}); err != nil {
+		return fmt.Errorf("assign default group: %w", err)
+	}
+
 	return nil
 }

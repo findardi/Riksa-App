@@ -34,6 +34,7 @@ type AccessRepository interface {
 	InsertRole(ctx context.Context, arg accessdb.InsertRoleParams) (accessdb.WorkspaceRole, error)
 	InsertWorkspaceInvitation(ctx context.Context, arg accessdb.InsertWorkspaceInvitationParams) (accessdb.WorkspaceUserInvitation, error)
 	InsertGroupMember(ctx context.Context, arg accessdb.InsertGroupMemberParams) (accessdb.WorkspaceGroupMember, error)
+	MoveMemberToDefaultGroup(ctx context.Context, memberID pgtype.UUID) (int64, error)
 	ListWorkspaceInvitations(ctx context.Context, arg accessdb.ListWorkspaceInvitationsParams) ([]accessdb.ListWorkspaceInvitationsRow, error)
 
 	RevokeWorkspaceInvitation(ctx context.Context, id pgtype.UUID) (accessdb.WorkspaceUserInvitation, error)

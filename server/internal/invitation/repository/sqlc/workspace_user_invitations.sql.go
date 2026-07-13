@@ -46,6 +46,28 @@ func (q *Queries) AcceptWorkspaceInvitation(ctx context.Context, arg AcceptWorks
 	return i, err
 }
 
+const assignDefaultGroupIfGuest = `-- name: AssignDefaultGroupIfGuest :exec
+insert into workspace_group_members (group_id, member_id)
+select g.id, m.id
+from workspace_members m
+join workspace_roles r
+    on r.id = m.role_id and r.name = 'guest'
+join workspace_groups g
+    on g.workspace_id = m.workspace_id and g.is_default
+where m.workspace_id = $1 and m.user_id = $2
+on conflict (member_id) do nothing
+`
+
+type AssignDefaultGroupIfGuestParams struct {
+	WorkspaceID pgtype.UUID `json:"workspace_id"`
+	UserID      pgtype.UUID `json:"user_id"`
+}
+
+func (q *Queries) AssignDefaultGroupIfGuest(ctx context.Context, arg AssignDefaultGroupIfGuestParams) error {
+	_, err := q.db.Exec(ctx, assignDefaultGroupIfGuest, arg.WorkspaceID, arg.UserID)
+	return err
+}
+
 const getMyInvitations = `-- name: GetMyInvitations :many
 select 
     wi.id, wi.workspace_id, wi.email, wi.role_id, wi.user_id, wi.invited_by, wi.code_hash, wi.status, wi.expires_at, wi.accepted_at, wi.created_at, wi.updated_at,

@@ -83,6 +83,7 @@ func GetGuest() []string {
 		PermWorkspaceView,
 		PermFolderView,
 		PermDocumentView,
+		PermDocumentDownload,
 	}
 }
 

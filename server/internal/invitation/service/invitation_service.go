@@ -114,6 +114,13 @@ func (s *InvitationService) AcceptInvitation(ctx context.Context, invitationID, 
 			return fmt.Errorf("add member: %w", err)
 		}
 
+		if err := q.AssignDefaultGroupIfGuest(ctx, invitationdb.AssignDefaultGroupIfGuestParams{
+			WorkspaceID: inv.WorkspaceID,
+			UserID:      uID,
+		}); err != nil {
+			return fmt.Errorf("assign default group: %w", err)
+		}
+
 		return nil
 	})
 }

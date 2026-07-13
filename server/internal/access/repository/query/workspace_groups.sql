@@ -5,9 +5,20 @@ values
     ($1, $2, $3)
 returning *;
 
+-- name: CreateDefaultGroup :one
+insert into workspace_groups
+    (workspace_id, name, description, is_default)
+values
+    ($1, $2, $3, true)
+returning *;
+
 -- name: GetGroup :one
 select * from workspace_groups
 where id = $1;
+
+-- name: GetDefaultGroup :one
+select * from workspace_groups
+where workspace_id = $1 and is_default;
 
 -- name: GetGroups :many
 select * from workspace_groups

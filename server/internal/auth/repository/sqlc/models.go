@@ -109,6 +109,7 @@ type WorkspaceGroup struct {
 	Description *string            `json:"description"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+	IsDefault   bool               `json:"is_default"`
 }
 
 type WorkspaceGroupMember struct {

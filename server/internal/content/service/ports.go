@@ -34,6 +34,8 @@ type ContentRepository interface {
 	ListFolderAccess(ctx context.Context, arg contentdb.ListFolderAccessParams) ([]contentdb.ListFolderAccessRow, error)
 	RemoveFolderAccess(ctx context.Context, arg contentdb.RemoveFolderAccessParams) error
 	SetFolderAccess(ctx context.Context, arg contentdb.SetFolderAccessParams) (contentdb.FolderAccess, error)
+	ResolveFolderAccess(ctx context.Context, arg contentdb.ResolveFolderAccessParams) (contentdb.ResolveFolderAccessRow, error)
+	ListVisibleFolders(ctx context.Context, arg contentdb.ListVisibleFoldersParams) ([]contentdb.ListVisibleFoldersRow, error)
 
 	ExecTx(ctx context.Context, fn func(*contentdb.Queries) error) error
 }

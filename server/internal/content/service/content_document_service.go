@@ -227,7 +227,7 @@ func (s *ContentService) CompletedVersion(ctx context.Context, req dto.CompleteV
 	}, nil
 }
 
-func (s *ContentService) ListDocuments(ctx context.Context, workspaceID, folderID string) ([]dto.DocumentResponse, error) {
+func (s *ContentService) ListDocuments(ctx context.Context, workspaceID, folderID string, actor Actor) ([]dto.DocumentResponse, error) {
 	var fID pgtype.UUID
 	if err := fID.Scan(folderID); err != nil {
 		return []dto.DocumentResponse{}, fmt.Errorf("folder id parse: %w", err)
@@ -244,6 +244,10 @@ func (s *ContentService) ListDocuments(ctx context.Context, workspaceID, folderI
 
 	if uuidString(folder.WorkspaceID) != workspaceID {
 		return []dto.DocumentResponse{}, ErrFolderNotFound
+	}
+
+	if err := s.requireFolderView(ctx, workspaceID, folderID, actor); err != nil {
+		return []dto.DocumentResponse{}, err
 	}
 
 	rows, err := s.repo.ListDocumentsByFolder(ctx, fID)
@@ -268,7 +272,7 @@ func (s *ContentService) ListDocuments(ctx context.Context, workspaceID, folderI
 	return docs, nil
 }
 
-func (s *ContentService) ListVersions(ctx context.Context, workspaceID, documentID string) ([]dto.VersionResponse, error) {
+func (s *ContentService) ListVersions(ctx context.Context, workspaceID, documentID string, actor Actor) ([]dto.VersionResponse, error) {
 	var dID pgtype.UUID
 	if err := dID.Scan(documentID); err != nil {
 		return []dto.VersionResponse{}, nil
@@ -285,6 +289,10 @@ func (s *ContentService) ListVersions(ctx context.Context, workspaceID, document
 
 	if uuidString(doc.WorkspaceID) != workspaceID {
 		return []dto.VersionResponse{}, ErrDocumentNotFound
+	}
+
+	if err := s.requireFolderView(ctx, workspaceID, uuidString(doc.FolderID), actor); err != nil {
+		return []dto.VersionResponse{}, err
 	}
 
 	rows, err := s.repo.ListVersionByDocument(ctx, dID)
@@ -307,7 +315,7 @@ func (s *ContentService) ListVersions(ctx context.Context, workspaceID, document
 	return vers, nil
 }
 
-func (s *ContentService) GetDownloadURL(ctx context.Context, workspaceID, documentID string) (dto.DownloadURLResponse, error) {
+func (s *ContentService) GetDownloadURL(ctx context.Context, workspaceID, documentID string, actor Actor) (dto.DownloadURLResponse, error) {
 	var dID pgtype.UUID
 	if err := dID.Scan(documentID); err != nil {
 		return dto.DownloadURLResponse{}, fmt.Errorf("document id parse: %w", err)
@@ -324,6 +332,10 @@ func (s *ContentService) GetDownloadURL(ctx context.Context, workspaceID, docume
 
 	if uuidString(doc.WorkspaceID) != workspaceID {
 		return dto.DownloadURLResponse{}, ErrDocumentNotFound
+	}
+
+	if err := s.requireFolderDownload(ctx, workspaceID, uuidString(doc.FolderID), actor); err != nil {
+		return dto.DownloadURLResponse{}, err
 	}
 
 	current, err := s.repo.GetCurrentVersion(ctx, dID)
