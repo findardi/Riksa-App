@@ -67,7 +67,6 @@ export interface AccessLevelData {
 	is_system: boolean;
 	can_view: boolean;
 	can_download: boolean;
-	can_watermark: boolean;
 }
 
 export interface FolderAccessData {
@@ -78,7 +77,6 @@ export interface FolderAccessData {
 	level_name: string;
 	can_view: boolean;
 	can_download: boolean;
-	can_watermark: boolean;
 }
 
 export interface SetFolderAccessPayload {
@@ -91,8 +89,12 @@ export interface InheritedFolderAccess extends FolderAccessData {
 	source_folder_name: string;
 }
 
+export interface DirectFolderAccess extends FolderAccessData {
+	shadows: InheritedFolderAccess | null;
+}
+
 export interface FolderAccessPanel {
 	folder_id: string;
-	direct: FolderAccessData[];
+	direct: DirectFolderAccess[];
 	inherited: InheritedFolderAccess[];
 }
