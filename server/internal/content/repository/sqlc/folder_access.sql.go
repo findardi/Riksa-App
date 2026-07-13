@@ -74,6 +74,96 @@ func (q *Queries) ListFolderAccess(ctx context.Context, arg ListFolderAccessPara
 	return items, nil
 }
 
+const listVisibleFolders = `-- name: ListVisibleFolders :many
+with recursive granted as (
+    select
+        f.id,
+        f.parent_id,
+        f.name,
+        f.position,
+        f.is_default,
+        l.can_view,
+        l.can_download
+    from folders f
+    join folder_access fa on fa.folder_id = f.id
+    join workspace_group_members gm on gm.group_id = fa.group_id
+    join workspace_members m on m.id = gm.member_id
+    join access_levels l on l.id = fa.level_id
+    where f.workspace_id = $1
+      and m.workspace_id = $1
+      and m.user_id = $2
+
+    union all
+
+    select
+        c.id,
+        c.parent_id,
+        c.name,
+        c.position,
+        c.is_default,
+        g.can_view,
+        g.can_download
+    from folders c
+    join granted g on c.parent_id = g.id
+    where not exists (
+        select 1
+        from folder_access fa2
+        join workspace_group_members gm2 on gm2.group_id = fa2.group_id
+        join workspace_members m2 on m2.id = gm2.member_id
+        where fa2.folder_id = c.id
+          and m2.workspace_id = $1
+          and m2.user_id = $2
+    )
+)
+select id, parent_id, name, position, is_default, can_view, can_download
+from granted
+where can_view
+order by position
+`
+
+type ListVisibleFoldersParams struct {
+	WorkspaceID pgtype.UUID `json:"workspace_id"`
+	UserID      pgtype.UUID `json:"user_id"`
+}
+
+type ListVisibleFoldersRow struct {
+	ID          pgtype.UUID `json:"id"`
+	ParentID    pgtype.UUID `json:"parent_id"`
+	Name        string      `json:"name"`
+	Position    int32       `json:"position"`
+	IsDefault   bool        `json:"is_default"`
+	CanView     bool        `json:"can_view"`
+	CanDownload bool        `json:"can_download"`
+}
+
+func (q *Queries) ListVisibleFolders(ctx context.Context, arg ListVisibleFoldersParams) ([]ListVisibleFoldersRow, error) {
+	rows, err := q.db.Query(ctx, listVisibleFolders, arg.WorkspaceID, arg.UserID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListVisibleFoldersRow
+	for rows.Next() {
+		var i ListVisibleFoldersRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.ParentID,
+			&i.Name,
+			&i.Position,
+			&i.IsDefault,
+			&i.CanView,
+			&i.CanDownload,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const removeFolderAccess = `-- name: RemoveFolderAccess :exec
 delete from folder_access fa 
 using folders f 
@@ -92,6 +182,58 @@ type RemoveFolderAccessParams struct {
 func (q *Queries) RemoveFolderAccess(ctx context.Context, arg RemoveFolderAccessParams) error {
 	_, err := q.db.Exec(ctx, removeFolderAccess, arg.FolderID, arg.GroupID, arg.WorkspaceID)
 	return err
+}
+
+const resolveFolderAccess = `-- name: ResolveFolderAccess :one
+with recursive chain as (
+    select f.id, f.parent_id, 0 as depth
+    from folders f
+    where f.id = $3 and f.workspace_id = $1
+
+    union all
+
+    select f.id, f.parent_id, c.depth + 1
+    from folders f
+    join chain c on f.id = c.parent_id
+)
+select
+    l.name as level_name,
+    l.can_view,
+    l.can_download,
+    l.can_watermark
+from chain c
+join folder_access fa on fa.folder_id = c.id
+join workspace_group_members gm on gm.group_id = fa.group_id
+join workspace_members m on m.id = gm.member_id
+join access_levels l on l.id = fa.level_id
+where m.workspace_id = $1 and m.user_id = $2
+order by c.depth
+limit 1
+`
+
+type ResolveFolderAccessParams struct {
+	WorkspaceID pgtype.UUID `json:"workspace_id"`
+	UserID      pgtype.UUID `json:"user_id"`
+	FolderID    pgtype.UUID `json:"folder_id"`
+}
+
+type ResolveFolderAccessRow struct {
+	LevelName    string `json:"level_name"`
+	CanView      bool   `json:"can_view"`
+	CanDownload  bool   `json:"can_download"`
+	CanWatermark bool   `json:"can_watermark"`
+}
+
+func (q *Queries) ResolveFolderAccess(ctx context.Context, arg ResolveFolderAccessParams) (ResolveFolderAccessRow, error) {
+	row := q.db.QueryRow(ctx, resolveFolderAccess, arg.WorkspaceID, arg.UserID, arg.FolderID)
+	var i ResolveFolderAccessRow
+	err := row.Scan(
+		&i.LevelName,
+		&i.CanView,
+		&i.CanDownload,
+		&i.CanWatermark,
+	)
+	return i, err
 }
 
 const setFolderAccess = `-- name: SetFolderAccess :one

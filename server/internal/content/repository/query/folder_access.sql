@@ -37,3 +37,75 @@ join workspace_groups g on g.id = fa.group_id
 join access_levels l on l.id = fa.level_id
 where fa.folder_id = $1 and f.workspace_id = $2
 order by g.name;
+
+-- name: ResolveFolderAccess :one
+with recursive chain as (
+    select f.id, f.parent_id, 0 as depth
+    from folders f
+    where f.id = sqlc.arg(folder_id) and f.workspace_id = sqlc.arg(workspace_id)
+
+    union all
+
+    select f.id, f.parent_id, c.depth + 1
+    from folders f
+    join chain c on f.id = c.parent_id
+)
+select
+    l.name as level_name,
+    l.can_view,
+    l.can_download,
+    l.can_watermark
+from chain c
+join folder_access fa on fa.folder_id = c.id
+join workspace_group_members gm on gm.group_id = fa.group_id
+join workspace_members m on m.id = gm.member_id
+join access_levels l on l.id = fa.level_id
+where m.workspace_id = sqlc.arg(workspace_id) and m.user_id = sqlc.arg(user_id)
+order by c.depth
+limit 1;
+
+-- name: ListVisibleFolders :many
+with recursive granted as (
+    select
+        f.id,
+        f.parent_id,
+        f.name,
+        f.position,
+        f.is_default,
+        l.can_view,
+        l.can_download
+    from folders f
+    join folder_access fa on fa.folder_id = f.id
+    join workspace_group_members gm on gm.group_id = fa.group_id
+    join workspace_members m on m.id = gm.member_id
+    join access_levels l on l.id = fa.level_id
+    where f.workspace_id = sqlc.arg(workspace_id)
+      and m.workspace_id = sqlc.arg(workspace_id)
+      and m.user_id = sqlc.arg(user_id)
+
+    union all
+
+    select
+        c.id,
+        c.parent_id,
+        c.name,
+        c.position,
+        c.is_default,
+        g.can_view,
+        g.can_download
+    from folders c
+    join granted g on c.parent_id = g.id
+    where not exists (
+        select 1
+        from folder_access fa2
+        join workspace_group_members gm2 on gm2.group_id = fa2.group_id
+        join workspace_members m2 on m2.id = gm2.member_id
+        where fa2.folder_id = c.id
+          and m2.workspace_id = sqlc.arg(workspace_id)
+          and m2.user_id = sqlc.arg(user_id)
+    )
+)
+select id, parent_id, name, position, is_default, can_view, can_download
+from granted
+where can_view
+order by position;

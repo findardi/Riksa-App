@@ -101,13 +101,38 @@ func (h *ContentHandler) MoveFolder(w http.ResponseWriter, r *http.Request) {
 	response.Success(w, http.StatusOK, "move folder success", nil)
 }
 
+func actorFromRequest(r *http.Request) (service.Actor, bool) {
+	claims, ok := middleware.ClaimsFromContext(r.Context())
+	if !ok {
+		return service.Actor{}, false
+	}
+
+	ms, ok := middleware.MembershipFromContext(r.Context())
+	if !ok {
+		return service.Actor{}, false
+	}
+
+	return service.Actor{UserID: claims.ID, Role: ms.Role}, true
+}
+
 func (h *ContentHandler) GetFoldersTree(w http.ResponseWriter, r *http.Request) {
 	wID := chi.URLParam(r, "workspaceID")
 
-	res, err := h.svc.GetFoldersTree(r.Context(), wID)
+	actor, ok := actorFromRequest(r)
+	if !ok {
+		response.Error(w, http.StatusUnauthorized, "unauthorized", nil)
+		return
+	}
+
+	res, err := h.svc.GetFoldersTree(r.Context(), wID, actor)
 	if err != nil {
-		log.Printf("get folders tree internal error: %v", err)
-		response.Error(w, http.StatusInternalServerError, "internal server error", nil)
+		switch {
+		case errors.Is(err, service.ErrContentForbidden):
+			response.Error(w, http.StatusForbidden, err.Error(), nil)
+		default:
+			log.Printf("get folders tree internal error: %v", err)
+			response.Error(w, http.StatusInternalServerError, "internal server error", nil)
+		}
 		return
 	}
 
@@ -228,11 +253,19 @@ func (h *ContentHandler) ListDocuments(w http.ResponseWriter, r *http.Request) {
 	wID := chi.URLParam(r, "workspaceID")
 	fID := chi.URLParam(r, "folderID")
 
-	res, err := h.svc.ListDocuments(r.Context(), wID, fID)
+	actor, ok := actorFromRequest(r)
+	if !ok {
+		response.Error(w, http.StatusUnauthorized, "unauthorized", nil)
+		return
+	}
+
+	res, err := h.svc.ListDocuments(r.Context(), wID, fID, actor)
 	if err != nil {
 		switch {
 		case errors.Is(err, service.ErrFolderNotFound):
 			response.Error(w, http.StatusNotFound, err.Error(), nil)
+		case errors.Is(err, service.ErrContentForbidden):
+			response.Error(w, http.StatusForbidden, err.Error(), nil)
 		default:
 			log.Printf("list documents internal error: %v", err)
 			response.Error(w, http.StatusInternalServerError, "internal server error", nil)
@@ -247,9 +280,17 @@ func (h *ContentHandler) ListVersions(w http.ResponseWriter, r *http.Request) {
 	wID := chi.URLParam(r, "workspaceID")
 	dID := chi.URLParam(r, "documentID")
 
-	res, err := h.svc.ListVersions(r.Context(), wID, dID)
+	actor, ok := actorFromRequest(r)
+	if !ok {
+		response.Error(w, http.StatusUnauthorized, "unauthorized", nil)
+		return
+	}
+
+	res, err := h.svc.ListVersions(r.Context(), wID, dID, actor)
 	if err != nil {
 		switch {
+		case errors.Is(err, service.ErrContentForbidden):
+			response.Error(w, http.StatusForbidden, err.Error(), nil)
 		case errors.Is(err, service.ErrDocumentNotFound):
 			response.Error(w, http.StatusNotFound, err.Error(), nil)
 		default:
@@ -326,9 +367,17 @@ func (h *ContentHandler) GetDownloadURL(w http.ResponseWriter, r *http.Request) 
 	wID := chi.URLParam(r, "workspaceID")
 	dID := chi.URLParam(r, "documentID")
 
-	res, err := h.svc.GetDownloadURL(r.Context(), wID, dID)
+	actor, ok := actorFromRequest(r)
+	if !ok {
+		response.Error(w, http.StatusUnauthorized, "unauthorized", nil)
+		return
+	}
+
+	res, err := h.svc.GetDownloadURL(r.Context(), wID, dID, actor)
 	if err != nil {
 		switch {
+		case errors.Is(err, service.ErrContentForbidden):
+			response.Error(w, http.StatusForbidden, err.Error(), nil)
 		case errors.Is(err, service.ErrDocumentNotFound):
 			response.Error(w, http.StatusNotFound, err.Error(), nil)
 		default:

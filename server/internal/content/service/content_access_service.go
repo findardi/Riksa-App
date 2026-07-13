@@ -7,9 +7,78 @@ import (
 
 	"github.com/findardi/Riksa-App/server/internal/content/dto"
 	contentdb "github.com/findardi/Riksa-App/server/internal/content/repository/sqlc"
+	"github.com/findardi/Riksa-App/server/internal/platform/permission"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 )
+
+type Actor struct {
+	UserID string
+	Role   string
+}
+
+func (a Actor) bypassesContentAccess() bool {
+	return a.Role == permission.RoleOwner || a.Role == permission.RoleAdmin
+}
+
+func (s *ContentService) resolveFolderAccess(ctx context.Context, workspaceID, folderID string, actor Actor) (contentdb.ResolveFolderAccessRow, error) {
+	var wID, fID, uID pgtype.UUID
+	if err := wID.Scan(workspaceID); err != nil {
+		return contentdb.ResolveFolderAccessRow{}, fmt.Errorf("parse workspace id: %w", err)
+	}
+	if err := fID.Scan(folderID); err != nil {
+		return contentdb.ResolveFolderAccessRow{}, ErrFolderNotFound
+	}
+	if err := uID.Scan(actor.UserID); err != nil {
+		return contentdb.ResolveFolderAccessRow{}, ErrContentForbidden
+	}
+
+	row, err := s.repo.ResolveFolderAccess(ctx, contentdb.ResolveFolderAccessParams{
+		WorkspaceID: wID,
+		UserID:      uID,
+		FolderID:    fID,
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return contentdb.ResolveFolderAccessRow{}, ErrContentForbidden
+	}
+	if err != nil {
+		return contentdb.ResolveFolderAccessRow{}, fmt.Errorf("resolve folder access: %w", err)
+	}
+
+	return row, nil
+}
+
+func (s *ContentService) requireFolderView(ctx context.Context, workspaceID, folderID string, actor Actor) error {
+	if actor.bypassesContentAccess() {
+		return nil
+	}
+
+	row, err := s.resolveFolderAccess(ctx, workspaceID, folderID, actor)
+	if err != nil {
+		return err
+	}
+	if !row.CanView {
+		return ErrContentForbidden
+	}
+
+	return nil
+}
+
+func (s *ContentService) requireFolderDownload(ctx context.Context, workspaceID, folderID string, actor Actor) error {
+	if actor.bypassesContentAccess() {
+		return nil
+	}
+
+	row, err := s.resolveFolderAccess(ctx, workspaceID, folderID, actor)
+	if err != nil {
+		return err
+	}
+	if !row.CanDownload {
+		return ErrContentForbidden
+	}
+
+	return nil
+}
 
 func (s *ContentService) SetFolderAccess(ctx context.Context, req dto.SetFolderAccessRequest) error {
 	var wID, fID, gID, lID pgtype.UUID

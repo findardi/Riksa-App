@@ -387,8 +387,10 @@ func (h *AccessHandler) DeleteGroup(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case errors.Is(err, service.ErrGroupNotFound):
 			response.Error(w, http.StatusNotFound, err.Error(), nil)
+		case errors.Is(err, service.ErrDeleteDefaultGroup):
+			response.Error(w, http.StatusForbidden, err.Error(), nil)
 		default:
-			log.Printf("register internal error: %v", err)
+			log.Printf("delete group internal error: %v", err)
 			response.Error(w, http.StatusInternalServerError, "internal server error", nil)
 		}
 		return

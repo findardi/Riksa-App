@@ -30,10 +30,12 @@ type Querier interface {
 	ListDocumentsByFolder(ctx context.Context, folderID pgtype.UUID) ([]ListDocumentsByFolderRow, error)
 	ListFolderAccess(ctx context.Context, arg ListFolderAccessParams) ([]ListFolderAccessRow, error)
 	ListVersionByDocument(ctx context.Context, documentID pgtype.UUID) ([]DocumentVersion, error)
+	ListVisibleFolders(ctx context.Context, arg ListVisibleFoldersParams) ([]ListVisibleFoldersRow, error)
 	MoveDocument(ctx context.Context, arg MoveDocumentParams) error
 	MoveFolder(ctx context.Context, arg MoveFolderParams) error
 	RemoveFolderAccess(ctx context.Context, arg RemoveFolderAccessParams) error
 	RenameFolder(ctx context.Context, arg RenameFolderParams) (Folder, error)
+	ResolveFolderAccess(ctx context.Context, arg ResolveFolderAccessParams) (ResolveFolderAccessRow, error)
 	SetCurrentVersion(ctx context.Context, arg SetCurrentVersionParams) error
 	SetFolderAccess(ctx context.Context, arg SetFolderAccessParams) (FolderAccess, error)
 }

@@ -127,12 +127,12 @@ func (s *WorkspaceService) CreateWorkspace(ctx context.Context, req dto.Workspac
 			return fmt.Errorf("create workspace: %w", err)
 		}
 
-		if err := s.access.ProvisionWorkspace(ctx, tx, w.ID, uid); err != nil {
-			return fmt.Errorf("provision workspace access: %w", err)
-		}
-
 		if err := s.content.ProvisionWorkspace(ctx, tx, w.ID, uid); err != nil {
 			return fmt.Errorf("provision workspace content: %w", err)
+		}
+
+		if err := s.access.ProvisionWorkspace(ctx, tx, w.ID, uid); err != nil {
+			return fmt.Errorf("provision workspace access: %w", err)
 		}
 
 		workspace = w
