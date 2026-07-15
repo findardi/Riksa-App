@@ -269,6 +269,10 @@ func KeyFromJSONField(field string) KeyFunc {
 
 const MaxBodyBytesPeek = 1 << 20
 
+func ClientIP(r *http.Request) string {
+	return clientIP(r)
+}
+
 func clientIP(r *http.Request) string {
 	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
 		if i := strings.IndexByte(xff, ','); i >= 0 {

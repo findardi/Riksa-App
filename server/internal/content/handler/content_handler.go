@@ -5,6 +5,8 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"strconv"
+	"time"
 
 	"github.com/findardi/Riksa-App/server/internal/content/dto"
 	"github.com/findardi/Riksa-App/server/internal/content/service"
@@ -504,6 +506,88 @@ func (h *ContentHandler) ListAccessLevel(w http.ResponseWriter, r *http.Request)
 	}
 
 	response.Success(w, http.StatusOK, "success get list level access", res)
+}
+
+func (h *ContentHandler) GetViewMeta(w http.ResponseWriter, r *http.Request) {
+	wID := chi.URLParam(r, "workspaceID")
+	dID := chi.URLParam(r, "documentID")
+
+	actor, ok := actorFromRequest(r)
+	if !ok {
+		response.Error(w, http.StatusUnauthorized, "unauthorized", nil)
+		return
+	}
+
+	res, err := h.svc.GetViewMeta(r.Context(), wID, dID, actor)
+	if err != nil {
+		switch {
+		case errors.Is(err, service.ErrContentForbidden):
+			response.Error(w, http.StatusForbidden, err.Error(), nil)
+		case errors.Is(err, service.ErrDocumentNotFound):
+			response.Error(w, http.StatusNotFound, err.Error(), nil)
+		case errors.Is(err, service.ErrNotViewable):
+			response.Error(w, http.StatusUnprocessableEntity, err.Error(), nil)
+		default:
+			log.Printf("get view meta internal error: %v", err)
+			response.Error(w, http.StatusInternalServerError, "internal server error", nil)
+		}
+		return
+	}
+
+	response.Success(w, http.StatusOK, "get view meta success", res)
+}
+
+func (h *ContentHandler) GetViewPage(w http.ResponseWriter, r *http.Request) {
+	wID := chi.URLParam(r, "workspaceID")
+	dID := chi.URLParam(r, "documentID")
+
+	page, err := strconv.Atoi(chi.URLParam(r, "page"))
+	if err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid page number", nil)
+		return
+	}
+
+	claims, ok := middleware.ClaimsFromContext(r.Context())
+	if !ok {
+		response.Error(w, http.StatusUnauthorized, "unauthorized", nil)
+		return
+	}
+
+	actor, ok := actorFromRequest(r)
+	if !ok {
+		response.Error(w, http.StatusUnauthorized, "unauthorized", nil)
+		return
+	}
+
+	secondary := time.Now().UTC().Format("2006-01-02 15:04 MST") + " · " + middleware.ClientIP(r)
+
+	img, err := h.svc.GetPageImage(r.Context(), dto.ViewPageRequest{
+		WorkspaceID:   wID,
+		DocumentID:    dID,
+		Page:          page,
+		MarkPrimary:   claims.Email,
+		MarkSecondary: secondary,
+	}, actor)
+	if err != nil {
+		switch {
+		case errors.Is(err, service.ErrContentForbidden):
+			response.Error(w, http.StatusForbidden, err.Error(), nil)
+		case errors.Is(err, service.ErrDocumentNotFound), errors.Is(err, service.ErrPageOutOfRange):
+			response.Error(w, http.StatusNotFound, err.Error(), nil)
+		case errors.Is(err, service.ErrNotViewable):
+			response.Error(w, http.StatusUnprocessableEntity, err.Error(), nil)
+		default:
+			log.Printf("get view page internal error: %v", err)
+			response.Error(w, http.StatusInternalServerError, "internal server error", nil)
+		}
+		return
+	}
+
+	w.Header().Set("Content-Type", "image/png")
+	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("Content-Length", strconv.Itoa(len(img)))
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(img)
 }
 
 func (h *ContentHandler) ListFolderAccess(w http.ResponseWriter, r *http.Request) {

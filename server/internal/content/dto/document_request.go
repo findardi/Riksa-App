@@ -20,3 +20,11 @@ type MoveDocumentRequest struct {
 	DocumentID  string `json:"-"`
 	FolderID    string `json:"folder_id" validate:"required,uuid"`
 }
+
+type ViewPageRequest struct {
+	WorkspaceID   string
+	DocumentID    string
+	Page          int
+	MarkPrimary   string
+	MarkSecondary string
+}

@@ -25,6 +25,7 @@ type ContentRepository interface {
 	ListVersionByDocument(ctx context.Context, documentID pgtype.UUID) ([]contentdb.DocumentVersion, error)
 	GetVersionByID(ctx context.Context, id pgtype.UUID) (contentdb.DocumentVersion, error)
 	GetCurrentVersion(ctx context.Context, id pgtype.UUID) (contentdb.DocumentVersion, error)
+	SetVersionRendition(ctx context.Context, arg contentdb.SetVersionRenditionParams) error
 	DeleteDocument(ctx context.Context, id pgtype.UUID) error
 	MoveDocument(ctx context.Context, arg contentdb.MoveDocumentParams) error
 

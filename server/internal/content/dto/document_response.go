@@ -30,3 +30,11 @@ type VersionResponse struct {
 type DownloadURLResponse struct {
 	DownloadURL string `json:"download_url"`
 }
+
+type ViewMetaResponse struct {
+	DocumentID  string `json:"document_id"`
+	Name        string `json:"name"`
+	Mime        string `json:"mime"`
+	PageCount   int    `json:"page_count"`
+	CanDownload bool   `json:"can_download"`
+}

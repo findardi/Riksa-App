@@ -35,17 +35,21 @@ var (
 	ErrMoveDefault          = errors.New("folder is default by system, cant moved")
 	ErrAccessTargetInvalid  = errors.New("group or access level not found in this workspace")
 	ErrContentForbidden     = errors.New("no access to this content")
+	ErrNotViewable          = errors.New("file type cannot be viewed, download only")
+	ErrPageOutOfRange       = errors.New("page out of range")
 )
 
 type ContentService struct {
-	repo  ContentRepository
-	store storage.Storage
+	repo   ContentRepository
+	store  storage.Storage
+	viewer Viewer
 }
 
-func NewContentService(repo ContentRepository, store storage.Storage) *ContentService {
+func NewContentService(repo ContentRepository, store storage.Storage, viewer Viewer) *ContentService {
 	return &ContentService{
-		repo:  repo,
-		store: store,
+		repo:   repo,
+		store:  store,
+		viewer: viewer,
 	}
 }
 
