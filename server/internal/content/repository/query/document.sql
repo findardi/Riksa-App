@@ -58,3 +58,9 @@ delete from documents where id = $1;
 
 -- name: MoveDocument :exec
 update documents set folder_id = $2, updated_at = now() where id = $1;
+
+-- name: SetVersionRendition :exec
+update document_versions
+set rendition_key = sqlc.arg(rendition_key),
+    page_count = sqlc.arg(page_count)
+where id = sqlc.arg(id);

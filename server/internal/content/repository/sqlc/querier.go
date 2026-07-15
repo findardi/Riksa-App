@@ -38,6 +38,7 @@ type Querier interface {
 	ResolveFolderAccess(ctx context.Context, arg ResolveFolderAccessParams) (ResolveFolderAccessRow, error)
 	SetCurrentVersion(ctx context.Context, arg SetCurrentVersionParams) error
 	SetFolderAccess(ctx context.Context, arg SetFolderAccessParams) (FolderAccess, error)
+	SetVersionRendition(ctx context.Context, arg SetVersionRenditionParams) error
 }
 
 var _ Querier = (*Queries)(nil)
