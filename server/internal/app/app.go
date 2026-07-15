@@ -38,7 +38,7 @@ type App struct {
 	addr   string
 }
 
-func New(pool *pgxpool.Pool, otpSecret, addr, jwtSecret string, store storage.Storage) *App {
+func New(pool *pgxpool.Pool, otpSecret, addr, jwtSecret string, store storage.Storage, viewer contentservice.Viewer) *App {
 	otpGen := otp.New(otpSecret)
 	jwtGen := token.New(jwtSecret)
 
@@ -57,13 +57,13 @@ func New(pool *pgxpool.Pool, otpSecret, addr, jwtSecret string, store storage.St
 
 	authsvc := authservice.NewAuthService(authrepo.New(pool), otpGen, jwtGen, mailer, nil)
 	accessSvc := accessservice.NewAccessService(accessrepo.New(pool), mailer, authsvc, otpGen, webURL)
-	contentSvc := contentservice.NewContentService(contentrepo.New(pool), store)
+	contentSvc := contentservice.NewContentService(contentrepo.New(pool), store, viewer)
 
 	authModule := auth.NewModule(pool, otpGen, jwtGen, mailer, limiter, providers, accessSvc)
 	workspaceModule := workspace.NewModule(pool, jwtGen, accessSvc, contentSvc)
 	accessModule := access.NewModule(pool, jwtGen, mailer, authsvc, otpGen, webURL)
 	invitationModule := invitation.NewModule(pool, jwtGen)
-	contentModule := content.NewModule(pool, jwtGen, store)
+	contentModule := content.NewModule(pool, jwtGen, store, viewer)
 
 	r := chi.NewRouter()
 	registerGlobalMiddleware(r)
