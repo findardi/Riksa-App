@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { invalidateAll } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import { navigating, page } from '$app/state';
 	import type { SubmitFunction } from '@sveltejs/kit';
 	import { normalizeRole } from '$lib/access/roles';
@@ -17,6 +18,7 @@
 	let { data }: PageProps = $props();
 	const folders = $derived(data.folders);
 	const workspace = $derived(data.workspace);
+	const slug = $derived(page.params.slug!);
 	const folderId = $derived(page.params.folderId!);
 
 	type SortKey = 'name' | 'updated' | 'size';
@@ -382,7 +384,22 @@
 				>
 					{@render fileIcon(kindOf(doc.mime))}
 
-					<span class="min-w-0 flex-1 truncate text-sm" title={doc.name}>{doc.name}</span>
+					<!-- Opens the secure viewer. The folder is in the path so the reader's
+					     back link returns here. Non-viewable files land on the viewer's
+					     download-only state — the server owns viewability. -->
+					<a
+						href={resolve('/(app)/workspace/[slug]/view/[folderId]/[documentId]', {
+							slug,
+							folderId,
+							documentId: doc.id
+						})}
+						draggable="false"
+						title={doc.name}
+						aria-label={t('doc.docs.viewOf', { name: doc.name })}
+						class="min-w-0 flex-1 truncate rounded-field text-sm no-underline transition-colors hover:text-primary"
+					>
+						{doc.name}
+					</a>
 
 					<span
 						class="flex-none rounded-selector bg-base-content/5 px-1.5 py-0.5 font-mono text-[0.6875rem] text-muted"

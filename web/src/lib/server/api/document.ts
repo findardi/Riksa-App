@@ -4,9 +4,10 @@ import type {
 	DocumentData,
 	DownloadUrlData,
 	MoveDocumentPayload,
-	UploadUrlData
+	UploadUrlData,
+	ViewMetaData
 } from '$lib/types/content';
-import { del, get, patch, post } from './client';
+import { API_URL, del, get, patch, post } from './client';
 
 const foldersBase = (workspaceId: string) => `/content/workspaces/${workspaceId}/folders`;
 const documentsBase = (workspaceId: string) => `/content/workspaces/${workspaceId}/documents`;
@@ -46,6 +47,28 @@ export function getDownloadUrl(
 	documentId: string
 ): Promise<ApiResult<DownloadUrlData>> {
 	return get<DownloadUrlData>(`${documentsBase(workspaceId)}/${documentId}/download`, token);
+}
+
+export function getViewMeta(
+	token: string,
+	workspaceId: string,
+	documentId: string
+): Promise<ApiResult<ViewMetaData>> {
+	return get<ViewMetaData>(`${documentsBase(workspaceId)}/${documentId}/view`, token);
+}
+
+// Raw upstream response for the page-image proxy. This endpoint streams a
+// watermarked PNG (Content-Type image/png), not a JSON envelope, so it bypasses
+// the typed client entirely — the proxy route forwards the body and status.
+export function fetchViewPage(
+	token: string,
+	workspaceId: string,
+	documentId: string,
+	page: number | string
+): Promise<Response> {
+	return fetch(`${API_URL}${documentsBase(workspaceId)}/${documentId}/pages/${page}`, {
+		headers: { authorization: `Bearer ${token}` }
+	});
 }
 
 export function moveDocument(

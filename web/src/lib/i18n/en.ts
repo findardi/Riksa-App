@@ -337,6 +337,31 @@ export const en: Record<keyof Dict, string> = {
 	'doc.docs.noAccess.title': 'This folder is not shared with you',
 	'doc.docs.noAccess.body':
 		'Your group has not been given access to this folder. Ask the room owner to open it up to your group.',
+	'doc.docs.view': 'View',
+	'doc.docs.viewOf': 'View {name}',
+
+	'doc.view.tab': 'Document viewer',
+	'doc.view.back': 'Back',
+	'doc.view.prev': 'Previous page',
+	'doc.view.next': 'Next page',
+	'doc.view.jumpLabel': 'Jump to page',
+	'doc.view.pageOf': 'Page {n} of {total}',
+	'doc.view.protected':
+		'Secure view — every page is watermarked with your identity and is never sent as the original file.',
+	'doc.view.watermarked': 'Watermarked',
+	'doc.view.pageError': 'This page failed to load.',
+	'doc.view.retry': 'Try again',
+	'doc.view.forbidden.title': 'You do not have access',
+	'doc.view.forbidden.body':
+		'Your group has not been given permission to view this document. Ask the room owner to open it up to your group.',
+	'doc.view.downloadOnly.title': 'This document can only be downloaded',
+	'doc.view.downloadOnly.body':
+		'This format — such as a spreadsheet, video, or archive — cannot be shown in the viewer. Download it to open in your own app.',
+	'doc.view.downloadOnly.noPerm':
+		'Your group has not been given permission to download this document.',
+	'doc.view.emptyPages': 'This document has no pages to display.',
+	'doc.view.err.notFound': 'That document no longer exists.',
+	'doc.view.err.load': 'Could not load the document.',
 	'doc.noAccess.title': 'No folders shared with you yet',
 	'doc.noAccess.body':
 		'The room owner has not given your group access to any folder. They will appear here as soon as access is granted.',
