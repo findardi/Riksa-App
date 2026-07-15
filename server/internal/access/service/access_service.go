@@ -54,6 +54,9 @@ var (
 	ErrRoleNotFound     = errors.New("role not found")
 	ErrMemberAlreadyAdd = errors.New("user already a member of this workspace")
 	ErrMemberNotFound   = errors.New("member not found")
+	ErrRoleNotFound     = errors.New("role not found")
+	ErrMemberAlreadyAdd = errors.New("user already a member of this workspace")
+	ErrMemberNotFound   = errors.New("member not found")
 
 	ErrCannotRemoveOwner     = errors.New("the workspace owner cannot be removed")
 	ErrCannotAssignOwnerRole = errors.New("the owner role cannot be assigned")
@@ -67,6 +70,9 @@ var (
 	ErrInvitationNotRevocable  = errors.New("invitation can no longer be revoked")
 	ErrInvalidInvitationStatus = errors.New("invalid invitation status")
 
+	ErrGroupNameTaken     = errors.New("group name already taken")
+	ErrGroupNotFound      = errors.New("group not found")
+	ErrDeleteDefaultGroup = errors.New("group is default by system, cant deleted")
 	ErrGroupNameTaken     = errors.New("group name already taken")
 	ErrGroupNotFound      = errors.New("group not found")
 	ErrDeleteDefaultGroup = errors.New("group is default by system, cant deleted")
@@ -697,6 +703,7 @@ func (s *AccessService) CreateGroup(ctx context.Context, req dto.CreateGroupRequ
 	})
 	if err != nil {
 		return dto.GroupResponse{}, err
+		return dto.GroupResponse{}, err
 	}
 
 	return dto.GroupResponse{
@@ -704,6 +711,7 @@ func (s *AccessService) CreateGroup(ctx context.Context, req dto.CreateGroupRequ
 		WorkspaceID: uuidString(g.WorkspaceID),
 		Name:        g.Name,
 		Description: deref(g.Description),
+		IsDefault:   g.IsDefault,
 		IsDefault:   g.IsDefault,
 		CreatedAt:   g.CreatedAt.Time,
 		UpdatedAt:   g.UpdatedAt.Time,
@@ -728,6 +736,7 @@ func (s *AccessService) GetGroups(ctx context.Context, workspaceID string) ([]dt
 			WorkspaceID: uuidString(g.WorkspaceID),
 			Name:        g.Name,
 			Description: deref(g.Description),
+			IsDefault:   g.IsDefault,
 			IsDefault:   g.IsDefault,
 			CreatedAt:   g.CreatedAt.Time,
 			UpdatedAt:   g.UpdatedAt.Time,
@@ -797,6 +806,7 @@ func (s *AccessService) UpdateGroup(ctx context.Context, req dto.UpdateGroupRequ
 		Name:        g.Name,
 		Description: deref(g.Description),
 		IsDefault:   g.IsDefault,
+		IsDefault:   g.IsDefault,
 		CreatedAt:   g.CreatedAt.Time,
 		UpdatedAt:   g.UpdatedAt.Time,
 	}, nil
@@ -860,6 +870,9 @@ func (s *AccessService) AssignToGroup(ctx context.Context, req dto.GroupMemberRe
 		// if isUniqueViolation(err, "workspace_group_members_pkey") {
 		// 	continue
 		// }
+		// if isUniqueViolation(err, "workspace_group_members_pkey") {
+		// 	continue
+		// }
 		if err != nil {
 			return []dto.GroupMemberResponse{}, fmt.Errorf("assign member to group: %w", err)
 		}
@@ -875,6 +888,14 @@ func (s *AccessService) UnassignFromGroup(ctx context.Context, groupID, memberID
 	}
 	if err := mID.Scan(memberID); err != nil {
 		return fmt.Errorf("parse member id: %w", err)
+	}
+
+	moved, err := s.repo.MoveMemberToDefaultGroup(ctx, mID)
+	if err != nil {
+		return fmt.Errorf("move member to default group: %w", err)
+	}
+	if moved > 0 {
+		return nil
 	}
 
 	moved, err := s.repo.MoveMemberToDefaultGroup(ctx, mID)

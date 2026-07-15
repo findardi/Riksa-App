@@ -61,6 +61,7 @@ func New(pool *pgxpool.Pool, otpSecret, addr, jwtSecret string, store storage.St
 
 	authModule := auth.NewModule(pool, otpGen, jwtGen, mailer, limiter, providers, accessSvc)
 	workspaceModule := workspace.NewModule(pool, jwtGen, accessSvc, contentSvc)
+	workspaceModule := workspace.NewModule(pool, jwtGen, accessSvc, contentSvc)
 	accessModule := access.NewModule(pool, jwtGen, mailer, authsvc, otpGen, webURL)
 	invitationModule := invitation.NewModule(pool, jwtGen)
 	contentModule := content.NewModule(pool, jwtGen, store, viewer)
@@ -76,6 +77,7 @@ func New(pool *pgxpool.Pool, otpSecret, addr, jwtSecret string, store storage.St
 	workspaceModule.RegisterRoutes(r)
 	accessModule.RegisterRoutes(r)
 	invitationModule.RegisterRoutes(r)
+	contentModule.RegisterRoutes(r)
 	contentModule.RegisterRoutes(r)
 
 	return &App{

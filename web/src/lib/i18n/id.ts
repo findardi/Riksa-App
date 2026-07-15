@@ -1,6 +1,7 @@
 // Bahasa Indonesia — default locale. Add en.ts and register it in index.ts to expand.
 export const id = {
 	'brand.name': 'Riksa',
+	'brand.name': 'Riksa',
 	'brand.tagline': 'Ruang data aman untuk dokumen deal Anda.',
 	'brand.reassure.title': 'Dibangun untuk dokumen rahasia',
 	'brand.reassure.body':
@@ -11,6 +12,7 @@ export const id = {
 	'nav.toRegister': 'Belum punya akun?',
 	'nav.toRegisterCta': 'Buat akun',
 
+	'login.title': 'Masuk ke Riksa',
 	'login.title': 'Masuk ke Riksa',
 	'login.subtitle': 'Lanjutkan ke ruang data Anda.',
 	'login.identifier': 'Email atau username',
@@ -29,6 +31,7 @@ export const id = {
 	'sso.github': 'Lanjutkan dengan GitHub',
 	'sso.redirecting': 'Mengalihkan…',
 
+	'register.title': 'Buat akun Riksa',
 	'register.title': 'Buat akun Riksa',
 	'register.subtitle': 'Mulai kelola ruang data Anda dalam hitungan menit.',
 	'register.email': 'Email',
@@ -163,6 +166,7 @@ export const id = {
 	// Home (post-login landing)
 	'home.welcome': 'Selamat datang, {name}',
 	'home.welcomeGeneric': 'Selamat datang di Riksa',
+	'home.welcomeGeneric': 'Selamat datang di Riksa',
 	'home.subtitle': 'Buka ruang data untuk melanjutkan, atau buat yang baru.',
 	'home.quickActions': 'Aksi cepat',
 	'home.action.workspaces': 'Ruang data',
@@ -188,6 +192,8 @@ export const id = {
 	'err.network': 'Tidak dapat terhubung ke server. Coba lagi.',
 	'err.generic': 'Terjadi kesalahan. Coba lagi sebentar.',
 	'err.invalidOtp': 'Kode OTP salah atau kedaluwarsa.',
+	'err.forbidden': 'Anda tidak punya izin untuk tindakan ini.',
+	'err.forbiddenContent': 'Grup Anda tidak diberi akses ke konten ini.',
 	'err.forbidden': 'Anda tidak punya izin untuk tindakan ini.',
 	'err.forbiddenContent': 'Grup Anda tidak diberi akses ke konten ini.',
 
@@ -431,8 +437,11 @@ export const id = {
 	'role.permCount': '{n} izin',
 	'role.permNone': 'Tanpa izin',
 	'role.fixedNote': 'Peran bersifat tetap (Pemilik, Admin, Tamu) dan tidak dapat diubah.',
+	'role.fixedNote': 'Peran bersifat tetap (Pemilik, Admin, Tamu) dan tidak dapat diubah.',
 	'role.view': 'Lihat',
 	'role.back': 'Kembali ke Peran',
+	'role.view.systemNote': 'Peran bersifat tetap dan tidak dapat diubah atau dihapus.',
+	'role.field.permissions': 'Izin',
 	'role.view.systemNote': 'Peran bersifat tetap dan tidak dapat diubah atau dihapus.',
 	'role.field.permissions': 'Izin',
 	// system role display names (seeded names are technical: owner/admin/…)
@@ -503,6 +512,25 @@ export const id = {
 	'group.assign.noGuests.body':
 		'Hanya anggota berperan Tamu yang bisa masuk grup. Undang anggota lebih dulu — undangan yang diterima akan muncul di sini.',
 	'group.assign.noGuests.cta': 'Undang anggota',
+
+	'group.default.badge': 'Bawaan',
+	'group.default.note':
+		'Grup bawaan. Setiap Tamu baru masuk ke sini sampai dipindahkan, jadi grup ini tidak dapat dihapus.',
+	'group.move': 'Pindahkan anggota ke sini',
+	'group.move.desc':
+		'Hanya anggota berperan Tamu yang bisa masuk grup “{name}”. Anggota hanya bisa berada di satu grup — memindahkannya ke sini otomatis mengeluarkannya dari grup lamanya.',
+	'group.move.currentGroup': 'Sekarang di {name}',
+	'group.move.submit': 'Pindahkan ke sini',
+	'group.move.submitting': 'Memindahkan…',
+	'group.move.toast': '{n} anggota dipindahkan ke {name}.',
+	'group.move.allIn.title': 'Semua Tamu sudah di grup ini',
+	'group.move.allIn.body': 'Tidak ada anggota Tamu lain yang bisa dipindahkan ke sini.',
+	'group.back.action': 'Kembalikan ke {name}',
+	'group.back.actionOf': 'Kembalikan {member} ke {name}',
+	'group.back.toast': '{member} dikembalikan ke {name}.',
+	'group.back.note':
+		'Mengeluarkan anggota tidak mencabut aksesnya — ia dikembalikan ke grup bawaan “{name}”.',
+	'group.member.none': 'Tanpa grup',
 
 	'group.default.badge': 'Bawaan',
 	'group.default.note':

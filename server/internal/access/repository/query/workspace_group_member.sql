@@ -5,6 +5,8 @@ values
     ($1, $2)
 on conflict (member_id) do update
     set group_id = excluded.group_id
+on conflict (member_id) do update
+    set group_id = excluded.group_id
 returning *;
 
 -- name: DeleteGroupMember :exec

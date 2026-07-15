@@ -15,10 +15,13 @@ type Querier interface {
 	AddMember(ctx context.Context, arg AddMemberParams) (WorkspaceMember, error)
 	AssignDefaultGroupIfGuest(ctx context.Context, arg AssignDefaultGroupIfGuestParams) error
 	CreateDefaultGroup(ctx context.Context, arg CreateDefaultGroupParams) (WorkspaceGroup, error)
+	AssignDefaultGroupIfGuest(ctx context.Context, arg AssignDefaultGroupIfGuestParams) error
+	CreateDefaultGroup(ctx context.Context, arg CreateDefaultGroupParams) (WorkspaceGroup, error)
 	CreateGroup(ctx context.Context, arg CreateGroupParams) (WorkspaceGroup, error)
 	DeleteGroup(ctx context.Context, id pgtype.UUID) error
 	DeleteGroupMember(ctx context.Context, arg DeleteGroupMemberParams) error
 	DeleteMember(ctx context.Context, id pgtype.UUID) error
+	GetDefaultGroup(ctx context.Context, workspaceID pgtype.UUID) (WorkspaceGroup, error)
 	GetDefaultGroup(ctx context.Context, workspaceID pgtype.UUID) (WorkspaceGroup, error)
 	GetGroup(ctx context.Context, id pgtype.UUID) (WorkspaceGroup, error)
 	GetGroupMembers(ctx context.Context, groupID pgtype.UUID) ([]GetGroupMembersRow, error)
@@ -32,6 +35,7 @@ type Querier interface {
 	GetRoles(ctx context.Context, workspaceID pgtype.UUID) ([]WorkspaceRole, error)
 	GetWorkspaceInvitation(ctx context.Context, id pgtype.UUID) (WorkspaceUserInvitation, error)
 	GetWorkspaceInvitationByCodeHash(ctx context.Context, codeHash string) (WorkspaceUserInvitation, error)
+	GrantDefaultFolderAccess(ctx context.Context, arg GrantDefaultFolderAccessParams) error
 	GrantDefaultFolderAccess(ctx context.Context, arg GrantDefaultFolderAccessParams) error
 	InsertGroupMember(ctx context.Context, arg InsertGroupMemberParams) (WorkspaceGroupMember, error)
 	InsertRole(ctx context.Context, arg InsertRoleParams) (WorkspaceRole, error)

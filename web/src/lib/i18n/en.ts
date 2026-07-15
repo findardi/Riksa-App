@@ -4,6 +4,7 @@ import type { Dict } from './id';
 
 export const en: Record<keyof Dict, string> = {
 	'brand.name': 'Riksa',
+	'brand.name': 'Riksa',
 	'brand.tagline': 'A secure data room for your deal documents.',
 	'brand.reassure.title': 'Built for confidential documents',
 	'brand.reassure.body':
@@ -14,6 +15,7 @@ export const en: Record<keyof Dict, string> = {
 	'nav.toRegister': "Don't have an account?",
 	'nav.toRegisterCta': 'Create account',
 
+	'login.title': 'Sign in to Riksa',
 	'login.title': 'Sign in to Riksa',
 	'login.subtitle': 'Continue to your data room.',
 	'login.identifier': 'Email or username',
@@ -33,6 +35,7 @@ export const en: Record<keyof Dict, string> = {
 	'sso.github': 'Continue with GitHub',
 	'sso.redirecting': 'Redirecting…',
 
+	'register.title': 'Create your Riksa account',
 	'register.title': 'Create your Riksa account',
 	'register.subtitle': 'Start managing your data room in minutes.',
 	'register.email': 'Email',
@@ -168,6 +171,7 @@ export const en: Record<keyof Dict, string> = {
 	// Home (post-login landing)
 	'home.welcome': 'Welcome, {name}',
 	'home.welcomeGeneric': 'Welcome to Riksa',
+	'home.welcomeGeneric': 'Welcome to Riksa',
 	'home.subtitle': 'Open a data room to continue, or create a new one.',
 	'home.quickActions': 'Quick actions',
 	'home.action.workspaces': 'Data rooms',
@@ -193,6 +197,8 @@ export const en: Record<keyof Dict, string> = {
 	'err.network': 'Could not connect to the server. Try again.',
 	'err.generic': 'Something went wrong. Try again shortly.',
 	'err.invalidOtp': 'The OTP code is incorrect or expired.',
+	'err.forbidden': 'You do not have permission for this action.',
+	'err.forbiddenContent': 'Your group has not been given access to this content.',
 	'err.forbidden': 'You do not have permission for this action.',
 	'err.forbiddenContent': 'Your group has not been given access to this content.',
 
@@ -437,8 +443,11 @@ export const en: Record<keyof Dict, string> = {
 	'role.permCount': '{n} permissions',
 	'role.permNone': 'No permissions',
 	'role.fixedNote': 'Roles are fixed (Owner, Admin, Guest) and cannot be modified.',
+	'role.fixedNote': 'Roles are fixed (Owner, Admin, Guest) and cannot be modified.',
 	'role.view': 'View',
 	'role.back': 'Back to Roles',
+	'role.view.systemNote': 'Roles are fixed and cannot be edited or deleted.',
+	'role.field.permissions': 'Permissions',
 	'role.view.systemNote': 'Roles are fixed and cannot be edited or deleted.',
 	'role.field.permissions': 'Permissions',
 	// system role display names (seeded names are technical: owner/admin/…)
@@ -509,6 +518,25 @@ export const en: Record<keyof Dict, string> = {
 	'group.assign.noGuests.body':
 		'Only members with the Guest role can join a group. Invite members first — accepted invitations appear here.',
 	'group.assign.noGuests.cta': 'Invite members',
+
+	'group.default.badge': 'Default',
+	'group.default.note':
+		'The default group. Every new Guest lands here until they are moved, so it cannot be deleted.',
+	'group.move': 'Move members here',
+	'group.move.desc':
+		'Only members with the Guest role can join “{name}”. A member can only belong to one group — moving them here takes them out of their current one.',
+	'group.move.currentGroup': 'Currently in {name}',
+	'group.move.submit': 'Move here',
+	'group.move.submitting': 'Moving…',
+	'group.move.toast': '{n} members moved to {name}.',
+	'group.move.allIn.title': 'Every Guest is already in this group',
+	'group.move.allIn.body': 'There are no other Guest members left to move here.',
+	'group.back.action': 'Return to {name}',
+	'group.back.actionOf': 'Return {member} to {name}',
+	'group.back.toast': '{member} returned to {name}.',
+	'group.back.note':
+		'Removing a member does not revoke their access — it returns them to the default group “{name}”.',
+	'group.member.none': 'No group',
 
 	'group.default.badge': 'Default',
 	'group.default.note':
@@ -651,6 +679,8 @@ export const en: Record<keyof Dict, string> = {
 	'invAccept.invalid.title': 'Invalid invitation',
 	'invAccept.invalid.body':
 		'This link has expired, been revoked, or was already used. Ask the room owner to send a new invitation.',
+	'invAccept.registered':
+		'This email is already registered. Please sign in, then open Invitations.',
 	'invAccept.registered':
 		'This email is already registered. Please sign in, then open Invitations.',
 	'invAccept.loggedIn.title': "You're already signed in",

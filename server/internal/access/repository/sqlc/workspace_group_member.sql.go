@@ -33,6 +33,28 @@ func (q *Queries) AssignDefaultGroupIfGuest(ctx context.Context, arg AssignDefau
 	return err
 }
 
+const assignDefaultGroupIfGuest = `-- name: AssignDefaultGroupIfGuest :exec
+insert into workspace_group_members (group_id, member_id)
+select g.id, m.id
+from workspace_members m
+join workspace_roles r
+    on r.id = m.role_id and r.name = 'guest'
+join workspace_groups g
+    on g.workspace_id = m.workspace_id and g.is_default
+where m.workspace_id = $1 and m.user_id = $2
+on conflict (member_id) do nothing
+`
+
+type AssignDefaultGroupIfGuestParams struct {
+	WorkspaceID pgtype.UUID `json:"workspace_id"`
+	UserID      pgtype.UUID `json:"user_id"`
+}
+
+func (q *Queries) AssignDefaultGroupIfGuest(ctx context.Context, arg AssignDefaultGroupIfGuestParams) error {
+	_, err := q.db.Exec(ctx, assignDefaultGroupIfGuest, arg.WorkspaceID, arg.UserID)
+	return err
+}
+
 const deleteGroupMember = `-- name: DeleteGroupMember :exec
 delete from workspace_group_members where
     group_id = $1 and member_id = $2
@@ -131,6 +153,8 @@ insert into workspace_group_members
     (group_id, member_id)
 values
     ($1, $2)
+on conflict (member_id) do update
+    set group_id = excluded.group_id
 on conflict (member_id) do update
     set group_id = excluded.group_id
 returning group_id, member_id, created_at
