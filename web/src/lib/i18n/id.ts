@@ -332,6 +332,30 @@ export const id = {
 	'doc.docs.noAccess.title': 'Folder ini tidak dibagikan ke Anda',
 	'doc.docs.noAccess.body':
 		'Grup Anda tidak diberi akses ke folder ini. Minta pemilik ruang membukanya untuk grup Anda.',
+	'doc.docs.view': 'Lihat',
+	'doc.docs.viewOf': 'Lihat {name}',
+
+	'doc.view.tab': 'Penampil dokumen',
+	'doc.view.back': 'Kembali',
+	'doc.view.prev': 'Halaman sebelumnya',
+	'doc.view.next': 'Halaman berikutnya',
+	'doc.view.jumpLabel': 'Lompat ke halaman',
+	'doc.view.pageOf': 'Halaman {n} dari {total}',
+	'doc.view.protected':
+		'Tampilan aman — setiap halaman diberi watermark identitas Anda dan tidak pernah dikirim sebagai berkas asli.',
+	'doc.view.watermarked': 'Ber-watermark',
+	'doc.view.pageError': 'Gagal memuat halaman ini.',
+	'doc.view.retry': 'Coba lagi',
+	'doc.view.forbidden.title': 'Anda tidak punya akses',
+	'doc.view.forbidden.body':
+		'Grup Anda tidak diberi izin melihat dokumen ini. Minta pemilik ruang membukanya untuk grup Anda.',
+	'doc.view.downloadOnly.title': 'Dokumen ini hanya bisa diunduh',
+	'doc.view.downloadOnly.body':
+		'Format ini — seperti spreadsheet, video, atau arsip — tidak dapat ditampilkan di penampil. Unduh untuk membukanya di aplikasi Anda.',
+	'doc.view.downloadOnly.noPerm': 'Grup Anda tidak diberi izin mengunduh dokumen ini.',
+	'doc.view.emptyPages': 'Dokumen ini tidak punya halaman untuk ditampilkan.',
+	'doc.view.err.notFound': 'Dokumen itu sudah tidak ada.',
+	'doc.view.err.load': 'Gagal memuat dokumen.',
 	'doc.noAccess.title': 'Belum ada folder yang dibagikan ke Anda',
 	'doc.noAccess.body':
 		'Pemilik ruang belum memberi grup Anda akses ke folder mana pun. Begitu akses diberikan, foldernya muncul di sini.',

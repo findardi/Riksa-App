@@ -52,6 +52,14 @@ export interface DownloadUrlData {
 	download_url: string;
 }
 
+export interface ViewMetaData {
+	document_id: string;
+	name: string;
+	mime: string;
+	page_count: number;
+	can_download: boolean;
+}
+
 export interface CompleteUploadPayload {
 	name: string;
 	storage_key: string;
