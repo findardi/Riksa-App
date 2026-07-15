@@ -5,13 +5,9 @@
 	import { navigating, page } from '$app/state';
 	import type { SubmitFunction } from '@sveltejs/kit';
 	import { Alert, Button } from '$lib/components/common';
-	import { t, type TKey } from '$lib/i18n';
+	import { t } from '$lib/i18n';
 	import { findNode } from '$lib/tree';
-	import type {
-		AccessLevelData,
-		DirectFolderAccess,
-		InheritedFolderAccess
-	} from '$lib/types/content';
+	import type { DirectFolderAccess, InheritedFolderAccess } from '$lib/types/content';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
@@ -20,7 +16,6 @@
 	const folderId = $derived(page.params.folderId!);
 	const folders = $derived(data.folders);
 	const groups = $derived(data.groups);
-	const levels = $derived(data.levels);
 	const ready = $derived(data.accessReady);
 	const folder = $derived(findNode(folders, folderId));
 
@@ -33,29 +28,50 @@
 	const direct = $derived(data.panel.direct);
 	const inherited = $derived(data.panel.inherited);
 
-	const LEVEL_KEYS: Record<string, TKey> = {
-		view: 'level.view',
-		download: 'level.download',
-		none: 'level.none'
-	};
+	type Caps = { can_view: boolean; can_download: boolean; can_watermark: boolean };
 
-	function levelLabel(name: string): string {
-		const key = LEVEL_KEYS[name.toLowerCase()];
-		return key ? t(key) : name;
+	const BLOCKED: Caps = { can_view: false, can_download: false, can_watermark: false };
+	const DEFAULT_CAPS: Caps = { can_view: true, can_download: false, can_watermark: false };
+
+	function capsOf(row: Caps): Caps {
+		return { can_view: row.can_view, can_download: row.can_download, can_watermark: row.can_watermark };
 	}
 
-	type Caps = { can_view: boolean; can_download: boolean };
+	function capsEqual(a: Caps, b: Caps): boolean {
+		return (
+			a.can_view === b.can_view &&
+			a.can_download === b.can_download &&
+			a.can_watermark === b.can_watermark
+		);
+	}
+
+	function capsLabel(c: Caps): string {
+		if (!c.can_view) return t('level.none');
+		return c.can_download ? t('level.download') : t('level.view');
+	}
+
+	function toggleCap(base: Caps, key: keyof Caps, value: boolean): Caps {
+		const next: Caps = { ...base, [key]: value };
+		if (key === 'can_view' && !value) {
+			next.can_download = false;
+			next.can_watermark = false;
+		}
+		if ((key === 'can_download' || key === 'can_watermark') && value) {
+			next.can_view = true;
+		}
+		return next;
+	}
 
 	let formError = $state<string | null>(null);
 	let status = $state<string | null>(null);
 
-	let staged = $state<Record<string, string>>({});
+	let staged = $state<Record<string, Caps>>({});
 	let confirmRevoke = $state<string | null>(null);
 	let confirmBlock = $state<string | null>(null);
 
 	let adding = $state(false);
 	let addGroupId = $state('');
-	let addLevelId = $state('');
+	let addCaps = $state<Caps>({ ...DEFAULT_CAPS });
 	let addSubmitting = $state(false);
 	let savingGroup = $state<string | null>(null);
 	let revokingGroup = $state<string | null>(null);
@@ -64,14 +80,7 @@
 	const directIds = $derived(new Set(direct.map((r) => r.group_id)));
 	const addable = $derived(groups.filter((g) => !directIds.has(g.id)));
 
-	const grantLevels = $derived(levels.filter((l) => l.can_view));
-	const noneLevel = $derived(levels.find((l) => !l.can_view) ?? null);
-	const defaultLevelId = $derived(
-		grantLevels.find((l) => l.name === 'view')?.id ?? grantLevels[0]?.id ?? ''
-	);
-
 	const inheritedOf = $derived(new Map(inherited.map((r) => [r.group_id, r])));
-	const levelById = $derived(new Map(levels.map((l) => [l.id, l])));
 
 	const descendants = $derived.by(() => {
 		const count = (nodes: typeof folders): number =>
@@ -89,7 +98,7 @@
 		confirmBlock = null;
 		adding = false;
 		addGroupId = '';
-		addLevelId = '';
+		addCaps = { ...DEFAULT_CAPS };
 		formError = null;
 		status = null;
 	});
@@ -99,35 +108,39 @@
 		return (to.can_view && !from.can_view) || (to.can_download && !from.can_download);
 	}
 
-	function consequence(group: string, level: Caps): string {
+	function consequence(group: string, caps: Caps): string {
 		const n = descendants;
-		if (!level.can_view) {
+		if (!caps.can_view) {
 			return n ? t('facc.will.blockSub', { group, n }) : t('facc.will.block', { group });
 		}
-		if (level.can_download) {
+		if (caps.can_download) {
 			return n ? t('facc.will.downloadSub', { group, n }) : t('facc.will.download', { group });
 		}
 		return n ? t('facc.will.viewSub', { group, n }) : t('facc.will.view', { group });
 	}
 
-	const stagedOf = (row: DirectFolderAccess) => staged[row.group_id] ?? row.level_id;
-	const isDirty = (row: DirectFolderAccess) => stagedOf(row) !== row.level_id;
+	const stagedOf = (row: DirectFolderAccess): Caps => staged[row.group_id] ?? capsOf(row);
+	const isDirty = (row: DirectFolderAccess): boolean => {
+		const s = staged[row.group_id];
+		return !!s && !capsEqual(s, capsOf(row));
+	};
 
-	function optionsFor(row: DirectFolderAccess): AccessLevelData[] {
-		const showNone = noneLevel && (row.shadows !== null || !row.can_view);
-		return showNone ? [...grantLevels, noneLevel] : grantLevels;
+	function setRowCap(row: DirectFolderAccess, key: keyof Caps, value: boolean) {
+		staged[row.group_id] = toggleCap(stagedOf(row), key, value);
+	}
+
+	function setAddCap(key: keyof Caps, value: boolean) {
+		addCaps = toggleCap(addCaps, key, value);
 	}
 
 	const addInherits = $derived(addGroupId ? (inheritedOf.get(addGroupId) ?? null) : null);
-	const addLevel = $derived(addLevelId ? (levelById.get(addLevelId) ?? null) : null);
-	const addOptions = $derived(addInherits && noneLevel ? [...grantLevels, noneLevel] : grantLevels);
 
 	function startAdd() {
 		confirmRevoke = null;
 		confirmBlock = null;
 		adding = true;
 		addGroupId = addable[0]?.id ?? '';
-		addLevelId = defaultLevelId;
+		addCaps = { ...DEFAULT_CAPS };
 		formError = null;
 	}
 
@@ -136,7 +149,7 @@
 		confirmBlock = null;
 		adding = true;
 		addGroupId = row.group_id;
-		addLevelId = row.level_id;
+		addCaps = capsOf(row);
 		formError = null;
 	}
 
@@ -151,9 +164,9 @@
 		() => {
 			savingGroup = row.group_id;
 			formError = null;
+			const blocked = !stagedOf(row).can_view;
 			return async ({ result }) => {
 				savingGroup = null;
-				const blocked = !levelById.get(stagedOf(row))?.can_view;
 				delete staged[row.group_id];
 				if (result.type === 'success') {
 					await invalidateAll();
@@ -204,13 +217,13 @@
 		};
 
 	const submitAdd: SubmitFunction = ({ cancel }) => {
-		if (!addGroupId || !addLevelId) {
+		if (!addGroupId) {
 			formError = t('facc.err.pick');
 			cancel();
 			return;
 		}
 		const groupName = groups.find((g) => g.id === addGroupId)?.name ?? '';
-		const blocked = !addLevel?.can_view;
+		const blocked = !addCaps.can_view;
 		addSubmitting = true;
 		formError = null;
 		return async ({ result }) => {
@@ -243,6 +256,41 @@
 		<rect x="4" y="10.5" width="16" height="10" rx="2" />
 		<path d="M8 10.5V7a4 4 0 0 1 8 0v3.5" />
 	</svg>
+{/snippet}
+
+{#snippet capToggles(caps: Caps, onChange: (key: keyof Caps, value: boolean) => void, disabled: boolean)}
+	<div class="flex flex-wrap items-center gap-x-5 gap-y-2">
+		<label class="flex cursor-pointer items-center gap-2">
+			<input
+				type="checkbox"
+				class="toggle toggle-sm"
+				checked={caps.can_view}
+				{disabled}
+				onchange={(e) => onChange('can_view', e.currentTarget.checked)}
+			/>
+			<span class="text-xs font-medium">{t('facc.cap.view')}</span>
+		</label>
+		<label class="flex cursor-pointer items-center gap-2">
+			<input
+				type="checkbox"
+				class="toggle toggle-sm"
+				checked={caps.can_download}
+				{disabled}
+				onchange={(e) => onChange('can_download', e.currentTarget.checked)}
+			/>
+			<span class="text-xs font-medium">{t('facc.cap.download')}</span>
+		</label>
+		<label class="flex cursor-pointer items-center gap-2">
+			<input
+				type="checkbox"
+				class="toggle toggle-sm"
+				checked={caps.can_watermark}
+				{disabled}
+				onchange={(e) => onChange('can_watermark', e.currentTarget.checked)}
+			/>
+			<span class="text-xs font-medium">{t('facc.cap.watermark')}</span>
+		</label>
+	</div>
 {/snippet}
 
 <section class="min-h-64 rounded-box border border-base-content/10 bg-base-100">
@@ -304,11 +352,11 @@
 				{#if direct.length}
 					<ul class="mt-1 divide-y divide-base-content/8">
 						{#each direct as row (row.group_id)}
+							{@const current = stagedOf(row)}
 							{@const blocked = !row.can_view}
 							{@const dirty = isDirty(row)}
-							{@const target = levelById.get(stagedOf(row)) ?? null}
-							{@const escalating = !!target && raises(row, target)}
-							<li class="py-2">
+							{@const escalating = raises(capsOf(row), current)}
+							<li class="py-3">
 								<div class="flex items-center gap-2">
 									{#if blocked}{@render lockIcon()}{/if}
 
@@ -320,18 +368,6 @@
 									>
 										{row.group_name}
 									</span>
-
-									<select
-										value={stagedOf(row)}
-										onchange={(e) => (staged[row.group_id] = e.currentTarget.value)}
-										disabled={savingGroup === row.group_id}
-										aria-label={t('facc.levelOf', { group: row.group_name })}
-										class="select select-sm w-44 flex-none"
-									>
-										{#each optionsFor(row) as l (l.id)}
-											<option value={l.id}>{levelLabel(l.name)}</option>
-										{/each}
-									</select>
 
 									<button
 										type="button"
@@ -357,7 +393,15 @@
 									</button>
 								</div>
 
-								{#if dirty && target}
+								<div class="mt-2 pl-1">
+									{@render capToggles(
+										current,
+										(k, v) => setRowCap(row, k, v),
+										savingGroup === row.group_id
+									)}
+								</div>
+
+								{#if dirty}
 									<form
 										method="POST"
 										action="?/setAccess"
@@ -366,8 +410,10 @@
 											{escalating ? 'border-warning/50 bg-warning/8' : 'border-base-content/10'}"
 									>
 										<input type="hidden" name="groupId" value={row.group_id} />
-										<input type="hidden" name="levelId" value={stagedOf(row)} />
-										<p class="text-xs text-pretty">{consequence(row.group_name, target)}</p>
+										<input type="hidden" name="canView" value={String(current.can_view)} />
+										<input type="hidden" name="canDownload" value={String(current.can_download)} />
+										<input type="hidden" name="canWatermark" value={String(current.can_watermark)} />
+										<p class="text-xs text-pretty">{consequence(row.group_name, current)}</p>
 										<div class="mt-2 flex justify-end gap-2">
 											<button
 												type="button"
@@ -404,7 +450,7 @@
 											{#if row.shadows}
 												{t('facc.revoke.back', {
 													group: row.group_name,
-													level: levelLabel(row.shadows.level_name),
+													level: capsLabel(row.shadows),
 													name: row.shadows.source_folder_name
 												})}
 											{:else}
@@ -450,56 +496,50 @@
 						use:enhance={submitAdd}
 						class="mt-3 rounded-box border border-base-content/10 p-3"
 					>
-						<div class="flex flex-wrap items-end gap-2">
-							<div class="min-w-[9rem] flex-1">
-								<label class="text-xs font-medium" for="facc-add-group">
-									{t('facc.add.group')}
-								</label>
-								<select
-									id="facc-add-group"
-									name="groupId"
-									bind:value={addGroupId}
-									class="select select-sm mt-1 w-full"
-								>
-									{#each addable as g (g.id)}
-										{@const from = inheritedOf.get(g.id)}
-										<option value={g.id}>
-											{from
-												? t('facc.add.inherits', {
-														group: g.name,
-														level: levelLabel(from.level_name),
-														name: from.source_folder_name
-													})
-												: g.name}
-										</option>
-									{/each}
-								</select>
-							</div>
-							<div class="min-w-[9rem] flex-1">
-								<label class="text-xs font-medium" for="facc-add-level">
-									{t('facc.add.level')}
-								</label>
-								<select
-									id="facc-add-level"
-									name="levelId"
-									bind:value={addLevelId}
-									class="select select-sm mt-1 w-full"
-								>
-									{#each addOptions as l (l.id)}
-										<option value={l.id}>{levelLabel(l.name)}</option>
-									{/each}
-								</select>
+						<div class="min-w-[9rem]">
+							<label class="text-xs font-medium" for="facc-add-group">
+								{t('facc.add.group')}
+							</label>
+							<select
+								id="facc-add-group"
+								name="groupId"
+								bind:value={addGroupId}
+								class="select select-sm mt-1 w-full"
+							>
+								{#each addable as g (g.id)}
+									{@const from = inheritedOf.get(g.id)}
+									<option value={g.id}>
+										{from
+											? t('facc.add.inherits', {
+													group: g.name,
+													level: capsLabel(from),
+													name: from.source_folder_name
+												})
+											: g.name}
+									</option>
+								{/each}
+							</select>
+						</div>
+
+						<div class="mt-3">
+							<span class="text-xs font-medium">{t('facc.cap.legend')}</span>
+							<div class="mt-1.5 pl-1">
+								{@render capToggles(addCaps, (k, v) => setAddCap(k, v), false)}
 							</div>
 						</div>
 
-						{#if addLevel && addGroupId}
+						<input type="hidden" name="canView" value={String(addCaps.can_view)} />
+						<input type="hidden" name="canDownload" value={String(addCaps.can_download)} />
+						<input type="hidden" name="canWatermark" value={String(addCaps.can_watermark)} />
+
+						{#if addGroupId}
 							{@const group = groups.find((g) => g.id === addGroupId)?.name ?? ''}
-							{@const escalating = raises(addInherits, addLevel)}
+							{@const escalating = raises(addInherits ? capsOf(addInherits) : null, addCaps)}
 							<p
 								class="mt-2 rounded-field border p-2.5 text-xs text-pretty
 									{escalating ? 'border-warning/50 bg-warning/8' : 'border-base-content/10'}"
 							>
-								{consequence(group, addLevel)}
+								{consequence(group, addCaps)}
 							</p>
 						{/if}
 
@@ -507,7 +547,7 @@
 							<Button type="button" variant="ghost" onclick={() => (adding = false)}>
 								{t('facc.add.cancel')}
 							</Button>
-							<Button type="submit" loading={addSubmitting} disabled={!addGroupId || !addLevelId}>
+							<Button type="submit" loading={addSubmitting} disabled={!addGroupId}>
 								{addSubmitting
 									? t('facc.add.submitting')
 									: addInherits
@@ -560,19 +600,17 @@
 											{t('facc.inheritedFrom', { name: row.source_folder_name })}
 										</p>
 									</div>
-									<span class="flex-none text-sm font-medium">{levelLabel(row.level_name)}</span>
-									{#if noneLevel}
-										<button
-											type="button"
-											onclick={() =>
-												(confirmBlock = confirmBlock === row.group_id ? null : row.group_id)}
-											aria-expanded={confirmBlock === row.group_id}
-											aria-label={t('facc.blockOf', { group: row.group_name })}
-											class="flex-none rounded-field px-2 py-1.5 text-sm font-medium text-muted transition-colors hover:bg-error/10 hover:text-error"
-										>
-											{t('facc.block')}
-										</button>
-									{/if}
+									<span class="flex-none text-sm font-medium">{capsLabel(row)}</span>
+									<button
+										type="button"
+										onclick={() =>
+											(confirmBlock = confirmBlock === row.group_id ? null : row.group_id)}
+										aria-expanded={confirmBlock === row.group_id}
+										aria-label={t('facc.blockOf', { group: row.group_name })}
+										class="flex-none rounded-field px-2 py-1.5 text-sm font-medium text-muted transition-colors hover:bg-error/10 hover:text-error"
+									>
+										{t('facc.block')}
+									</button>
 									<button
 										type="button"
 										onclick={() => startOverride(row)}
@@ -583,7 +621,7 @@
 									</button>
 								</div>
 
-								{#if confirmBlock === row.group_id && noneLevel}
+								{#if confirmBlock === row.group_id}
 									<form
 										method="POST"
 										action="?/setAccess"
@@ -591,8 +629,10 @@
 										class="mt-2 rounded-field border border-base-content/10 p-2.5"
 									>
 										<input type="hidden" name="groupId" value={row.group_id} />
-										<input type="hidden" name="levelId" value={noneLevel.id} />
-										<p class="text-xs text-pretty">{consequence(row.group_name, noneLevel)}</p>
+										<input type="hidden" name="canView" value="false" />
+										<input type="hidden" name="canDownload" value="false" />
+										<input type="hidden" name="canWatermark" value="false" />
+										<p class="text-xs text-pretty">{consequence(row.group_name, BLOCKED)}</p>
 										<div class="mt-2 flex justify-end gap-2">
 											<button
 												type="button"

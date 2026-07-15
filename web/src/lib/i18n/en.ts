@@ -369,6 +369,10 @@ export const en: Record<keyof Dict, string> = {
 	'level.view': 'View only',
 	'level.download': 'View & download',
 	'level.none': 'No access',
+	'facc.cap.legend': 'Permissions',
+	'facc.cap.view': 'View',
+	'facc.cap.download': 'Download',
+	'facc.cap.watermark': 'Watermark',
 
 	'facc.flow':
 		'Access flows down to everything inside this folder, subfolders included — except a subfolder that sets a rule of its own.',

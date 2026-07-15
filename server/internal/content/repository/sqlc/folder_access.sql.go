@@ -16,15 +16,12 @@ select
     fa.folder_id,
     fa.group_id,
     g.name as group_name,
-    fa.level_id,
-    l.name as level_name,
-    l.can_view,
-    l.can_download,
-    l.can_watermark
+    fa.can_view,
+    fa.can_download,
+    fa.can_watermark
 from folder_access fa
 join folders f on f.id = fa.folder_id
 join workspace_groups g on g.id = fa.group_id
-join access_levels l on l.id = fa.level_id
 where fa.folder_id = $1 and f.workspace_id = $2
 order by g.name
 `
@@ -38,8 +35,6 @@ type ListFolderAccessRow struct {
 	FolderID     pgtype.UUID `json:"folder_id"`
 	GroupID      pgtype.UUID `json:"group_id"`
 	GroupName    string      `json:"group_name"`
-	LevelID      pgtype.UUID `json:"level_id"`
-	LevelName    string      `json:"level_name"`
 	CanView      bool        `json:"can_view"`
 	CanDownload  bool        `json:"can_download"`
 	CanWatermark bool        `json:"can_watermark"`
@@ -58,8 +53,6 @@ func (q *Queries) ListFolderAccess(ctx context.Context, arg ListFolderAccessPara
 			&i.FolderID,
 			&i.GroupID,
 			&i.GroupName,
-			&i.LevelID,
-			&i.LevelName,
 			&i.CanView,
 			&i.CanDownload,
 			&i.CanWatermark,
@@ -82,13 +75,12 @@ with recursive granted as (
         f.name,
         f.position,
         f.is_default,
-        l.can_view,
-        l.can_download
+        fa.can_view,
+        fa.can_download
     from folders f
     join folder_access fa on fa.folder_id = f.id
     join workspace_group_members gm on gm.group_id = fa.group_id
     join workspace_members m on m.id = gm.member_id
-    join access_levels l on l.id = fa.level_id
     where f.workspace_id = $1
       and m.workspace_id = $1
       and m.user_id = $2
@@ -165,8 +157,8 @@ func (q *Queries) ListVisibleFolders(ctx context.Context, arg ListVisibleFolders
 }
 
 const removeFolderAccess = `-- name: RemoveFolderAccess :exec
-delete from folder_access fa 
-using folders f 
+delete from folder_access fa
+using folders f
 where fa.folder_id = f.id
 and fa.folder_id = $1
 and fa.group_id = $2
@@ -197,15 +189,13 @@ with recursive chain as (
     join chain c on f.id = c.parent_id
 )
 select
-    l.name as level_name,
-    l.can_view,
-    l.can_download,
-    l.can_watermark
+    fa.can_view,
+    fa.can_download,
+    fa.can_watermark
 from chain c
 join folder_access fa on fa.folder_id = c.id
 join workspace_group_members gm on gm.group_id = fa.group_id
 join workspace_members m on m.id = gm.member_id
-join access_levels l on l.id = fa.level_id
 where m.workspace_id = $1 and m.user_id = $2
 order by c.depth
 limit 1
@@ -218,51 +208,49 @@ type ResolveFolderAccessParams struct {
 }
 
 type ResolveFolderAccessRow struct {
-	LevelName    string `json:"level_name"`
-	CanView      bool   `json:"can_view"`
-	CanDownload  bool   `json:"can_download"`
-	CanWatermark bool   `json:"can_watermark"`
+	CanView      bool `json:"can_view"`
+	CanDownload  bool `json:"can_download"`
+	CanWatermark bool `json:"can_watermark"`
 }
 
 func (q *Queries) ResolveFolderAccess(ctx context.Context, arg ResolveFolderAccessParams) (ResolveFolderAccessRow, error) {
 	row := q.db.QueryRow(ctx, resolveFolderAccess, arg.WorkspaceID, arg.UserID, arg.FolderID)
 	var i ResolveFolderAccessRow
-	err := row.Scan(
-		&i.LevelName,
-		&i.CanView,
-		&i.CanDownload,
-		&i.CanWatermark,
-	)
+	err := row.Scan(&i.CanView, &i.CanDownload, &i.CanWatermark)
 	return i, err
 }
 
 const setFolderAccess = `-- name: SetFolderAccess :one
-insert into folder_access (folder_id, group_id, level_id)
-select f.id, g.id, l.id
+insert into folder_access (folder_id, group_id, can_view, can_download, can_watermark)
+select f.id, g.id, $1, $2, $3
 from folders f
 join workspace_groups g
-    on g.id = $1 and g.workspace_id = f.workspace_id
-join access_levels l
-    on l.id = $2 and (l.workspace_id is null or l.workspace_id = f.workspace_id)
-where f.id = $3 and f.workspace_id = $4
+    on g.id = $4 and g.workspace_id = f.workspace_id
+where f.id = $5 and f.workspace_id = $6
 on conflict (folder_id, group_id) do update
     set
-        level_id = excluded.level_id,
+        can_view = excluded.can_view,
+        can_download = excluded.can_download,
+        can_watermark = excluded.can_watermark,
         updated_at = now()
-returning folder_id, group_id, level_id, created_at, updated_at
+returning folder_id, group_id, created_at, updated_at, can_view, can_download, can_watermark
 `
 
 type SetFolderAccessParams struct {
-	GroupID     pgtype.UUID `json:"group_id"`
-	LevelID     pgtype.UUID `json:"level_id"`
-	FolderID    pgtype.UUID `json:"folder_id"`
-	WorkspaceID pgtype.UUID `json:"workspace_id"`
+	CanView      bool        `json:"can_view"`
+	CanDownload  bool        `json:"can_download"`
+	CanWatermark bool        `json:"can_watermark"`
+	GroupID      pgtype.UUID `json:"group_id"`
+	FolderID     pgtype.UUID `json:"folder_id"`
+	WorkspaceID  pgtype.UUID `json:"workspace_id"`
 }
 
 func (q *Queries) SetFolderAccess(ctx context.Context, arg SetFolderAccessParams) (FolderAccess, error) {
 	row := q.db.QueryRow(ctx, setFolderAccess,
+		arg.CanView,
+		arg.CanDownload,
+		arg.CanWatermark,
 		arg.GroupID,
-		arg.LevelID,
 		arg.FolderID,
 		arg.WorkspaceID,
 	)
@@ -270,9 +258,11 @@ func (q *Queries) SetFolderAccess(ctx context.Context, arg SetFolderAccessParams
 	err := row.Scan(
 		&i.FolderID,
 		&i.GroupID,
-		&i.LevelID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.CanView,
+		&i.CanDownload,
+		&i.CanWatermark,
 	)
 	return i, err
 }

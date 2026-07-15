@@ -109,23 +109,20 @@ func (q *Queries) GetGroupMembers(ctx context.Context, groupID pgtype.UUID) ([]G
 }
 
 const grantDefaultFolderAccess = `-- name: GrantDefaultFolderAccess :exec
-insert into folder_access (folder_id, group_id, level_id)
-select f.id, $1, l.id
+insert into folder_access (folder_id, group_id, can_view, can_download, can_watermark)
+select f.id, $1, true, false, false
 from folders f
-cross join access_levels l
 where f.workspace_id = $2 and f.is_default
-  and l.workspace_id is null and l.name = $3
 on conflict (folder_id, group_id) do nothing
 `
 
 type GrantDefaultFolderAccessParams struct {
 	GroupID     pgtype.UUID `json:"group_id"`
 	WorkspaceID pgtype.UUID `json:"workspace_id"`
-	LevelName   string      `json:"level_name"`
 }
 
 func (q *Queries) GrantDefaultFolderAccess(ctx context.Context, arg GrantDefaultFolderAccessParams) error {
-	_, err := q.db.Exec(ctx, grantDefaultFolderAccess, arg.GroupID, arg.WorkspaceID, arg.LevelName)
+	_, err := q.db.Exec(ctx, grantDefaultFolderAccess, arg.GroupID, arg.WorkspaceID)
 	return err
 }
 

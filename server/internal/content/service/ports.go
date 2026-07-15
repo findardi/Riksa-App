@@ -29,9 +29,6 @@ type ContentRepository interface {
 	DeleteDocument(ctx context.Context, id pgtype.UUID) error
 	MoveDocument(ctx context.Context, arg contentdb.MoveDocumentParams) error
 
-	GetAccessLevel(ctx context.Context, arg contentdb.GetAccessLevelParams) (contentdb.AccessLevel, error)
-	GetSystemAccessLevelByName(ctx context.Context, name string) (contentdb.AccessLevel, error)
-	ListAccessLevels(ctx context.Context, workspaceID pgtype.UUID) ([]contentdb.AccessLevel, error)
 	ListFolderAccess(ctx context.Context, arg contentdb.ListFolderAccessParams) ([]contentdb.ListFolderAccessRow, error)
 	RemoveFolderAccess(ctx context.Context, arg contentdb.RemoveFolderAccessParams) error
 	SetFolderAccess(ctx context.Context, arg contentdb.SetFolderAccessParams) (contentdb.FolderAccess, error)

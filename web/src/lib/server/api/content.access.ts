@@ -1,15 +1,8 @@
 import type { ApiResult } from '$lib/types';
-import type { AccessLevelData, FolderAccessData, SetFolderAccessPayload } from '$lib/types/content';
+import type { FolderAccessData, SetFolderAccessPayload } from '$lib/types/content';
 import { del, get, put } from './client';
 
 const base = (workspaceId: string) => `/content/workspaces/${workspaceId}`;
-
-export function getAccessLevels(
-	token: string,
-	workspaceId: string
-): Promise<ApiResult<AccessLevelData[]>> {
-	return get<AccessLevelData[]>(`${base(workspaceId)}/access-levels`, token);
-}
 
 export function getFolderAccess(
 	token: string,
