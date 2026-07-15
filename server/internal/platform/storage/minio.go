@@ -103,3 +103,13 @@ func (m *MinioStorage) Delete(ctx context.Context, key string) error {
 
 	return nil
 }
+
+func (m *MinioStorage) Put(ctx context.Context, key string, r io.Reader, size int64, contentType string) error {
+	if _, err := m.client.PutObject(ctx, m.bucket, key, r, size, minio.PutObjectOptions{
+		ContentType: contentType,
+	}); err != nil {
+		return fmt.Errorf("put object: %w", err)
+	}
+
+	return nil
+}

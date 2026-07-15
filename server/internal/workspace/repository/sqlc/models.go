@@ -31,14 +31,16 @@ type Document struct {
 }
 
 type DocumentVersion struct {
-	ID         pgtype.UUID        `json:"id"`
-	DocumentID pgtype.UUID        `json:"document_id"`
-	VersionNo  int32              `json:"version_no"`
-	Mime       string             `json:"mime"`
-	Size       int64              `json:"size"`
-	StorageKey string             `json:"storage_key"`
-	UploadedBy pgtype.UUID        `json:"uploaded_by"`
-	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	ID           pgtype.UUID        `json:"id"`
+	DocumentID   pgtype.UUID        `json:"document_id"`
+	VersionNo    int32              `json:"version_no"`
+	Mime         string             `json:"mime"`
+	Size         int64              `json:"size"`
+	StorageKey   string             `json:"storage_key"`
+	UploadedBy   pgtype.UUID        `json:"uploaded_by"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	RenditionKey *string            `json:"rendition_key"`
+	PageCount    *int32             `json:"page_count"`
 }
 
 type Folder struct {

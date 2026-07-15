@@ -52,7 +52,7 @@ insert into document_versions
     (document_id, version_no, mime, size, storage_key, uploaded_by)
 values 
     ($1, $2, $3, $4, $5, $6)
-returning id, document_id, version_no, mime, size, storage_key, uploaded_by, created_at
+returning id, document_id, version_no, mime, size, storage_key, uploaded_by, created_at, rendition_key, page_count
 `
 
 type CreateDocumentVersionParams struct {
@@ -83,6 +83,8 @@ func (q *Queries) CreateDocumentVersion(ctx context.Context, arg CreateDocumentV
 		&i.StorageKey,
 		&i.UploadedBy,
 		&i.CreatedAt,
+		&i.RenditionKey,
+		&i.PageCount,
 	)
 	return i, err
 }
@@ -97,7 +99,7 @@ func (q *Queries) DeleteDocument(ctx context.Context, id pgtype.UUID) error {
 }
 
 const getCurrentVersion = `-- name: GetCurrentVersion :one
-select v.id, v.document_id, v.version_no, v.mime, v.size, v.storage_key, v.uploaded_by, v.created_at from document_versions v 
+select v.id, v.document_id, v.version_no, v.mime, v.size, v.storage_key, v.uploaded_by, v.created_at, v.rendition_key, v.page_count from document_versions v 
 join documents d on d.current_version_id = v.id
 where d.id = $1
 `
@@ -114,6 +116,8 @@ func (q *Queries) GetCurrentVersion(ctx context.Context, id pgtype.UUID) (Docume
 		&i.StorageKey,
 		&i.UploadedBy,
 		&i.CreatedAt,
+		&i.RenditionKey,
+		&i.PageCount,
 	)
 	return i, err
 }
@@ -151,7 +155,7 @@ func (q *Queries) GetNextVersionNo(ctx context.Context, documentID pgtype.UUID) 
 }
 
 const getVersionByID = `-- name: GetVersionByID :one
-select id, document_id, version_no, mime, size, storage_key, uploaded_by, created_at from document_versions where id = $1
+select id, document_id, version_no, mime, size, storage_key, uploaded_by, created_at, rendition_key, page_count from document_versions where id = $1
 `
 
 func (q *Queries) GetVersionByID(ctx context.Context, id pgtype.UUID) (DocumentVersion, error) {
@@ -166,6 +170,8 @@ func (q *Queries) GetVersionByID(ctx context.Context, id pgtype.UUID) (DocumentV
 		&i.StorageKey,
 		&i.UploadedBy,
 		&i.CreatedAt,
+		&i.RenditionKey,
+		&i.PageCount,
 	)
 	return i, err
 }
@@ -233,7 +239,7 @@ func (q *Queries) ListDocumentsByFolder(ctx context.Context, folderID pgtype.UUI
 }
 
 const listVersionByDocument = `-- name: ListVersionByDocument :many
-select id, document_id, version_no, mime, size, storage_key, uploaded_by, created_at from document_versions where document_id = $1 order by version_no desc
+select id, document_id, version_no, mime, size, storage_key, uploaded_by, created_at, rendition_key, page_count from document_versions where document_id = $1 order by version_no desc
 `
 
 func (q *Queries) ListVersionByDocument(ctx context.Context, documentID pgtype.UUID) ([]DocumentVersion, error) {
@@ -254,6 +260,8 @@ func (q *Queries) ListVersionByDocument(ctx context.Context, documentID pgtype.U
 			&i.StorageKey,
 			&i.UploadedBy,
 			&i.CreatedAt,
+			&i.RenditionKey,
+			&i.PageCount,
 		); err != nil {
 			return nil, err
 		}
@@ -293,5 +301,23 @@ type SetCurrentVersionParams struct {
 
 func (q *Queries) SetCurrentVersion(ctx context.Context, arg SetCurrentVersionParams) error {
 	_, err := q.db.Exec(ctx, setCurrentVersion, arg.ID, arg.CurrentVersionID)
+	return err
+}
+
+const setVersionRendition = `-- name: SetVersionRendition :exec
+update document_versions
+set rendition_key = $1,
+    page_count = $2
+where id = $3
+`
+
+type SetVersionRenditionParams struct {
+	RenditionKey *string     `json:"rendition_key"`
+	PageCount    *int32      `json:"page_count"`
+	ID           pgtype.UUID `json:"id"`
+}
+
+func (q *Queries) SetVersionRendition(ctx context.Context, arg SetVersionRenditionParams) error {
+	_, err := q.db.Exec(ctx, setVersionRendition, arg.RenditionKey, arg.PageCount, arg.ID)
 	return err
 }
