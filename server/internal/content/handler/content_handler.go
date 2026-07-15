@@ -497,17 +497,6 @@ func (h *ContentHandler) RemoveFolderAccess(w http.ResponseWriter, r *http.Reque
 	response.Success(w, http.StatusOK, "success remove folder access", nil)
 }
 
-func (h *ContentHandler) ListAccessLevel(w http.ResponseWriter, r *http.Request) {
-	res, err := h.svc.ListAccessLevels(r.Context(), chi.URLParam(r, "workspaceID"))
-	if err != nil {
-		log.Printf("list access level internal error: %v", err)
-		response.Error(w, http.StatusInternalServerError, "internal server error", nil)
-		return
-	}
-
-	response.Success(w, http.StatusOK, "success get list level access", res)
-}
-
 func (h *ContentHandler) GetViewMeta(w http.ResponseWriter, r *http.Request) {
 	wID := chi.URLParam(r, "workspaceID")
 	dID := chi.URLParam(r, "documentID")

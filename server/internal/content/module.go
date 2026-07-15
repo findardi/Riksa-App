@@ -94,8 +94,6 @@ func (m *Module) RegisterRoutes(r chi.Router) {
 		r.Route("/workspaces/{workspaceID}", func(r chi.Router) {
 			r.Use(m.mw.RequireMember("workspaceID", m.workspaceMember))
 
-			r.With(m.mw.RequirePermission(permission.PermGroupView)).Get("/access-levels", m.handler.ListAccessLevel)
-
 			r.Route("/folders", func(r chi.Router) {
 				r.With(m.mw.RequirePermission(permission.PermFolderView)).Get("/", m.handler.GetFoldersTree)
 				r.With(m.mw.RequirePermission(permission.PermFolderCreate)).Post("/", m.handler.CreateFolder)

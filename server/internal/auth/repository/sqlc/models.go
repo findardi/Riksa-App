@@ -8,17 +8,6 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-type AccessLevel struct {
-	ID           pgtype.UUID        `json:"id"`
-	WorkspaceID  pgtype.UUID        `json:"workspace_id"`
-	Name         string             `json:"name"`
-	CanView      bool               `json:"can_view"`
-	CanDownload  bool               `json:"can_download"`
-	CanWatermark bool               `json:"can_watermark"`
-	CreatedAt    pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
-}
-
 type Document struct {
 	ID               pgtype.UUID        `json:"id"`
 	WorkspaceID      pgtype.UUID        `json:"workspace_id"`
@@ -56,11 +45,13 @@ type Folder struct {
 }
 
 type FolderAccess struct {
-	FolderID  pgtype.UUID        `json:"folder_id"`
-	GroupID   pgtype.UUID        `json:"group_id"`
-	LevelID   pgtype.UUID        `json:"level_id"`
-	CreatedAt pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+	FolderID     pgtype.UUID        `json:"folder_id"`
+	GroupID      pgtype.UUID        `json:"group_id"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+	CanView      bool               `json:"can_view"`
+	CanDownload  bool               `json:"can_download"`
+	CanWatermark bool               `json:"can_watermark"`
 }
 
 type User struct {

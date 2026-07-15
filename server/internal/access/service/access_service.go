@@ -23,8 +23,7 @@ const (
 )
 
 const (
-	DefaultGroupName       = "Umum"
-	DefaultAccessLevelName = "view"
+	DefaultGroupName = "Umum"
 )
 
 const (
@@ -172,7 +171,6 @@ func (s *AccessService) ProvisionWorkspace(ctx context.Context, tx pgx.Tx, works
 	if err := q.GrantDefaultFolderAccess(ctx, accessdb.GrantDefaultFolderAccessParams{
 		GroupID:     g.ID,
 		WorkspaceID: workspaceID,
-		LevelName:   DefaultAccessLevelName,
 	}); err != nil {
 		return fmt.Errorf("grant default folder access: %w", err)
 	}
@@ -690,7 +688,6 @@ func (s *AccessService) CreateGroup(ctx context.Context, req dto.CreateGroupRequ
 		if err := q.GrantDefaultFolderAccess(ctx, accessdb.GrantDefaultFolderAccessParams{
 			GroupID:     created.ID,
 			WorkspaceID: wID,
-			LevelName:   DefaultAccessLevelName,
 		}); err != nil {
 			return fmt.Errorf("grant default folder access: %w", err)
 		}

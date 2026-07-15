@@ -18,8 +18,10 @@ type RenameFolderRequest struct {
 }
 
 type SetFolderAccessRequest struct {
-	WorkspaceID string `json:"-"`
-	FolderID    string `json:"-"`
-	GroupID     string `json:"group_id" validate:"required,uuid"`
-	LevelID     string `json:"level_id" validate:"required,uuid"`
+	WorkspaceID  string `json:"-"`
+	FolderID     string `json:"-"`
+	GroupID      string `json:"group_id" validate:"required,uuid"`
+	CanView      bool   `json:"can_view"`
+	CanDownload  bool   `json:"can_download"`
+	CanWatermark bool   `json:"can_watermark"`
 }

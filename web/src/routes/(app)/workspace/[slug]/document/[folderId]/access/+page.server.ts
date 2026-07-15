@@ -84,15 +84,20 @@ export const actions: Actions = {
 
 		const form = await request.formData();
 		const groupId = (form.get('groupId') ?? '').toString();
-		const levelId = (form.get('levelId') ?? '').toString();
-		if (!groupId || !levelId) return fail(400, { message: t('facc.err.pick') });
+		if (!groupId) return fail(400, { message: t('facc.err.pick') });
+
+		const canView = form.get('canView') === 'true';
+		const canDownload = form.get('canDownload') === 'true';
+		const canWatermark = form.get('canWatermark') === 'true';
 
 		const wsId = await resolveWorkspaceId(locals.session, params.slug);
 		if (!wsId) return fail(404, { message: t('ws.detail.notFound') });
 
 		const res = await setFolderAccess(locals.session, wsId, params.folderId, {
 			group_id: groupId,
-			level_id: levelId
+			can_view: canView,
+			can_download: canDownload,
+			can_watermark: canWatermark
 		});
 		if (!res.ok) {
 			if (res.status === 401) redirect(303, '/login');

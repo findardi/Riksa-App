@@ -12,12 +12,10 @@ delete from workspace_group_members where
     group_id = $1 and member_id = $2;
 
 -- name: GrantDefaultFolderAccess :exec
-insert into folder_access (folder_id, group_id, level_id)
-select f.id, sqlc.arg(group_id), l.id
+insert into folder_access (folder_id, group_id, can_view, can_download, can_watermark)
+select f.id, sqlc.arg(group_id), true, false, false
 from folders f
-cross join access_levels l
 where f.workspace_id = sqlc.arg(workspace_id) and f.is_default
-  and l.workspace_id is null and l.name = sqlc.arg(level_name)
 on conflict (folder_id, group_id) do nothing;
 
 -- name: AssignDefaultGroupIfGuest :exec

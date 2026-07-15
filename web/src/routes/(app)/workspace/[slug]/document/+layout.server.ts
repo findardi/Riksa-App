@@ -1,7 +1,6 @@
 import { error, redirect } from '@sveltejs/kit';
-import { getAccessLevels, getFoldersTree, getGroups } from '$lib/server/api';
+import { getFoldersTree, getGroups } from '$lib/server/api';
 import { t } from '$lib/i18n';
-import type { AccessLevelData } from '$lib/types/content';
 import type { GroupWorkspaceData } from '$lib/types/workspace';
 import type { LayoutServerLoad } from './$types';
 
@@ -14,7 +13,7 @@ export const load: LayoutServerLoad = async ({ locals, parent }) => {
 	if (!res.ok) {
 		if (res.status === 401) redirect(303, '/login');
 		if (res.status === 403) {
-			return { folders: [], groups: [], levels: [], noAccess: true, accessReady: false };
+			return { folders: [], groups: [], noAccess: true, accessReady: false };
 		}
 		error(res.status || 500, t('doc.err.load'));
 	}
@@ -24,25 +23,18 @@ export const load: LayoutServerLoad = async ({ locals, parent }) => {
 		return {
 			folders: res.data ?? [],
 			groups: [],
-			levels: [],
 			noAccess: false,
 			accessReady: false
 		};
 	}
 
-	const [groupsRes, levelsRes] = await Promise.all([
-		getGroups(locals.session, workspace.id),
-		getAccessLevels(locals.session, workspace.id)
-	]);
-
+	const groupsRes = await getGroups(locals.session, workspace.id);
 	const groups: GroupWorkspaceData[] = groupsRes.ok ? (groupsRes.data ?? []) : [];
-	const levels: AccessLevelData[] = levelsRes.ok ? (levelsRes.data ?? []) : [];
 
 	return {
 		folders: res.data ?? [],
 		groups,
-		levels,
 		noAccess: false,
-		accessReady: groupsRes.ok && levelsRes.ok
+		accessReady: groupsRes.ok
 	};
 };

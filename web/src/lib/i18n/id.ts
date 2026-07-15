@@ -363,6 +363,10 @@ export const id = {
 	'level.view': 'Lihat saja',
 	'level.download': 'Lihat & unduh',
 	'level.none': 'Tanpa akses',
+	'facc.cap.legend': 'Izin',
+	'facc.cap.view': 'Lihat',
+	'facc.cap.download': 'Unduh',
+	'facc.cap.watermark': 'Watermark',
 
 	'facc.flow':
 		'Akses mengalir ke seluruh isi folder ini, termasuk subfolder — kecuali subfolder yang punya aturannya sendiri.',

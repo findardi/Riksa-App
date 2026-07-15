@@ -81,7 +81,7 @@ func (s *ContentService) requireFolderDownload(ctx context.Context, workspaceID,
 }
 
 func (s *ContentService) SetFolderAccess(ctx context.Context, req dto.SetFolderAccessRequest) error {
-	var wID, fID, gID, lID pgtype.UUID
+	var wID, fID, gID pgtype.UUID
 	if err := wID.Scan(req.WorkspaceID); err != nil {
 		return fmt.Errorf("workspace id parse: %w", err)
 	}
@@ -94,15 +94,15 @@ func (s *ContentService) SetFolderAccess(ctx context.Context, req dto.SetFolderA
 		return ErrAccessTargetInvalid
 	}
 
-	if err := lID.Scan(req.LevelID); err != nil {
-		return ErrAccessTargetInvalid
-	}
+	canView := req.CanView || req.CanDownload || req.CanWatermark
 
 	_, err := s.repo.SetFolderAccess(ctx, contentdb.SetFolderAccessParams{
-		GroupID:     gID,
-		WorkspaceID: wID,
-		FolderID:    fID,
-		LevelID:     lID,
+		GroupID:      gID,
+		WorkspaceID:  wID,
+		FolderID:     fID,
+		CanView:      canView,
+		CanDownload:  req.CanDownload,
+		CanWatermark: req.CanWatermark,
 	})
 
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -139,32 +139,6 @@ func (s *ContentService) RemoveFolderAccess(ctx context.Context, workspaceID, gr
 	return nil
 }
 
-func (s *ContentService) ListAccessLevels(ctx context.Context, workspaceID string) ([]dto.AccessLevelResponse, error) {
-	var wID pgtype.UUID
-	if err := wID.Scan(workspaceID); err != nil {
-		return []dto.AccessLevelResponse{}, fmt.Errorf("workspace id parse: %w", err)
-	}
-
-	rows, err := s.repo.ListAccessLevels(ctx, wID)
-	if err != nil {
-		return []dto.AccessLevelResponse{}, fmt.Errorf("get access level: %w", err)
-	}
-
-	access := make([]dto.AccessLevelResponse, 0, len(rows))
-	for _, r := range rows {
-		access = append(access, dto.AccessLevelResponse{
-			ID:           uuidString(r.ID),
-			Name:         r.Name,
-			IsSystem:     !r.WorkspaceID.Valid,
-			CanView:      r.CanView,
-			CanDownload:  r.CanDownload,
-			CanWatermark: r.CanWatermark,
-		})
-	}
-
-	return access, nil
-}
-
 func (s *ContentService) ListFolderAccess(ctx context.Context, workspaceID, folderID string) ([]dto.FolderAccessResponse, error) {
 	var wID, fID pgtype.UUID
 	if err := wID.Scan(workspaceID); err != nil {
@@ -188,8 +162,6 @@ func (s *ContentService) ListFolderAccess(ctx context.Context, workspaceID, fold
 			FolderID:     uuidString(r.FolderID),
 			GroupID:      uuidString(r.GroupID),
 			GroupName:    r.GroupName,
-			LevelID:      uuidString(r.LevelID),
-			LevelName:    r.LevelName,
 			CanView:      r.CanView,
 			CanDownload:  r.CanDownload,
 			CanWatermark: r.CanWatermark,
