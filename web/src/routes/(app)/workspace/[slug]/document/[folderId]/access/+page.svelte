@@ -28,16 +28,32 @@
 	const direct = $derived(data.panel.direct);
 	const inherited = $derived(data.panel.inherited);
 
-	type Caps = { can_view: boolean; can_download: boolean; can_watermark: boolean };
+	type Caps = {
+		can_view: boolean;
+		can_download: boolean;
+		can_watermark: boolean;
+		can_download_original: boolean;
+	};
 
-	const BLOCKED: Caps = { can_view: false, can_download: false, can_watermark: false };
-	const DEFAULT_CAPS: Caps = { can_view: true, can_download: false, can_watermark: false };
+	const BLOCKED: Caps = {
+		can_view: false,
+		can_download: false,
+		can_watermark: false,
+		can_download_original: false
+	};
+	const DEFAULT_CAPS: Caps = {
+		can_view: true,
+		can_download: false,
+		can_watermark: false,
+		can_download_original: false
+	};
 
 	function capsOf(row: Caps): Caps {
 		return {
 			can_view: row.can_view,
 			can_download: row.can_download,
-			can_watermark: row.can_watermark
+			can_watermark: row.can_watermark,
+			can_download_original: row.can_download_original
 		};
 	}
 
@@ -45,7 +61,8 @@
 		return (
 			a.can_view === b.can_view &&
 			a.can_download === b.can_download &&
-			a.can_watermark === b.can_watermark
+			a.can_watermark === b.can_watermark &&
+			a.can_download_original === b.can_download_original
 		);
 	}
 
@@ -59,8 +76,16 @@
 		if (key === 'can_view' && !value) {
 			next.can_download = false;
 			next.can_watermark = false;
+			next.can_download_original = false;
 		}
 		if ((key === 'can_download' || key === 'can_watermark') && value) {
+			next.can_view = true;
+		}
+		if (key === 'can_download' && !value) {
+			next.can_download_original = false;
+		}
+		if (key === 'can_download_original' && value) {
+			next.can_download = true;
 			next.can_view = true;
 		}
 		return next;
@@ -127,8 +152,12 @@
 	});
 
 	function raises(from: Caps | null, to: Caps): boolean {
-		if (!from) return to.can_view || to.can_download;
-		return (to.can_view && !from.can_view) || (to.can_download && !from.can_download);
+		if (!from) return to.can_view || to.can_download || to.can_download_original;
+		return (
+			(to.can_view && !from.can_view) ||
+			(to.can_download && !from.can_download) ||
+			(to.can_download_original && !from.can_download_original)
+		);
 	}
 
 	function consequence(group: string, caps: Caps): string {
@@ -142,6 +171,7 @@
 			base = n ? t('facc.will.viewSub', { group, n }) : t('facc.will.view', { group });
 		}
 		if (caps.can_view && caps.can_watermark) base += ' ' + t('facc.will.wmOn', { group });
+		if (caps.can_download_original) base += ' ' + t('facc.will.origOn', { group });
 		return base;
 	}
 
@@ -332,6 +362,13 @@
 				{@render capCheck(t('facc.cap.download'), caps.can_download, disabled, (v) =>
 					onChange('can_download', v)
 				)}
+				{@render capCheck(
+					t('facc.cap.downloadOriginal'),
+					caps.can_download_original,
+					disabled,
+					(v) => onChange('can_download_original', v),
+					t('facc.cap.downloadOriginalHint')
+				)}
 			</div>
 		</div>
 		<div>
@@ -355,6 +392,15 @@
 		title={t('facc.cap.watermarkHint')}
 	>
 		{t('facc.cap.watermark')}
+	</span>
+{/snippet}
+
+{#snippet origMark()}
+	<span
+		class="flex-none rounded-selector bg-base-content/5 px-1.5 py-0.5 text-[0.6875rem] text-muted"
+		title={t('facc.cap.downloadOriginalHint')}
+	>
+		{t('facc.cap.downloadOriginal')}
 	</span>
 {/snippet}
 
@@ -497,6 +543,11 @@
 											name="canWatermark"
 											value={String(current.can_watermark)}
 										/>
+										<input
+											type="hidden"
+											name="canDownloadOriginal"
+											value={String(current.can_download_original)}
+										/>
 										<p class="text-xs text-pretty" aria-live="polite">
 											{consequence(row.group_name, current)}
 										</p>
@@ -619,6 +670,11 @@
 						<input type="hidden" name="canView" value={String(addCaps.can_view)} />
 						<input type="hidden" name="canDownload" value={String(addCaps.can_download)} />
 						<input type="hidden" name="canWatermark" value={String(addCaps.can_watermark)} />
+						<input
+							type="hidden"
+							name="canDownloadOriginal"
+							value={String(addCaps.can_download_original)}
+						/>
 
 						{#if addGroupId}
 							{@const group = groups.find((g) => g.id === addGroupId)?.name ?? ''}
@@ -692,6 +748,7 @@
 									</div>
 									<span class="flex-none text-sm font-medium">{capsLabel(row)}</span>
 									{#if row.can_watermark}{@render wmMark()}{/if}
+									{#if row.can_download_original}{@render origMark()}{/if}
 									<button
 										type="button"
 										onclick={() =>
@@ -723,6 +780,7 @@
 										<input type="hidden" name="canView" value="false" />
 										<input type="hidden" name="canDownload" value="false" />
 										<input type="hidden" name="canWatermark" value="false" />
+										<input type="hidden" name="canDownloadOriginal" value="false" />
 										<p class="text-xs text-pretty" tabindex="-1" use:focusHere>
 											{consequence(row.group_name, BLOCKED)}
 										</p>

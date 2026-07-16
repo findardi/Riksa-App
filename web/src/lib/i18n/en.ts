@@ -376,7 +376,10 @@ export const en: Record<keyof Dict, string> = {
 	'facc.cap.download': 'Download',
 	'facc.cap.watermark': 'Watermark',
 	'facc.cap.watermarkHint': 'Documents this group opens are stamped with their identity watermark.',
-	'facc.cap.rule': 'Download and watermark automatically turn on View.',
+	'facc.cap.downloadOriginal': 'Download original',
+	'facc.cap.downloadOriginalHint':
+		'This group can download the untouched original file, bypassing the watermarked viewer.',
+	'facc.cap.rule': 'Download original turns on Download; Download and watermark turn on View.',
 
 	'facc.flow':
 		'Access flows down to everything inside this folder, subfolders included — except a subfolder that sets a rule of its own.',
@@ -407,6 +410,7 @@ export const en: Record<keyof Dict, string> = {
 	'facc.will.blockSub':
 		'{group} will not be able to see this folder or the {n} subfolders inside it.',
 	'facc.will.wmOn': 'Documents are watermarked when {group} opens them.',
+	'facc.will.origOn': '{group} can download the original files.',
 	'facc.revoke.back': 'Once revoked, {group} goes back to inheriting {level} from {name}.',
 	'facc.revoke.gone': '{group} will no longer have any access to this folder.',
 

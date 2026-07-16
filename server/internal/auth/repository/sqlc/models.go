@@ -45,13 +45,15 @@ type Folder struct {
 }
 
 type FolderAccess struct {
-	FolderID     pgtype.UUID        `json:"folder_id"`
-	GroupID      pgtype.UUID        `json:"group_id"`
-	CreatedAt    pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
-	CanView      bool               `json:"can_view"`
-	CanDownload  bool               `json:"can_download"`
-	CanWatermark bool               `json:"can_watermark"`
+	FolderID            pgtype.UUID        `json:"folder_id"`
+	GroupID             pgtype.UUID        `json:"group_id"`
+	CreatedAt           pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt           pgtype.Timestamptz `json:"updated_at"`
+	CanView             bool               `json:"can_view"`
+	CanDownload         bool               `json:"can_download"`
+	CanWatermark        bool               `json:"can_watermark"`
+	CanDownloadOriginal bool               `json:"can_download_original"`
+	CanShare            bool               `json:"can_share"`
 }
 
 type User struct {

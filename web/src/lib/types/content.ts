@@ -57,7 +57,7 @@ export interface ViewMetaData {
 	name: string;
 	mime: string;
 	page_count: number;
-	can_download: boolean;
+	can_download_original: boolean;
 }
 
 export interface CompleteUploadPayload {
@@ -76,6 +76,7 @@ export interface FolderAccessData {
 	can_view: boolean;
 	can_download: boolean;
 	can_watermark: boolean;
+	can_download_original: boolean;
 }
 
 export interface SetFolderAccessPayload {
@@ -83,6 +84,7 @@ export interface SetFolderAccessPayload {
 	can_view: boolean;
 	can_download: boolean;
 	can_watermark: boolean;
+	can_download_original: boolean;
 }
 
 export interface InheritedFolderAccess extends FolderAccessData {
