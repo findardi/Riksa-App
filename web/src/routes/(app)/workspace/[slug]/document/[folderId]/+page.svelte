@@ -40,8 +40,9 @@
 
 	const access = $derived((page.data as { access?: MyAccessWorkspace }).access);
 	const perms = $derived(access?.permissions ?? []);
+	const role = $derived(normalizeRole(access?.role ?? ''));
 	const canUpload = $derived(perms.includes('document:upload') && !forbidden);
-	const canDownload = $derived(perms.includes('document:download'));
+	const canDownload = $derived(perms.includes('document:download') && role !== 'guest');
 
 	let downloadingId = $state<string | null>(null);
 
@@ -74,7 +75,7 @@
 		admin: 'role.sys.admin',
 		guest: 'role.sys.guest'
 	} as const;
-	const roleLabel = $derived(t(ROLE_KEY[normalizeRole(access?.role ?? '')]));
+	const roleLabel = $derived(t(ROLE_KEY[role]));
 
 	const folder = $derived(findNode(folders, folderId));
 

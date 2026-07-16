@@ -364,9 +364,13 @@ export const id = {
 	'level.download': 'Lihat & unduh',
 	'level.none': 'Tanpa akses',
 	'facc.cap.legend': 'Izin',
+	'facc.cap.accessLegend': 'Akses',
+	'facc.cap.protectLegend': 'Proteksi',
 	'facc.cap.view': 'Lihat',
 	'facc.cap.download': 'Unduh',
 	'facc.cap.watermark': 'Watermark',
+	'facc.cap.watermarkHint': 'Dokumen yang dibuka grup ini diberi watermark identitas mereka.',
+	'facc.cap.rule': 'Unduh dan watermark otomatis menyalakan Lihat.',
 
 	'facc.flow':
 		'Akses mengalir ke seluruh isi folder ini, termasuk subfolder — kecuali subfolder yang punya aturannya sendiri.',
@@ -375,7 +379,7 @@ export const id = {
 	'facc.inherited': 'Diwarisi',
 	'facc.inheritedCount': '{n} grup',
 	'facc.inheritedFrom': 'Dari {name}',
-	'facc.override': 'Atur di sini',
+	'facc.override': 'Atur khusus',
 	'facc.overrideOf': 'Atur akses {group} khusus di folder ini',
 	'facc.block': 'Blokir',
 	'facc.blockOf': 'Blokir akses {group} ke folder ini',
@@ -396,6 +400,7 @@ export const id = {
 	'facc.will.block': '{group} tidak akan bisa melihat folder ini.',
 	'facc.will.blockSub':
 		'{group} tidak akan bisa melihat folder ini maupun {n} subfolder di dalamnya.',
+	'facc.will.wmOn': 'Dokumen diberi watermark saat dibuka {group}.',
 	'facc.revoke.back': 'Setelah dicabut, {group} kembali mewarisi {level} dari {name}.',
 	'facc.revoke.gone': '{group} tidak akan punya akses ke folder ini lagi.',
 
@@ -421,6 +426,7 @@ export const id = {
 	'facc.blockedNow': '{group} diblokir dari folder ini dan seluruh isinya.',
 	'facc.revoked': 'Akses {group} dicabut dari folder ini.',
 	'facc.revokedInherits': 'Akses langsung dicabut. {group} kini mewarisi dari {name}.',
+	'facc.leave.warn': 'Ada perubahan akses yang belum disimpan. Tinggalkan halaman ini?',
 	'facc.err.load': 'Gagal memuat akses folder.',
 	'facc.err.pick': 'Pilih grup dan level akses.',
 	'facc.err.invalid': 'Grup atau level akses itu tidak ada di ruang ini.',
