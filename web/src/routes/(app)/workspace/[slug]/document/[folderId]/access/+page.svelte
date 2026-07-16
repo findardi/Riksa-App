@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
-	import { invalidateAll } from '$app/navigation';
+	import { beforeNavigate, invalidateAll } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { navigating, page } from '$app/state';
 	import type { SubmitFunction } from '@sveltejs/kit';
@@ -34,7 +34,11 @@
 	const DEFAULT_CAPS: Caps = { can_view: true, can_download: false, can_watermark: false };
 
 	function capsOf(row: Caps): Caps {
-		return { can_view: row.can_view, can_download: row.can_download, can_watermark: row.can_watermark };
+		return {
+			can_view: row.can_view,
+			can_download: row.can_download,
+			can_watermark: row.can_watermark
+		};
 	}
 
 	function capsEqual(a: Caps, b: Caps): boolean {
@@ -62,7 +66,12 @@
 		return next;
 	}
 
+	function focusHere(node: HTMLElement) {
+		node.focus();
+	}
+
 	let formError = $state<string | null>(null);
+	let errorScope = $state<string | null>(null);
 	let status = $state<string | null>(null);
 
 	let staged = $state<Record<string, Caps>>({});
@@ -88,6 +97,15 @@
 		return folder ? count(folder.children ?? []) : 0;
 	});
 
+	const stagedOf = (row: DirectFolderAccess): Caps => staged[row.group_id] ?? capsOf(row);
+	const isDirty = (row: DirectFolderAccess): boolean => {
+		const s = staged[row.group_id];
+		return !!s && !capsEqual(s, capsOf(row));
+	};
+
+	const dirtyCount = $derived(direct.filter((r) => isDirty(r)).length);
+	const hasUnsaved = $derived(adding || dirtyCount > 0);
+
 	let settledFor = $state('');
 
 	$effect(() => {
@@ -100,7 +118,12 @@
 		addGroupId = '';
 		addCaps = { ...DEFAULT_CAPS };
 		formError = null;
+		errorScope = null;
 		status = null;
+	});
+
+	beforeNavigate((nav) => {
+		if (hasUnsaved && !confirm(t('facc.leave.warn'))) nav.cancel();
 	});
 
 	function raises(from: Caps | null, to: Caps): boolean {
@@ -110,20 +133,17 @@
 
 	function consequence(group: string, caps: Caps): string {
 		const n = descendants;
+		let base: string;
 		if (!caps.can_view) {
-			return n ? t('facc.will.blockSub', { group, n }) : t('facc.will.block', { group });
+			base = n ? t('facc.will.blockSub', { group, n }) : t('facc.will.block', { group });
+		} else if (caps.can_download) {
+			base = n ? t('facc.will.downloadSub', { group, n }) : t('facc.will.download', { group });
+		} else {
+			base = n ? t('facc.will.viewSub', { group, n }) : t('facc.will.view', { group });
 		}
-		if (caps.can_download) {
-			return n ? t('facc.will.downloadSub', { group, n }) : t('facc.will.download', { group });
-		}
-		return n ? t('facc.will.viewSub', { group, n }) : t('facc.will.view', { group });
+		if (caps.can_view && caps.can_watermark) base += ' ' + t('facc.will.wmOn', { group });
+		return base;
 	}
-
-	const stagedOf = (row: DirectFolderAccess): Caps => staged[row.group_id] ?? capsOf(row);
-	const isDirty = (row: DirectFolderAccess): boolean => {
-		const s = staged[row.group_id];
-		return !!s && !capsEqual(s, capsOf(row));
-	};
 
 	function setRowCap(row: DirectFolderAccess, key: keyof Caps, value: boolean) {
 		staged[row.group_id] = toggleCap(stagedOf(row), key, value);
@@ -142,6 +162,7 @@
 		addGroupId = addable[0]?.id ?? '';
 		addCaps = { ...DEFAULT_CAPS };
 		formError = null;
+		errorScope = null;
 	}
 
 	function startOverride(row: InheritedFolderAccess) {
@@ -151,6 +172,16 @@
 		addGroupId = row.group_id;
 		addCaps = capsOf(row);
 		formError = null;
+		errorScope = null;
+	}
+
+	function openRevoke(row: DirectFolderAccess) {
+		const next = confirmRevoke === row.group_id ? null : row.group_id;
+		confirmRevoke = next;
+		if (next) {
+			confirmBlock = null;
+			delete staged[row.group_id];
+		}
 	}
 
 	function failureOf(result: { type: string; data?: Record<string, unknown> }): string {
@@ -164,17 +195,19 @@
 		() => {
 			savingGroup = row.group_id;
 			formError = null;
+			errorScope = null;
 			const blocked = !stagedOf(row).can_view;
 			return async ({ result }) => {
 				savingGroup = null;
-				delete staged[row.group_id];
 				if (result.type === 'success') {
+					delete staged[row.group_id];
 					await invalidateAll();
 					status = blocked
 						? t('facc.blockedNow', { group: row.group_name })
 						: t('facc.saved', { group: row.group_name });
 				} else {
 					formError = failureOf(result);
+					errorScope = row.group_id;
 				}
 			};
 		};
@@ -184,6 +217,7 @@
 		() => {
 			blockingGroup = row.group_id;
 			formError = null;
+			errorScope = null;
 			return async ({ result }) => {
 				blockingGroup = null;
 				if (result.type === 'success') {
@@ -192,6 +226,7 @@
 					status = t('facc.blockedNow', { group: row.group_name });
 				} else {
 					formError = failureOf(result);
+					errorScope = row.group_id;
 				}
 			};
 		};
@@ -201,6 +236,7 @@
 		() => {
 			revokingGroup = row.group_id;
 			formError = null;
+			errorScope = null;
 			const back = row.shadows;
 			return async ({ result }) => {
 				revokingGroup = null;
@@ -212,6 +248,7 @@
 						: t('facc.revoked', { group: row.group_name });
 				} else {
 					formError = failureOf(result);
+					errorScope = row.group_id;
 				}
 			};
 		};
@@ -219,6 +256,7 @@
 	const submitAdd: SubmitFunction = ({ cancel }) => {
 		if (!addGroupId) {
 			formError = t('facc.err.pick');
+			errorScope = 'add';
 			cancel();
 			return;
 		}
@@ -226,6 +264,7 @@
 		const blocked = !addCaps.can_view;
 		addSubmitting = true;
 		formError = null;
+		errorScope = null;
 		return async ({ result }) => {
 			addSubmitting = false;
 			if (result.type === 'success') {
@@ -237,6 +276,7 @@
 					: t('facc.saved', { group: groupName });
 			} else {
 				formError = failureOf(result);
+				errorScope = 'add';
 			}
 		};
 	};
@@ -258,39 +298,64 @@
 	</svg>
 {/snippet}
 
-{#snippet capToggles(caps: Caps, onChange: (key: keyof Caps, value: boolean) => void, disabled: boolean)}
-	<div class="flex flex-wrap items-center gap-x-5 gap-y-2">
-		<label class="flex cursor-pointer items-center gap-2">
-			<input
-				type="checkbox"
-				class="toggle toggle-sm"
-				checked={caps.can_view}
-				{disabled}
-				onchange={(e) => onChange('can_view', e.currentTarget.checked)}
-			/>
-			<span class="text-xs font-medium">{t('facc.cap.view')}</span>
-		</label>
-		<label class="flex cursor-pointer items-center gap-2">
-			<input
-				type="checkbox"
-				class="toggle toggle-sm"
-				checked={caps.can_download}
-				{disabled}
-				onchange={(e) => onChange('can_download', e.currentTarget.checked)}
-			/>
-			<span class="text-xs font-medium">{t('facc.cap.download')}</span>
-		</label>
-		<label class="flex cursor-pointer items-center gap-2">
-			<input
-				type="checkbox"
-				class="toggle toggle-sm"
-				checked={caps.can_watermark}
-				{disabled}
-				onchange={(e) => onChange('can_watermark', e.currentTarget.checked)}
-			/>
-			<span class="text-xs font-medium">{t('facc.cap.watermark')}</span>
-		</label>
+{#snippet capCheck(
+	label: string,
+	checked: boolean,
+	disabled: boolean,
+	onChange: (v: boolean) => void,
+	hint?: string
+)}
+	<label class="flex cursor-pointer items-center gap-2" title={hint}>
+		<input
+			type="checkbox"
+			class="checkbox checkbox-sm"
+			{checked}
+			{disabled}
+			onchange={(e) => onChange(e.currentTarget.checked)}
+		/>
+		<span class="text-xs font-medium">{label}</span>
+	</label>
+{/snippet}
+
+{#snippet capToggles(
+	caps: Caps,
+	onChange: (key: keyof Caps, value: boolean) => void,
+	disabled: boolean
+)}
+	<div class="flex flex-wrap gap-x-8 gap-y-3">
+		<div>
+			<span class="text-xs font-medium text-muted">{t('facc.cap.accessLegend')}</span>
+			<div class="mt-1.5 flex flex-wrap items-center gap-x-5 gap-y-2">
+				{@render capCheck(t('facc.cap.view'), caps.can_view, disabled, (v) =>
+					onChange('can_view', v)
+				)}
+				{@render capCheck(t('facc.cap.download'), caps.can_download, disabled, (v) =>
+					onChange('can_download', v)
+				)}
+			</div>
+		</div>
+		<div>
+			<span class="text-xs font-medium text-muted">{t('facc.cap.protectLegend')}</span>
+			<div class="mt-1.5 flex flex-wrap items-center gap-x-5 gap-y-2">
+				{@render capCheck(
+					t('facc.cap.watermark'),
+					caps.can_watermark,
+					disabled,
+					(v) => onChange('can_watermark', v),
+					t('facc.cap.watermarkHint')
+				)}
+			</div>
+		</div>
 	</div>
+{/snippet}
+
+{#snippet wmMark()}
+	<span
+		class="flex-none rounded-selector bg-base-content/5 px-1.5 py-0.5 text-[0.6875rem] text-muted"
+		title={t('facc.cap.watermarkHint')}
+	>
+		{t('facc.cap.watermark')}
+	</span>
 {/snippet}
 
 <section class="min-h-64 rounded-box border border-base-content/10 bg-base-100">
@@ -342,9 +407,22 @@
 				</a>
 			</div>
 		{:else}
-			{#if formError}
-				<div class="mb-4"><Alert align="start">{formError}</Alert></div>
-			{/if}
+			<p class="mb-4 flex items-start gap-2 text-xs text-muted text-pretty">
+				<svg
+					class="mt-px h-4 w-4 flex-none"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="1.8"
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					aria-hidden="true"
+				>
+					<circle cx="12" cy="12" r="9" />
+					<path d="M12 16v-5M12 8h.01" />
+				</svg>
+				<span>{t('facc.flow')}</span>
+			</p>
 
 			<section>
 				<h3 class="text-sm font-semibold">{t('facc.direct')}</h3>
@@ -355,6 +433,7 @@
 							{@const current = stagedOf(row)}
 							{@const blocked = !row.can_view}
 							{@const dirty = isDirty(row)}
+							{@const revoking = confirmRevoke === row.group_id}
 							{@const escalating = raises(capsOf(row), current)}
 							<li class="py-3">
 								<div class="flex items-center gap-2">
@@ -371,10 +450,9 @@
 
 									<button
 										type="button"
-										onclick={() =>
-											(confirmRevoke = confirmRevoke === row.group_id ? null : row.group_id)}
+										onclick={() => openRevoke(row)}
 										disabled={revokingGroup === row.group_id}
-										aria-expanded={confirmRevoke === row.group_id}
+										aria-expanded={revoking}
 										aria-label={t('facc.revokeOf', { group: row.group_name })}
 										title={t('facc.revoke')}
 										class="grid h-9 w-9 flex-none place-items-center rounded-field text-muted transition-colors hover:bg-error/10 hover:text-error disabled:pointer-events-none disabled:opacity-50"
@@ -393,15 +471,17 @@
 									</button>
 								</div>
 
-								<div class="mt-2 pl-1">
-									{@render capToggles(
-										current,
-										(k, v) => setRowCap(row, k, v),
-										savingGroup === row.group_id
-									)}
-								</div>
+								{#if !revoking}
+									<div class="mt-2 pl-1">
+										{@render capToggles(
+											current,
+											(k, v) => setRowCap(row, k, v),
+											savingGroup === row.group_id
+										)}
+									</div>
+								{/if}
 
-								{#if dirty}
+								{#if dirty && !revoking}
 									<form
 										method="POST"
 										action="?/setAccess"
@@ -412,41 +492,45 @@
 										<input type="hidden" name="groupId" value={row.group_id} />
 										<input type="hidden" name="canView" value={String(current.can_view)} />
 										<input type="hidden" name="canDownload" value={String(current.can_download)} />
-										<input type="hidden" name="canWatermark" value={String(current.can_watermark)} />
-										<p class="text-xs text-pretty">{consequence(row.group_name, current)}</p>
+										<input
+											type="hidden"
+											name="canWatermark"
+											value={String(current.can_watermark)}
+										/>
+										<p class="text-xs text-pretty" aria-live="polite">
+											{consequence(row.group_name, current)}
+										</p>
+										<p class="mt-1 text-[0.6875rem] text-muted">{t('facc.cap.rule')}</p>
 										<div class="mt-2 flex justify-end gap-2">
-											<button
+											<Button
 												type="button"
+												variant="ghost"
+												size="sm"
 												onclick={() => delete staged[row.group_id]}
-												class="btn btn-ghost btn-sm"
 											>
 												{t('facc.cancel')}
-											</button>
-											<button
+											</Button>
+											<Button
 												type="submit"
-												class="btn btn-primary btn-sm"
-												disabled={savingGroup === row.group_id}
+												size="sm"
+												variant="primary"
+												loading={savingGroup === row.group_id}
 											>
-												{savingGroup === row.group_id
-													? t('facc.saving')
-													: escalating
-														? t('facc.escalate')
-														: t('facc.save')}
-											</button>
+												{escalating ? t('facc.escalate') : t('facc.save')}
+											</Button>
 										</div>
 									</form>
 								{/if}
 
-								{#if confirmRevoke === row.group_id}
+								{#if revoking}
 									<form
 										method="POST"
 										action="?/removeAccess"
 										use:enhance={submitRevoke(row)}
-										class="mt-2 rounded-field border p-2.5
-											{row.shadows ? 'border-warning/50 bg-warning/8' : 'border-base-content/10'}"
+										class="mt-2 rounded-field border border-base-content/10 p-2.5"
 									>
 										<input type="hidden" name="groupId" value={row.group_id} />
-										<p class="text-xs text-pretty">
+										<p class="text-xs text-pretty" tabindex="-1" use:focusHere>
 											{#if row.shadows}
 												{t('facc.revoke.back', {
 													group: row.group_name,
@@ -458,22 +542,28 @@
 											{/if}
 										</p>
 										<div class="mt-2 flex justify-end gap-2">
-											<button
+											<Button
 												type="button"
+												variant="ghost"
+												size="sm"
 												onclick={() => (confirmRevoke = null)}
-												class="btn btn-ghost btn-sm"
 											>
 												{t('facc.cancel')}
-											</button>
-											<button
+											</Button>
+											<Button
 												type="submit"
-												class="btn btn-error btn-sm"
-												disabled={revokingGroup === row.group_id}
+												variant="danger"
+												size="sm"
+												loading={revokingGroup === row.group_id}
 											>
-												{revokingGroup === row.group_id ? t('facc.saving') : t('facc.revoke')}
-											</button>
+												{t('facc.revoke')}
+											</Button>
 										</div>
 									</form>
+								{/if}
+
+								{#if formError && errorScope === row.group_id}
+									<div class="mt-2"><Alert align="start">{formError}</Alert></div>
 								{/if}
 							</li>
 						{/each}
@@ -504,6 +594,7 @@
 								id="facc-add-group"
 								name="groupId"
 								bind:value={addGroupId}
+								use:focusHere
 								class="select select-sm mt-1 w-full"
 							>
 								{#each addable as g (g.id)}
@@ -521,11 +612,8 @@
 							</select>
 						</div>
 
-						<div class="mt-3">
-							<span class="text-xs font-medium">{t('facc.cap.legend')}</span>
-							<div class="mt-1.5 pl-1">
-								{@render capToggles(addCaps, (k, v) => setAddCap(k, v), false)}
-							</div>
+						<div class="mt-3 pl-1">
+							{@render capToggles(addCaps, (k, v) => setAddCap(k, v), false)}
 						</div>
 
 						<input type="hidden" name="canView" value={String(addCaps.can_view)} />
@@ -535,24 +623,25 @@
 						{#if addGroupId}
 							{@const group = groups.find((g) => g.id === addGroupId)?.name ?? ''}
 							{@const escalating = raises(addInherits ? capsOf(addInherits) : null, addCaps)}
-							<p
-								class="mt-2 rounded-field border p-2.5 text-xs text-pretty
+							<div
+								class="mt-3 rounded-field border p-2.5
 									{escalating ? 'border-warning/50 bg-warning/8' : 'border-base-content/10'}"
 							>
-								{consequence(group, addCaps)}
-							</p>
+								<p class="text-xs text-pretty">{consequence(group, addCaps)}</p>
+								<p class="mt-1 text-[0.6875rem] text-muted">{t('facc.cap.rule')}</p>
+							</div>
+						{/if}
+
+						{#if formError && errorScope === 'add'}
+							<div class="mt-3"><Alert align="start">{formError}</Alert></div>
 						{/if}
 
 						<div class="mt-3 flex justify-end gap-2">
-							<Button type="button" variant="ghost" onclick={() => (adding = false)}>
+							<Button type="button" variant="ghost" size="sm" onclick={() => (adding = false)}>
 								{t('facc.add.cancel')}
 							</Button>
-							<Button type="submit" loading={addSubmitting} disabled={!addGroupId}>
-								{addSubmitting
-									? t('facc.add.submitting')
-									: addInherits
-										? t('facc.add.change')
-										: t('facc.add.submit')}
+							<Button type="submit" size="sm" loading={addSubmitting} disabled={!addGroupId}>
+								{addInherits ? t('facc.add.change') : t('facc.add.submit')}
 							</Button>
 						</div>
 					</form>
@@ -583,13 +672,14 @@
 			{#if inherited.length}
 				<section class="mt-6">
 					<div class="flex items-baseline justify-between gap-2">
-						<h3 class="text-sm font-semibold">{t('facc.inherited')}</h3>
+						<h3 class="text-sm font-semibold text-muted">{t('facc.inherited')}</h3>
 						<span class="font-mono text-xs text-muted">
 							{t('facc.inheritedCount', { n: inherited.length })}
 						</span>
 					</div>
 					<ul class="mt-1 divide-y divide-base-content/8">
 						{#each inherited as row (row.group_id)}
+							{@const blocking = confirmBlock === row.group_id}
 							<li class="py-2">
 								<div class="flex items-center gap-2">
 									<div class="min-w-0 flex-1">
@@ -601,11 +691,12 @@
 										</p>
 									</div>
 									<span class="flex-none text-sm font-medium">{capsLabel(row)}</span>
+									{#if row.can_watermark}{@render wmMark()}{/if}
 									<button
 										type="button"
 										onclick={() =>
 											(confirmBlock = confirmBlock === row.group_id ? null : row.group_id)}
-										aria-expanded={confirmBlock === row.group_id}
+										aria-expanded={blocking}
 										aria-label={t('facc.blockOf', { group: row.group_name })}
 										class="flex-none rounded-field px-2 py-1.5 text-sm font-medium text-muted transition-colors hover:bg-error/10 hover:text-error"
 									>
@@ -621,7 +712,7 @@
 									</button>
 								</div>
 
-								{#if confirmBlock === row.group_id}
+								{#if blocking}
 									<form
 										method="POST"
 										action="?/setAccess"
@@ -632,49 +723,38 @@
 										<input type="hidden" name="canView" value="false" />
 										<input type="hidden" name="canDownload" value="false" />
 										<input type="hidden" name="canWatermark" value="false" />
-										<p class="text-xs text-pretty">{consequence(row.group_name, BLOCKED)}</p>
+										<p class="text-xs text-pretty" tabindex="-1" use:focusHere>
+											{consequence(row.group_name, BLOCKED)}
+										</p>
 										<div class="mt-2 flex justify-end gap-2">
-											<button
+											<Button
 												type="button"
+												variant="ghost"
+												size="sm"
 												onclick={() => (confirmBlock = null)}
-												class="btn btn-ghost btn-sm"
 											>
 												{t('facc.cancel')}
-											</button>
-											<button
+											</Button>
+											<Button
 												type="submit"
-												class="btn btn-error btn-sm"
-												disabled={blockingGroup === row.group_id}
+												variant="danger"
+												size="sm"
+												loading={blockingGroup === row.group_id}
 											>
-												{blockingGroup === row.group_id ? t('facc.saving') : t('facc.block')}
-											</button>
+												{t('facc.block')}
+											</Button>
 										</div>
 									</form>
+								{/if}
+
+								{#if formError && errorScope === row.group_id}
+									<div class="mt-2"><Alert align="start">{formError}</Alert></div>
 								{/if}
 							</li>
 						{/each}
 					</ul>
 				</section>
 			{/if}
-
-			<p
-				class="mt-6 flex items-start gap-2 rounded-box border border-base-content/10 bg-base-content/3 p-3 text-xs text-muted text-pretty"
-			>
-				<svg
-					class="mt-px h-4 w-4 flex-none"
-					viewBox="0 0 24 24"
-					fill="none"
-					stroke="currentColor"
-					stroke-width="1.8"
-					stroke-linecap="round"
-					stroke-linejoin="round"
-					aria-hidden="true"
-				>
-					<circle cx="12" cy="12" r="9" />
-					<path d="M12 16v-5M12 8h.01" />
-				</svg>
-				<span>{t('facc.flow')}</span>
-			</p>
 		{/if}
 
 		<p aria-live="polite" class="mt-3 text-xs text-muted text-pretty">{status ?? ''}</p>

@@ -4,6 +4,7 @@
 	type Props = {
 		type?: 'button' | 'submit';
 		variant?: 'primary' | 'ghost' | 'danger';
+		size?: 'sm' | 'md';
 		loading?: boolean;
 		disabled?: boolean;
 		full?: boolean;
@@ -14,6 +15,7 @@
 	let {
 		type = 'button',
 		variant = 'primary',
+		size = 'md',
 		loading = false,
 		disabled = false,
 		full = false,
@@ -30,10 +32,15 @@
 	{type}
 	{onclick}
 	class="btn {variantClass}"
+	class:btn-sm={size === 'sm'}
 	class:btn-block={full}
 	disabled={disabled || loading}
 	aria-busy={loading}
 >
-	{#if loading}<span class="loading loading-spinner loading-sm"></span>{/if}
+	{#if loading}<span
+			class="loading loading-spinner"
+			class:loading-xs={size === 'sm'}
+			class:loading-sm={size !== 'sm'}
+		></span>{/if}
 	{@render children()}
 </button>

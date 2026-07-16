@@ -370,9 +370,13 @@ export const en: Record<keyof Dict, string> = {
 	'level.download': 'View & download',
 	'level.none': 'No access',
 	'facc.cap.legend': 'Permissions',
+	'facc.cap.accessLegend': 'Access',
+	'facc.cap.protectLegend': 'Protection',
 	'facc.cap.view': 'View',
 	'facc.cap.download': 'Download',
 	'facc.cap.watermark': 'Watermark',
+	'facc.cap.watermarkHint': 'Documents this group opens are stamped with their identity watermark.',
+	'facc.cap.rule': 'Download and watermark automatically turn on View.',
 
 	'facc.flow':
 		'Access flows down to everything inside this folder, subfolders included — except a subfolder that sets a rule of its own.',
@@ -381,7 +385,7 @@ export const en: Record<keyof Dict, string> = {
 	'facc.inherited': 'Inherited',
 	'facc.inheritedCount': '{n} groups',
 	'facc.inheritedFrom': 'From {name}',
-	'facc.override': 'Set here',
+	'facc.override': 'Set specifically',
 	'facc.overrideOf': 'Set {group} access specifically on this folder',
 	'facc.block': 'Block',
 	'facc.blockOf': 'Block {group} from this folder',
@@ -402,6 +406,7 @@ export const en: Record<keyof Dict, string> = {
 	'facc.will.block': '{group} will not be able to see this folder.',
 	'facc.will.blockSub':
 		'{group} will not be able to see this folder or the {n} subfolders inside it.',
+	'facc.will.wmOn': 'Documents are watermarked when {group} opens them.',
 	'facc.revoke.back': 'Once revoked, {group} goes back to inheriting {level} from {name}.',
 	'facc.revoke.gone': '{group} will no longer have any access to this folder.',
 
@@ -427,6 +432,7 @@ export const en: Record<keyof Dict, string> = {
 	'facc.blockedNow': '{group} is blocked from this folder and everything inside it.',
 	'facc.revoked': '{group} access revoked from this folder.',
 	'facc.revokedInherits': 'Direct access revoked. {group} now inherits from {name}.',
+	'facc.leave.warn': 'You have unsaved access changes. Leave this page?',
 	'facc.err.load': 'Could not load folder access.',
 	'facc.err.pick': 'Pick a group and an access level.',
 	'facc.err.invalid': 'That group or access level does not exist in this room.',
