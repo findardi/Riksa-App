@@ -89,6 +89,7 @@ export const actions: Actions = {
 		const canView = form.get('canView') === 'true';
 		const canDownload = form.get('canDownload') === 'true';
 		const canWatermark = form.get('canWatermark') === 'true';
+		const canDownloadOriginal = form.get('canDownloadOriginal') === 'true';
 
 		const wsId = await resolveWorkspaceId(locals.session, params.slug);
 		if (!wsId) return fail(404, { message: t('ws.detail.notFound') });
@@ -97,7 +98,8 @@ export const actions: Actions = {
 			group_id: groupId,
 			can_view: canView,
 			can_download: canDownload,
-			can_watermark: canWatermark
+			can_watermark: canWatermark,
+			can_download_original: canDownloadOriginal
 		});
 		if (!res.ok) {
 			if (res.status === 401) redirect(303, '/login');

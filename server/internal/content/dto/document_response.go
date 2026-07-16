@@ -32,9 +32,9 @@ type DownloadURLResponse struct {
 }
 
 type ViewMetaResponse struct {
-	DocumentID  string `json:"document_id"`
-	Name        string `json:"name"`
-	Mime        string `json:"mime"`
-	PageCount   int    `json:"page_count"`
-	CanDownload bool   `json:"can_download"`
+	DocumentID          string `json:"document_id"`
+	Name                string `json:"name"`
+	Mime                string `json:"mime"`
+	PageCount           int    `json:"page_count"`
+	CanDownloadOriginal bool   `json:"can_download_original"`
 }

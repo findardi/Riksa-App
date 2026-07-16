@@ -24,10 +24,11 @@ type FolderTreeNode struct {
 }
 
 type FolderAccessResponse struct {
-	FolderID     string `json:"folder_id"`
-	GroupID      string `json:"group_id"`
-	GroupName    string `json:"group_name"`
-	CanView      bool   `json:"can_view"`
-	CanDownload  bool   `json:"can_download"`
-	CanWatermark bool   `json:"can_watermark"`
+	FolderID            string `json:"folder_id"`
+	GroupID             string `json:"group_id"`
+	GroupName           string `json:"group_name"`
+	CanView             bool   `json:"can_view"`
+	CanDownload         bool   `json:"can_download"`
+	CanWatermark        bool   `json:"can_watermark"`
+	CanDownloadOriginal bool   `json:"can_download_original"`
 }

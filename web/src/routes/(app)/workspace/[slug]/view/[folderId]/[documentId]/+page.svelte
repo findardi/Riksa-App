@@ -257,7 +257,7 @@
 				<span class="hidden lg:inline">{t('doc.view.watermarked')}</span>
 			</span>
 
-			{#if meta.can_download}
+			{#if meta.can_download_original}
 				<button
 					type="button"
 					onclick={download}

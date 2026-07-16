@@ -24,9 +24,9 @@ type Viewer struct {
 }
 
 type viewAccess struct {
-	canView      bool
-	canDownload  bool
-	canWatermark bool
+	canView             bool
+	canDownloadOriginal bool
+	canWatermark        bool
 }
 
 func renditionPDFKey(workspaceID, versionID string) string {
@@ -40,9 +40,9 @@ func renditionPageKey(workspaceID, versionID string, page, dpi int) string {
 func (s *ContentService) resolveViewAccess(ctx context.Context, workspaceID, folderID string, actor Actor) (viewAccess, error) {
 	if actor.bypassesContentAccess() {
 		return viewAccess{
-			canView:      true,
-			canDownload:  true,
-			canWatermark: false,
+			canView:             true,
+			canDownloadOriginal: true,
+			canWatermark:        false,
 		}, nil
 	}
 
@@ -52,9 +52,9 @@ func (s *ContentService) resolveViewAccess(ctx context.Context, workspaceID, fol
 	}
 
 	return viewAccess{
-		canView:      row.CanView,
-		canDownload:  row.CanDownload,
-		canWatermark: row.CanWatermark,
+		canView:             row.CanView,
+		canDownloadOriginal: row.CanDownloadOriginal,
+		canWatermark:        row.CanWatermark,
 	}, nil
 }
 
@@ -183,11 +183,11 @@ func (s *ContentService) GetViewMeta(ctx context.Context, workspaceID, documentI
 	}
 
 	return dto.ViewMetaResponse{
-		DocumentID:  uuidString(doc.ID),
-		Name:        doc.Name,
-		Mime:        version.Mime,
-		PageCount:   pageCount,
-		CanDownload: access.canDownload,
+		DocumentID:          uuidString(doc.ID),
+		Name:                doc.Name,
+		Mime:                version.Mime,
+		PageCount:           pageCount,
+		CanDownloadOriginal: access.canDownloadOriginal,
 	}, nil
 }
 

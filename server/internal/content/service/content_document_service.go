@@ -334,7 +334,7 @@ func (s *ContentService) GetDownloadURL(ctx context.Context, workspaceID, docume
 		return dto.DownloadURLResponse{}, ErrDocumentNotFound
 	}
 
-	if err := s.requireFolderDownload(ctx, workspaceID, uuidString(doc.FolderID), actor); err != nil {
+	if err := s.requireFolderDownloadOriginal(ctx, workspaceID, uuidString(doc.FolderID), actor); err != nil {
 		return dto.DownloadURLResponse{}, err
 	}
 

@@ -64,7 +64,7 @@ func (s *ContentService) requireFolderView(ctx context.Context, workspaceID, fol
 	return nil
 }
 
-func (s *ContentService) requireFolderDownload(ctx context.Context, workspaceID, folderID string, actor Actor) error {
+func (s *ContentService) requireFolderDownloadOriginal(ctx context.Context, workspaceID, folderID string, actor Actor) error {
 	if actor.bypassesContentAccess() {
 		return nil
 	}
@@ -73,7 +73,8 @@ func (s *ContentService) requireFolderDownload(ctx context.Context, workspaceID,
 	if err != nil {
 		return err
 	}
-	if !row.CanDownload {
+
+	if !row.CanDownloadOriginal {
 		return ErrContentForbidden
 	}
 
@@ -94,15 +95,17 @@ func (s *ContentService) SetFolderAccess(ctx context.Context, req dto.SetFolderA
 		return ErrAccessTargetInvalid
 	}
 
-	canView := req.CanView || req.CanDownload || req.CanWatermark
+	canDownload := req.CanDownload || req.CanDownloadOriginal
+	canView := req.CanView || canDownload || req.CanWatermark
 
 	_, err := s.repo.SetFolderAccess(ctx, contentdb.SetFolderAccessParams{
-		GroupID:      gID,
-		WorkspaceID:  wID,
-		FolderID:     fID,
-		CanView:      canView,
-		CanDownload:  req.CanDownload,
-		CanWatermark: req.CanWatermark,
+		GroupID:             gID,
+		WorkspaceID:         wID,
+		FolderID:            fID,
+		CanView:             canView,
+		CanDownload:         canDownload,
+		CanWatermark:        req.CanWatermark,
+		CanDownloadOriginal: req.CanDownloadOriginal,
 	})
 
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -159,12 +162,13 @@ func (s *ContentService) ListFolderAccess(ctx context.Context, workspaceID, fold
 	res := make([]dto.FolderAccessResponse, 0, len(rows))
 	for _, r := range rows {
 		res = append(res, dto.FolderAccessResponse{
-			FolderID:     uuidString(r.FolderID),
-			GroupID:      uuidString(r.GroupID),
-			GroupName:    r.GroupName,
-			CanView:      r.CanView,
-			CanDownload:  r.CanDownload,
-			CanWatermark: r.CanWatermark,
+			FolderID:            uuidString(r.FolderID),
+			GroupID:             uuidString(r.GroupID),
+			GroupName:           r.GroupName,
+			CanView:             r.CanView,
+			CanDownload:         r.CanDownload,
+			CanWatermark:        r.CanWatermark,
+			CanDownloadOriginal: r.CanDownloadOriginal,
 		})
 	}
 

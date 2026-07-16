@@ -370,7 +370,10 @@ export const id = {
 	'facc.cap.download': 'Unduh',
 	'facc.cap.watermark': 'Watermark',
 	'facc.cap.watermarkHint': 'Dokumen yang dibuka grup ini diberi watermark identitas mereka.',
-	'facc.cap.rule': 'Unduh dan watermark otomatis menyalakan Lihat.',
+	'facc.cap.downloadOriginal': 'Unduh file asli',
+	'facc.cap.downloadOriginalHint':
+		'Grup ini bisa mengunduh file asli tanpa perubahan, melewati viewer ber-watermark.',
+	'facc.cap.rule': 'Unduh file asli menyalakan Unduh; Unduh dan watermark menyalakan Lihat.',
 
 	'facc.flow':
 		'Akses mengalir ke seluruh isi folder ini, termasuk subfolder — kecuali subfolder yang punya aturannya sendiri.',
@@ -401,6 +404,7 @@ export const id = {
 	'facc.will.blockSub':
 		'{group} tidak akan bisa melihat folder ini maupun {n} subfolder di dalamnya.',
 	'facc.will.wmOn': 'Dokumen diberi watermark saat dibuka {group}.',
+	'facc.will.origOn': '{group} bisa mengunduh file aslinya.',
 	'facc.revoke.back': 'Setelah dicabut, {group} kembali mewarisi {level} dari {name}.',
 	'facc.revoke.gone': '{group} tidak akan punya akses ke folder ini lagi.',
 
