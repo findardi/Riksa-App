@@ -597,3 +597,48 @@ func (h *ContentHandler) ListFolderAccess(w http.ResponseWriter, r *http.Request
 
 	response.Success(w, http.StatusOK, "success get list folder access", res)
 }
+
+func (h *ContentHandler) BulkCreateFolders(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, MaxBodyBytes)
+
+	claim, ok := middleware.ClaimsFromContext(r.Context())
+	if !ok {
+		response.Error(w, http.StatusUnauthorized, "unauthorized", nil)
+		return
+	}
+
+	var req dto.BulkCreateFolderRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid body request", nil)
+		return
+	}
+
+	if errs := validation.Validate(&req); errs != nil {
+		response.Error(w, http.StatusBadRequest, "validation failed", errs)
+		return
+	}
+
+	req.WorkspaceID = chi.URLParam(r, "workspaceID")
+	req.CreatedBy = claim.ID
+
+	res, err := h.svc.BulkCreateFolders(r.Context(), req)
+	if err != nil {
+		switch {
+		case errors.Is(err, service.ErrParentNotFound):
+			response.Error(w, http.StatusNotFound, err.Error(), nil)
+		case errors.Is(err, service.ErrParentCrossWorkspace),
+			errors.Is(err, service.ErrBulkTooManyFolders),
+			errors.Is(err, service.ErrBulkTooDeep),
+			errors.Is(err, service.ErrFolderNameInvalid):
+			response.Error(w, http.StatusBadRequest, err.Error(), nil)
+		case errors.Is(err, service.ErrFolderNameTaken):
+			response.Error(w, http.StatusConflict, err.Error(), nil)
+		default:
+			log.Printf("bulk create folders internal error: %v", err)
+			response.Error(w, http.StatusInternalServerError, "internal server error", nil)
+		}
+		return
+	}
+
+	response.Success(w, http.StatusCreated, "bulk create folders success", res)
+}

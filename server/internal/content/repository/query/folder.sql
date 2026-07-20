@@ -36,3 +36,29 @@ insert into folders
 values
     ($1, null, $2, 0, $3, true)
 returning *;
+
+-- name: LockWorkspaceStructure :exec
+select pg_advisory_xact_lock(hashtext(sqlc.arg(workspace_id)::uuid::text));
+
+-- name: ReindexFolderSiblings :exec
+with ordered as (
+    select f.id as folder_id,
+        (row_number() over (
+            order by position,
+                    case when f.id = sqlc.arg(moved_id) then 0 else 1 end,
+                    f.name
+        ))::int - 1 as rn
+    from folders f
+    where f.workspace_id = sqlc.arg(workspace_id)
+    and f.parent_id is not distinct from sqlc.arg(parent_id)
+)
+update folders t 
+set position = o.rn 
+from ordered o 
+where t.id = o.id and t.position <> o.rn;
+
+-- name: GetFolderByNameInParent :one
+select * from folders
+where workspace_id = $1
+    and parent_id is not distinct from $2
+    and name = $3;

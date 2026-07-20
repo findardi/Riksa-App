@@ -10,6 +10,7 @@ type CreateFolderRequest struct {
 type MoveFolderRequest struct {
 	FolderID string `json:"-"`
 	ParentID string `json:"parent_id"`
+	Position *int   `json:"position"`
 }
 
 type RenameFolderRequest struct {
@@ -25,4 +26,16 @@ type SetFolderAccessRequest struct {
 	CanDownload         bool   `json:"can_download"`
 	CanWatermark        bool   `json:"can_watermark"`
 	CanDownloadOriginal bool   `json:"can_download_original"`
+}
+
+type BulkFolderNode struct {
+	Name     string           `json:"name"`
+	Children []BulkFolderNode `json:"children"`
+}
+
+type BulkCreateFolderRequest struct {
+	WorkspaceID string           `json:"-"`
+	CreatedBy   string           `json:"-"`
+	ParentID    string           `json:"parent_id"`
+	Folders     []BulkFolderNode `json:"folders" validate:"required,min=1"`
 }

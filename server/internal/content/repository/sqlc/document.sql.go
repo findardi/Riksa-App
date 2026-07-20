@@ -13,16 +13,17 @@ import (
 
 const createDocument = `-- name: CreateDocument :one
 insert into documents 
-    (workspace_id, folder_id, name, uploaded_by)
+    (workspace_id, folder_id, name, position, uploaded_by)
 values
-    ($1, $2, $3, $4)
-returning id, workspace_id, folder_id, name, current_version_id, uploaded_by, created_at, updated_at
+    ($1, $2, $3, $4, $5)
+returning id, workspace_id, folder_id, name, current_version_id, uploaded_by, created_at, updated_at, position
 `
 
 type CreateDocumentParams struct {
 	WorkspaceID pgtype.UUID `json:"workspace_id"`
 	FolderID    pgtype.UUID `json:"folder_id"`
 	Name        string      `json:"name"`
+	Position    int32       `json:"position"`
 	UploadedBy  pgtype.UUID `json:"uploaded_by"`
 }
 
@@ -31,6 +32,7 @@ func (q *Queries) CreateDocument(ctx context.Context, arg CreateDocumentParams) 
 		arg.WorkspaceID,
 		arg.FolderID,
 		arg.Name,
+		arg.Position,
 		arg.UploadedBy,
 	)
 	var i Document
@@ -43,6 +45,7 @@ func (q *Queries) CreateDocument(ctx context.Context, arg CreateDocumentParams) 
 		&i.UploadedBy,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Position,
 	)
 	return i, err
 }
@@ -123,7 +126,7 @@ func (q *Queries) GetCurrentVersion(ctx context.Context, id pgtype.UUID) (Docume
 }
 
 const getDocumentByID = `-- name: GetDocumentByID :one
-select id, workspace_id, folder_id, name, current_version_id, uploaded_by, created_at, updated_at from documents where id = $1
+select id, workspace_id, folder_id, name, current_version_id, uploaded_by, created_at, updated_at, position from documents where id = $1
 `
 
 func (q *Queries) GetDocumentByID(ctx context.Context, id pgtype.UUID) (Document, error) {
@@ -138,8 +141,22 @@ func (q *Queries) GetDocumentByID(ctx context.Context, id pgtype.UUID) (Document
 		&i.UploadedBy,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Position,
 	)
 	return i, err
+}
+
+const getMaxPosition = `-- name: GetMaxPosition :one
+select coalesce(max(position), -1)::int as max_position
+from documents
+where folder_id = $1
+`
+
+func (q *Queries) GetMaxPosition(ctx context.Context, folderID pgtype.UUID) (int32, error) {
+	row := q.db.QueryRow(ctx, getMaxPosition, folderID)
+	var max_position int32
+	err := row.Scan(&max_position)
+	return max_position, err
 }
 
 const getNextVersionNo = `-- name: GetNextVersionNo :one
@@ -191,7 +208,7 @@ select
 from documents d
 join document_versions v on v.id = d.current_version_id
 where d.folder_id = $1
-order by d.name, d.created_at
+order by d.position, d.name, d.created_at
 `
 
 type ListDocumentsByFolderRow struct {
@@ -274,16 +291,44 @@ func (q *Queries) ListVersionByDocument(ctx context.Context, documentID pgtype.U
 }
 
 const moveDocument = `-- name: MoveDocument :exec
-update documents set folder_id = $2, updated_at = now() where id = $1
+update documents set folder_id = $2, position = $3, updated_at = now() where id = $1
 `
 
 type MoveDocumentParams struct {
 	ID       pgtype.UUID `json:"id"`
 	FolderID pgtype.UUID `json:"folder_id"`
+	Position int32       `json:"position"`
 }
 
 func (q *Queries) MoveDocument(ctx context.Context, arg MoveDocumentParams) error {
-	_, err := q.db.Exec(ctx, moveDocument, arg.ID, arg.FolderID)
+	_, err := q.db.Exec(ctx, moveDocument, arg.ID, arg.FolderID, arg.Position)
+	return err
+}
+
+const reindexDocumentSiblings = `-- name: ReindexDocumentSiblings :exec
+with ordered as (
+    select d.id as document_id,
+        (row_number() over (
+            order by position,
+                    case when d.id = $1 then 0 else 1 end,
+                    d.name 
+        ))::int - 1 as rn 
+    from documents d
+    where d.folder_id = $2
+)
+update documents t
+set position = o.rn 
+from ordered o 
+where t.id = o.id and t.position <> o.rn
+`
+
+type ReindexDocumentSiblingsParams struct {
+	MovedID  pgtype.UUID `json:"moved_id"`
+	FolderID pgtype.UUID `json:"folder_id"`
+}
+
+func (q *Queries) ReindexDocumentSiblings(ctx context.Context, arg ReindexDocumentSiblingsParams) error {
+	_, err := q.db.Exec(ctx, reindexDocumentSiblings, arg.MovedID, arg.FolderID)
 	return err
 }
 

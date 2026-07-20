@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/findardi/Riksa-App/server/internal/content/dto"
@@ -17,9 +18,11 @@ import (
 )
 
 const (
-	maxFolderDepth = 256
-	uploadURLTTL   = 15 * time.Minute
-	downloadURLTTL = 5 * time.Minute
+	maxFolderDepth     = 256
+	uploadURLTTL       = 15 * time.Minute
+	downloadURLTTL     = 5 * time.Minute
+	maxBulkFolderNodes = 500
+	maxBulkFolderDepth = 32
 )
 
 var (
@@ -37,6 +40,9 @@ var (
 	ErrContentForbidden     = errors.New("no access to this content")
 	ErrNotViewable          = errors.New("file type cannot be viewed, download only")
 	ErrPageOutOfRange       = errors.New("page out of range")
+	ErrBulkTooManyFolders   = errors.New("too many folders in one request")
+	ErrBulkTooDeep          = errors.New("folder tree in request is too deep")
+	ErrFolderNameInvalid    = errors.New("folder name is invalid")
 )
 
 type ContentService struct {
@@ -91,6 +97,40 @@ func isUniqueViolation(err error, constraint string) bool {
 		return pgErr.Code == "23505" && pgErr.ConstraintName == constraint
 	}
 	return false
+}
+
+func clampPosition(pos, max int32) int32 {
+	if pos < 0 {
+		return 0
+	}
+	if pos > max {
+		return max
+	}
+
+	return pos
+}
+
+func validateBulkNodes(nodes []dto.BulkFolderNode, depth int) (int, error) {
+	if depth > maxBulkFolderDepth {
+		return 0, ErrBulkTooDeep
+	}
+
+	total := 0
+	for _, n := range nodes {
+		name := strings.TrimSpace(n.Name)
+		if name == "" || strings.ContainsAny(name, `/\`) {
+			return 0, ErrFolderNameInvalid
+		}
+
+		sub, err := validateBulkNodes(n.Children, depth+1)
+		if err != nil {
+			return 0, err
+		}
+
+		total += 1 + sub
+	}
+
+	return total, nil
 }
 
 func (s *ContentService) CreateFolder(ctx context.Context, req dto.CreateFolderRequest) (dto.FolderResponse, error) {
@@ -168,82 +208,120 @@ func (s *ContentService) MoveFolder(ctx context.Context, req dto.MoveFolderReque
 		return fmt.Errorf("folder id parse: %w", err)
 	}
 
-	folder, err := s.repo.GetFolderByID(ctx, fID)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return ErrFolderNotFound
-	}
-
-	if err != nil {
-		return fmt.Errorf("get folder: %w", err)
-	}
-
-	if folder.IsDefault {
-		return ErrMoveDefault
-	}
-
 	if req.ParentID != "" {
 		if err := pID.Scan(req.ParentID); err != nil {
 			return fmt.Errorf("parent id parse: %w", err)
 		}
+	}
 
-		if pID == fID {
-			return ErrCycle
-		}
-
-		parent, err := s.repo.GetFolderByID(ctx, pID)
+	return s.repo.ExecTx(ctx, func(q *contentdb.Queries) error {
+		folder, err := q.GetFolderByID(ctx, fID)
 		if errors.Is(err, pgx.ErrNoRows) {
-			return ErrParentNotFound
+			return ErrFolderNotFound
 		}
 
 		if err != nil {
-			return fmt.Errorf("check parent: %w", err)
+			return fmt.Errorf("get folder: %w", err)
 		}
 
-		if parent.WorkspaceID != folder.WorkspaceID {
-			return ErrParentCrossWorkspace
+		if folder.IsDefault {
+			return ErrMoveDefault
 		}
 
-		cursor := parent
-		for depth := 0; ; depth++ {
-			if cursor.ID == fID {
+		if err := q.LockWorkspaceStructure(ctx, folder.WorkspaceID); err != nil {
+			return fmt.Errorf("lock workspace structure: %w", err)
+		}
+
+		oldParent := folder.ParentID
+
+		if pID.Valid {
+			if pID == fID {
 				return ErrCycle
 			}
 
-			if !cursor.ParentID.Valid {
-				break
+			parent, err := q.GetFolderByID(ctx, pID)
+			if errors.Is(err, pgx.ErrNoRows) {
+				return ErrParentNotFound
 			}
 
-			if depth >= maxFolderDepth {
-				return ErrFolderTreeTooDeep
-			}
-
-			cursor, err = s.repo.GetFolderByID(ctx, cursor.ParentID)
 			if err != nil {
-				return fmt.Errorf("walk ancestors: %w", err)
+				return fmt.Errorf("check parent: %w", err)
+			}
+
+			if parent.WorkspaceID != folder.WorkspaceID {
+				return ErrParentCrossWorkspace
+			}
+
+			cursor := parent
+			for depth := 0; ; depth++ {
+				if cursor.ID == fID {
+					return ErrCycle
+				}
+
+				if !cursor.ParentID.Valid {
+					break
+				}
+
+				if depth >= maxFolderDepth {
+					return ErrFolderTreeTooDeep
+				}
+
+				cursor, err = q.GetFolderByID(ctx, cursor.ParentID)
+				if err != nil {
+					return fmt.Errorf("walk ancestors: %w", err)
+				}
 			}
 		}
-	}
 
-	maxPos, err := s.repo.GetMaxPositionInParent(ctx, contentdb.GetMaxPositionInParentParams{
-		WorkspaceID: folder.WorkspaceID,
-		ParentID:    pID,
+		maxPos, err := q.GetMaxPositionInParent(ctx, contentdb.GetMaxPositionInParentParams{
+			WorkspaceID: folder.WorkspaceID,
+			ParentID:    pID,
+		})
+
+		if err != nil {
+			return fmt.Errorf("check max position: %w", err)
+		}
+
+		pos := maxPos + 1
+		if req.Position != nil {
+			pos = clampPosition(int32(*req.Position), maxPos+1)
+		}
+
+		err = q.MoveFolder(ctx, contentdb.MoveFolderParams{
+			ID:       fID,
+			ParentID: pID,
+			Position: pos,
+		})
+
+		if isUniqueViolation(err, "folders_name_root_key") || isUniqueViolation(err, "folders_name_per_parent_key") {
+			return ErrFolderNameTaken
+		}
+
+		if err != nil {
+			return fmt.Errorf("move folder: %w", err)
+		}
+
+		if err := q.ReindexFolderSiblings(ctx, contentdb.ReindexFolderSiblingsParams{
+			WorkspaceID: folder.WorkspaceID,
+			ParentID:    pID,
+			MovedID:     fID,
+		}); err != nil {
+			return fmt.Errorf("reindex target siblings: %w", err)
+		}
+
+		if oldParent != pID {
+			if err := q.ReindexFolderSiblings(ctx, contentdb.ReindexFolderSiblingsParams{
+				WorkspaceID: folder.WorkspaceID,
+				ParentID:    oldParent,
+				MovedID:     fID,
+			}); err != nil {
+				return fmt.Errorf("reindex source siblings: %w", err)
+			}
+		}
+
+		return nil
+
 	})
-
-	if err != nil {
-		return fmt.Errorf("check max position: %w", err)
-	}
-
-	err = s.repo.MoveFolder(ctx, contentdb.MoveFolderParams{
-		ID:       fID,
-		ParentID: pID,
-		Position: maxPos + 1,
-	})
-
-	if isUniqueViolation(err, "folders_name_root_key") || isUniqueViolation(err, "folders_name_per_parent_key") {
-		return ErrFolderNameTaken
-	}
-
-	return err
 }
 
 func (s *ContentService) GetFoldersTree(ctx context.Context, workspaceID string, actor Actor) ([]dto.FolderTreeNode, error) {
@@ -382,4 +460,120 @@ func (s *ContentService) DeleteFolder(ctx context.Context, folderID string) erro
 	}
 
 	return nil
+}
+
+func (s *ContentService) ensureFolderTree(ctx context.Context, q *contentdb.Queries, wID, parentID, cID pgtype.UUID, nodes []dto.BulkFolderNode, prefix string, out *[]dto.BulkFolderResult) error {
+	for _, n := range nodes {
+		name := strings.TrimSpace(n.Name)
+		path := name
+		if prefix != "" {
+			path = prefix + "/" + name
+		}
+
+		created := false
+		f, err := q.GetFolderByNameInParent(ctx, contentdb.GetFolderByNameInParentParams{
+			WorkspaceID: wID,
+			ParentID:    parentID,
+			Name:        name,
+		})
+
+		if errors.Is(err, pgx.ErrNoRows) {
+			maxPos, posErr := q.GetMaxPositionInParent(ctx, contentdb.GetMaxPositionInParentParams{
+				WorkspaceID: wID,
+				ParentID:    parentID,
+			})
+
+			if posErr != nil {
+				return fmt.Errorf("check max position: %w", posErr)
+			}
+
+			f, err = q.CreateFolder(ctx, contentdb.CreateFolderParams{
+				WorkspaceID: wID,
+				ParentID:    parentID,
+				Name:        name,
+				Position:    maxPos + 1,
+				CreatedBy:   cID,
+			})
+
+			if err != nil {
+				return fmt.Errorf("create folder %q: %w", path, err)
+			}
+
+			created = true
+		} else if err != nil {
+			return fmt.Errorf("lookup folder %q: %w", path, err)
+		}
+
+		*out = append(*out, dto.BulkFolderResult{
+			Path:    path,
+			ID:      uuidString(f.ID),
+			Created: created,
+		})
+
+		if len(n.Children) > 0 {
+			if err := s.ensureFolderTree(ctx, q, wID, f.ID, cID, n.Children, path, out); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+func (s *ContentService) BulkCreateFolders(ctx context.Context, req dto.BulkCreateFolderRequest) (dto.BulkCreateFolderResponse, error) {
+	var wID, pID, cID pgtype.UUID
+
+	if err := wID.Scan(req.WorkspaceID); err != nil {
+		return dto.BulkCreateFolderResponse{}, fmt.Errorf("workspace id parse: %w", err)
+	}
+
+	if err := cID.Scan(req.CreatedBy); err != nil {
+		return dto.BulkCreateFolderResponse{}, fmt.Errorf("user id parse: %w", err)
+	}
+
+	if req.ParentID != "" {
+		if err := pID.Scan(req.ParentID); err != nil {
+			return dto.BulkCreateFolderResponse{}, fmt.Errorf("parent id parse: %w", err)
+		}
+	}
+
+	total, err := validateBulkNodes(req.Folders, 1)
+	if err != nil {
+		return dto.BulkCreateFolderResponse{}, err
+	}
+
+	if total > maxBulkFolderNodes {
+		return dto.BulkCreateFolderResponse{}, ErrBulkTooManyFolders
+	}
+
+	out := make([]dto.BulkFolderResult, 0, total)
+
+	err = s.repo.ExecTx(ctx, func(q *contentdb.Queries) error {
+		if err := q.LockWorkspaceStructure(ctx, wID); err != nil {
+			return fmt.Errorf("lock workspace structure: %w", err)
+		}
+
+		if pID.Valid {
+			parent, err := q.GetFolderByID(ctx, pID)
+			if errors.Is(err, pgx.ErrNoRows) {
+				return ErrParentNotFound
+			}
+
+			if err != nil {
+				return fmt.Errorf("check parent: %w", err)
+			}
+
+			if parent.WorkspaceID != wID {
+				return ErrParentCrossWorkspace
+			}
+		}
+
+		return s.ensureFolderTree(ctx, q, wID, pID, cID, req.Folders, "", &out)
+	})
+
+	if err != nil {
+		return dto.BulkCreateFolderResponse{}, err
+	}
+
+	return dto.BulkCreateFolderResponse{Folders: out}, nil
 }
