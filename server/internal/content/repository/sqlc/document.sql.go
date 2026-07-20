@@ -319,7 +319,7 @@ with ordered as (
 update documents t
 set position = o.rn 
 from ordered o 
-where t.id = o.id and t.position <> o.rn
+where t.id = o.document_id and t.position <> o.rn
 `
 
 type ReindexDocumentSiblingsParams struct {

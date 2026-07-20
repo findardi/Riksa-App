@@ -1,9 +1,9 @@
 <script lang="ts">
-	import { enhance } from '$app/forms';
+	import { applyAction, deserialize, enhance } from '$app/forms';
 	import { invalidateAll } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { navigating, page } from '$app/state';
-	import type { SubmitFunction } from '@sveltejs/kit';
+	import type { ActionResult, SubmitFunction } from '@sveltejs/kit';
 	import { normalizeRole } from '$lib/access/roles';
 	import { Alert, Button, showToast } from '$lib/components/common';
 	import { DOCUMENT_MIME, filesFrom } from '$lib/dnd';
@@ -21,8 +21,11 @@
 	const slug = $derived(page.params.slug!);
 	const folderId = $derived(page.params.folderId!);
 
-	type SortKey = 'name' | 'updated' | 'size';
-	let sortBy = $state<SortKey>('name');
+	// 'manual' is the server's own order (documents.position) and the only mode
+	// where dragging a row into place means anything — a manual position under a
+	// name sort would be invisible the moment it was set.
+	type SortKey = 'manual' | 'name' | 'updated' | 'size';
+	let sortBy = $state<SortKey>('manual');
 
 	const SKELETON_ROWS = [46, 32, 58, 38, 51, 29];
 
@@ -33,7 +36,8 @@
 			return list.sort((a, b) => b.updated_at.localeCompare(a.updated_at));
 		}
 		if (sortBy === 'size') return list.sort((a, b) => b.size - a.size);
-		return list.sort((a, b) => collator.compare(a.name, b.name));
+		if (sortBy === 'name') return list.sort((a, b) => collator.compare(a.name, b.name));
+		return list;
 	});
 
 	const forbidden = $derived(data.forbidden ?? false);
@@ -131,6 +135,104 @@
 		draggingDocId = doc.id;
 		e.dataTransfer?.setData(DOCUMENT_MIME, doc.id);
 		if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move';
+	}
+
+	// --- reorder within this folder ---------------------------------------
+	// The list is rendered straight from the server, which orders by
+	// `documents.position`, so in manual mode a row's array index IS its
+	// position. `insertAt` is the gap the row would land in: 0..length.
+
+	const canReorder = $derived(canEditDoc && sortBy === 'manual' && !switching);
+
+	let insertAt = $state<number | null>(null);
+	// The row a reorder is in flight for; the list reloads wholesale afterwards.
+	let reorderingId = $state<string | null>(null);
+
+	// Server-side moves take a per-workspace advisory lock, so overlapping
+	// requests only queue on the database. Chaining keeps them ordered.
+	let moveChain: Promise<unknown> = Promise.resolve();
+	const enqueueMove = (run: () => Promise<unknown>) => {
+		moveChain = moveChain.then(run, run);
+	};
+
+	const insertLabel = $derived.by(() => {
+		if (insertAt === null) return null;
+		const before = documents[insertAt];
+		if (before) return t('doc.docs.reorder.before', { name: before.name });
+		const last = documents[documents.length - 1];
+		return last ? t('doc.docs.reorder.after', { name: last.name }) : null;
+	});
+
+	function endDocDrag() {
+		draggingDocId = null;
+		insertAt = null;
+	}
+
+	function docDragOver(e: DragEvent, i: number) {
+		if (!canReorder || !draggingDocId) return;
+		if (!e.dataTransfer?.types.includes(DOCUMENT_MIME)) return;
+		// The pane below treats a drag as an upload; a row reorder is not that.
+		e.preventDefault();
+		e.stopPropagation();
+		e.dataTransfer.dropEffect = 'move';
+
+		const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+		const at = e.clientY - rect.top < rect.height / 2 ? i : i + 1;
+		const from = documents.findIndex((d) => d.id === draggingDocId);
+		// Both gaps touching the dragged row put it back where it started.
+		insertAt = at === from || at === from + 1 ? null : at;
+	}
+
+	// The gap was already resolved by the dragover that necessarily preceded this.
+	function docDrop(e: DragEvent) {
+		if (!canReorder || !draggingDocId) return;
+		if (!e.dataTransfer?.types.includes(DOCUMENT_MIME)) return;
+		e.preventDefault();
+		e.stopPropagation();
+
+		const at = insertAt;
+		const id = draggingDocId;
+		endDocDrag();
+		if (at === null) return;
+		enqueueMove(() => reorderDoc(id, at));
+	}
+
+	function docKeydown(e: KeyboardEvent, i: number) {
+		if (!e.altKey || e.ctrlKey || e.metaKey) return;
+		if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+		if (!canReorder) return;
+		const dir = e.key === 'ArrowUp' ? -1 : 1;
+		const j = i + dir;
+		if (j < 0 || j >= documents.length) return;
+		e.preventDefault();
+		const doc = documents[i];
+		// Swap with the neighbour: land in its slot going up, just past it going down.
+		enqueueMove(() => reorderDoc(doc.id, dir === -1 ? j : j + 1));
+	}
+
+	async function reorderDoc(documentId: string, position: number) {
+		const body = new FormData();
+		body.set('documentId', documentId);
+		body.set('folderId', folderId);
+		body.set('position', String(position));
+
+		reorderingId = documentId;
+		const res = await fetch(`${page.url.pathname}?/moveDocument`, {
+			method: 'POST',
+			body,
+			headers: { 'x-sveltekit-action': 'true' }
+		});
+		const result: ActionResult = deserialize(await res.text());
+		reorderingId = null;
+
+		if (result.type === 'success') {
+			await invalidateAll();
+			showToast(t('doc.docs.reordered'), 'success');
+		} else if (result.type === 'failure') {
+			showToast((result.data?.message as string) ?? t('err.generic'), 'error');
+		} else {
+			await applyAction(result);
+		}
 	}
 
 	// --- move dialog (keyboard + touch path; drag is the shortcut) ---
@@ -277,8 +379,10 @@
 				<select
 					bind:value={sortBy}
 					aria-label={t('doc.docs.sort.label')}
+					title={canEditDoc && sortBy !== 'manual' ? t('doc.docs.reorder.locked') : undefined}
 					class="select select-sm w-auto"
 				>
+					<option value="manual">{t('doc.docs.sort.manual')}</option>
 					<option value="name">{t('doc.docs.sort.name')}</option>
 					<option value="updated">{t('doc.docs.sort.updated')}</option>
 					<option value="size">{t('doc.docs.sort.size')}</option>
@@ -375,14 +479,23 @@
 		</div>
 	{:else}
 		<ul class="divide-y divide-base-content/6">
-			{#each documents as doc (doc.id)}
+			{#each documents as doc, i (doc.id)}
 				<li
 					draggable={canEditDoc}
 					ondragstart={(e) => docDragStart(e, doc)}
-					ondragend={() => (draggingDocId = null)}
-					class="group flex items-center gap-2.5 px-4 py-2.5 transition-colors hover:bg-base-content/[0.045]
-						{draggingDocId === doc.id ? 'opacity-40' : ''}"
+					ondragend={endDocDrag}
+					ondragover={(e) => docDragOver(e, i)}
+					ondrop={docDrop}
+					class="group relative flex items-center gap-2.5 px-4 py-2.5 transition-colors hover:bg-base-content/[0.045]
+						{draggingDocId === doc.id ? 'opacity-40' : ''}
+						{reorderingId === doc.id ? 'opacity-60' : ''}"
 				>
+					{#if insertAt === i}
+						<span class="riksa-dropline pointer-events-none absolute inset-x-4 -top-px"></span>
+					{/if}
+					{#if insertAt === documents.length && i === documents.length - 1}
+						<span class="riksa-dropline pointer-events-none absolute inset-x-4 -bottom-px"></span>
+					{/if}
 					{@render fileIcon(kindOf(doc.mime))}
 
 					<!-- Opens the secure viewer. The folder is in the path so the reader's
@@ -397,6 +510,8 @@
 						draggable="false"
 						title={doc.name}
 						aria-label={t('doc.docs.viewOf', { name: doc.name })}
+						aria-keyshortcuts={canReorder ? 'Alt+ArrowUp Alt+ArrowDown' : undefined}
+						onkeydown={(e) => docKeydown(e, i)}
 						class="min-w-0 flex-1 truncate rounded-field text-sm no-underline transition-colors hover:text-primary"
 					>
 						{doc.name}
@@ -601,7 +716,28 @@
 	</form>
 </dialog>
 
+<div aria-live="polite" class="sr-only">
+	{#if insertLabel}{insertLabel}{/if}
+</div>
+
 <style>
+	/* Matches the tree's insertion caret: a 2px rule with a knob at its left end. */
+	.riksa-dropline {
+		height: 2px;
+		border-radius: 1px;
+		background: var(--color-primary);
+	}
+	.riksa-dropline::before {
+		content: '';
+		position: absolute;
+		left: 0;
+		top: 50%;
+		height: 6px;
+		width: 6px;
+		margin-top: -3px;
+		border-radius: 9999px;
+		background: var(--color-primary);
+	}
 	.riksa-skeleton {
 		background-color: color-mix(in oklch, var(--color-base-content) 8%, transparent);
 		animation: riksa-pulse 1400ms ease-in-out infinite;
