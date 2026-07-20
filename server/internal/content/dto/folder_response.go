@@ -32,3 +32,13 @@ type FolderAccessResponse struct {
 	CanWatermark        bool   `json:"can_watermark"`
 	CanDownloadOriginal bool   `json:"can_download_original"`
 }
+
+type BulkFolderResult struct {
+	Path    string `json:"path"`
+	ID      string `json:"id"`
+	Created bool   `json:"created"`
+}
+
+type BulkCreateFolderResponse struct {
+	Folders []BulkFolderResult `json:"folders"`
+}

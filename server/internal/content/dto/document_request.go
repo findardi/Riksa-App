@@ -19,6 +19,7 @@ type MoveDocumentRequest struct {
 	WorkspaceID string `json:"-"`
 	DocumentID  string `json:"-"`
 	FolderID    string `json:"folder_id" validate:"required,uuid"`
+	Position    *int   `json:"position"`
 }
 
 type ViewPageRequest struct {

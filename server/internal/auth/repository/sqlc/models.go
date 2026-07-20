@@ -17,6 +17,7 @@ type Document struct {
 	UploadedBy       pgtype.UUID        `json:"uploaded_by"`
 	CreatedAt        pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+	Position         int32              `json:"position"`
 }
 
 type DocumentVersion struct {

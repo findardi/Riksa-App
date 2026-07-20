@@ -78,10 +78,16 @@ func (s *ContentService) CompletedUpload(ctx context.Context, req dto.CompleteUp
 	var ver contentdb.DocumentVersion
 
 	err = s.repo.ExecTx(ctx, func(q *contentdb.Queries) error {
+		maxPos, err := q.GetMaxPosition(ctx, fID)
+		if err != nil {
+			return err
+		}
+
 		doc, err = q.CreateDocument(ctx, contentdb.CreateDocumentParams{
 			WorkspaceID: wID,
 			FolderID:    fID,
 			Name:        req.Name,
+			Position:    maxPos + 1,
 			UploadedBy:  uID,
 		})
 
@@ -191,7 +197,7 @@ func (s *ContentService) CompletedVersion(ctx context.Context, req dto.CompleteV
 			return err
 		}
 
-		ver, err = s.repo.CreateDocumentVersion(ctx, contentdb.CreateDocumentVersionParams{
+		ver, err = q.CreateDocumentVersion(ctx, contentdb.CreateDocumentVersionParams{
 			DocumentID: dID,
 			VersionNo:  next,
 			Mime:       mime,
@@ -401,30 +407,69 @@ func (s *ContentService) MoveDocument(ctx context.Context, req dto.MoveDocumentR
 		return fmt.Errorf("folder id parse: %w", err)
 	}
 
-	doc, err := s.repo.GetDocumentByID(ctx, dID)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return ErrDocumentNotFound
-	}
-	if err != nil {
-		return fmt.Errorf("get document: %w", err)
-	}
-	if uuidString(doc.WorkspaceID) != req.WorkspaceID {
-		return ErrDocumentNotFound
-	}
+	return s.repo.ExecTx(ctx, func(q *contentdb.Queries) error {
+		doc, err := q.GetDocumentByID(ctx, dID)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrDocumentNotFound
+		}
+		if err != nil {
+			return fmt.Errorf("get document: %w", err)
+		}
+		if uuidString(doc.WorkspaceID) != req.WorkspaceID {
+			return ErrDocumentNotFound
+		}
 
-	folder, err := s.repo.GetFolderByID(ctx, fID)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return ErrFolderNotFound
-	}
-	if err != nil {
-		return fmt.Errorf("get target folder: %w", err)
-	}
-	if uuidString(folder.WorkspaceID) != req.WorkspaceID {
-		return ErrParentCrossWorkspace
-	}
+		if err := q.LockWorkspaceStructure(ctx, doc.WorkspaceID); err != nil {
+			return fmt.Errorf("lock workspace structure: %w", err)
+		}
 
-	return s.repo.MoveDocument(ctx, contentdb.MoveDocumentParams{
-		ID:       dID,
-		FolderID: fID,
+		folder, err := q.GetFolderByID(ctx, fID)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrFolderNotFound
+		}
+		if err != nil {
+			return fmt.Errorf("get target folder: %w", err)
+		}
+		if uuidString(folder.WorkspaceID) != req.WorkspaceID {
+			return ErrParentCrossWorkspace
+		}
+
+		oldFolder := doc.FolderID
+
+		maxPos, err := q.GetMaxPosition(ctx, fID)
+		if err != nil {
+			return fmt.Errorf("check max position: %w", err)
+		}
+
+		pos := maxPos + 1
+		if req.Position != nil {
+			pos = clampPosition(int32(*req.Position), maxPos+1)
+		}
+
+		if err := q.MoveDocument(ctx, contentdb.MoveDocumentParams{
+			ID:       dID,
+			FolderID: fID,
+			Position: pos,
+		}); err != nil {
+			return fmt.Errorf("move document: %w", err)
+		}
+
+		if err := q.ReindexDocumentSiblings(ctx, contentdb.ReindexDocumentSiblingsParams{
+			FolderID: fID,
+			MovedID:  dID,
+		}); err != nil {
+			return fmt.Errorf("reindex target siblings: %w", err)
+		}
+
+		if oldFolder != fID {
+			if err := q.ReindexDocumentSiblings(ctx, contentdb.ReindexDocumentSiblingsParams{
+				FolderID: oldFolder,
+				MovedID:  dID,
+			}); err != nil {
+				return fmt.Errorf("reindex source siblings: %w", err)
+			}
+		}
+
+		return nil
 	})
 }
