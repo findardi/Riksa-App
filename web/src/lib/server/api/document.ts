@@ -1,9 +1,16 @@
 import type { ApiResult } from '$lib/types';
 import type {
+	AbortMultipartPayload,
+	CompleteMultipartPayload,
 	CompleteUploadPayload,
 	DocumentData,
 	DownloadUrlData,
+	InitMultipartData,
+	InitMultipartPayload,
 	MoveDocumentPayload,
+	MultipartPartsData,
+	MultipartPartUrlsData,
+	MultipartPartUrlsPayload,
 	UploadUrlData,
 	ViewMetaData
 } from '$lib/types/content';
@@ -69,6 +76,60 @@ export function fetchViewPage(
 	return fetch(`${API_URL}${documentsBase(workspaceId)}/${documentId}/pages/${page}`, {
 		headers: { authorization: `Bearer ${token}` }
 	});
+}
+
+const multipartBase = (workspaceId: string, folderId: string) =>
+	`${foldersBase(workspaceId)}/${folderId}/documents/multipart`;
+
+export function initMultipart(
+	token: string,
+	workspaceId: string,
+	folderId: string,
+	p: InitMultipartPayload
+): Promise<ApiResult<InitMultipartData>> {
+	return post<InitMultipartData>(`${multipartBase(workspaceId, folderId)}/init`, p, token);
+}
+
+// Upstream caps a batch at 100 part numbers and the presigned URLs expire in
+// 15 minutes, so callers request them in waves rather than all up front.
+export function multipartPartUrls(
+	token: string,
+	workspaceId: string,
+	folderId: string,
+	p: MultipartPartUrlsPayload
+): Promise<ApiResult<MultipartPartUrlsData>> {
+	return post<MultipartPartUrlsData>(`${multipartBase(workspaceId, folderId)}/part-urls`, p, token);
+}
+
+// The resume read: which parts object storage already holds. Query string here,
+// unlike abort, which takes the same pair as a JSON body.
+export function multipartParts(
+	token: string,
+	workspaceId: string,
+	folderId: string,
+	uploadId: string,
+	storageKey: string
+): Promise<ApiResult<MultipartPartsData>> {
+	const q = new URLSearchParams({ upload_id: uploadId, storage_key: storageKey });
+	return get<MultipartPartsData>(`${multipartBase(workspaceId, folderId)}/parts?${q}`, token);
+}
+
+export function completeMultipart(
+	token: string,
+	workspaceId: string,
+	folderId: string,
+	p: CompleteMultipartPayload
+): Promise<ApiResult<DocumentData>> {
+	return post<DocumentData>(`${multipartBase(workspaceId, folderId)}/complete`, p, token);
+}
+
+export function abortMultipart(
+	token: string,
+	workspaceId: string,
+	folderId: string,
+	p: AbortMultipartPayload
+): Promise<ApiResult<null>> {
+	return del<null>(multipartBase(workspaceId, folderId), token, p);
 }
 
 export function moveDocument(

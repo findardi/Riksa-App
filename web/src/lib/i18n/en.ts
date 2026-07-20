@@ -284,8 +284,6 @@ export const en: Record<keyof Dict, string> = {
 	'doc.pick.bodyEmpty': 'Create a folder first, then upload documents into it.',
 	'doc.pick.openDefault': 'Open {name}',
 
-	'doc.dropAnywhere.body': 'Drop to upload into {name}',
-
 	'doc.upload.title': 'Uploads',
 	'doc.upload.uploading': 'Uploading {n} files…',
 	'doc.upload.failed': '{n} files failed',
@@ -295,8 +293,26 @@ export const en: Record<keyof Dict, string> = {
 	'doc.upload.remove': 'Remove {name} from the list',
 	'doc.upload.progressOf': 'Upload progress for {name}',
 	'doc.upload.status.canceled': 'Canceled',
+	'doc.upload.status.stalled': 'Paused — choose the file again to resume',
+	'doc.upload.stalledCount': '{n} uploads waiting to resume',
+	'doc.upload.repick': 'Choose file',
+	'doc.upload.repickOf': 'Choose {name} again to resume its upload',
+	'doc.upload.resumed': 'Resuming — parts already uploaded will be skipped.',
 	'doc.upload.err.storage': 'Storage rejected this file.',
+	'doc.upload.err.mismatch':
+		'That is a different file. Pick the one you started with — same name and size.',
+	'doc.upload.err.incomplete': 'Some parts are missing. Retry to send the rest.',
 	'doc.upload.noDefault': 'This room has no default folder yet. Choose a destination first.',
+	'doc.drop.atRoot': 'Drop here — folders become top-level, loose files go to {name}',
+	'doc.drop.intoFolder': 'Drop to add to {name}',
+	'doc.drop.folders': 'Choose folder',
+	'doc.drop.reading': 'Reading folder…',
+	'doc.drop.created': '{n} folders created.',
+	'doc.drop.err.tooMany':
+		'That folder holds {n} subfolders. The limit is {max} in one drop — try dropping its parts separately.',
+	'doc.drop.err.tooDeep': 'That folder is nested deeper than {max} levels.',
+	'doc.drop.err.noCreate': 'You can upload files here, but not create folders.',
+	'doc.drop.err.read': 'Could not read that folder.',
 
 	'doc.docs.countOne': '{n} document',
 	'doc.docs.countMany': '{n} documents',

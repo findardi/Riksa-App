@@ -68,6 +68,88 @@ export interface CompleteUploadPayload {
 	storage_key: string;
 }
 
+// --- bulk folder tree ---
+// Server caps a request at 500 nodes total and 32 levels, reuses folders that
+// already exist (`created: false`), and does the whole thing in one transaction.
+
+export interface BulkFolderNode {
+	name: string;
+	children: BulkFolderNode[];
+}
+
+export interface BulkCreateFolderPayload {
+	parent_id: string;
+	folders: BulkFolderNode[];
+}
+
+export interface BulkFolderResult {
+	path: string;
+	id: string;
+	created: boolean;
+}
+
+export interface BulkCreateFolderData {
+	folders: BulkFolderResult[];
+}
+
+// --- multipart / resumable upload ---
+// `upload_id` + `storage_key` are the whole resume handle: the server keeps no
+// upload-session row, so losing this pair strands the upload in object storage.
+
+export interface InitMultipartPayload {
+	name: string;
+	size: number;
+}
+
+export interface InitMultipartData {
+	upload_id: string;
+	storage_key: string;
+	part_size: number;
+	part_count: number;
+}
+
+export interface MultipartPartUrlsPayload {
+	upload_id: string;
+	storage_key: string;
+	part_numbers: number[];
+}
+
+export interface MultipartPartUrl {
+	part_number: number;
+	url: string;
+}
+
+export interface MultipartPartUrlsData {
+	urls: MultipartPartUrl[];
+}
+
+export interface UploadedPart {
+	part_number: number;
+	etag: string;
+	size: number;
+}
+
+export interface MultipartPartsData {
+	parts: UploadedPart[];
+}
+
+export interface CompletedPart {
+	part_number: number;
+	etag: string;
+}
+
+export interface CompleteMultipartPayload {
+	upload_id: string;
+	name: string;
+	storage_key: string;
+	parts: CompletedPart[];
+}
+
+export interface AbortMultipartPayload {
+	upload_id: string;
+	storage_key: string;
+}
+
 export interface MoveDocumentPayload {
 	folder_id: string;
 	position?: number;
