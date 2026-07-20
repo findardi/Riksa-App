@@ -642,3 +642,172 @@ func (h *ContentHandler) BulkCreateFolders(w http.ResponseWriter, r *http.Reques
 
 	response.Success(w, http.StatusCreated, "bulk create folders success", res)
 }
+
+func (h *ContentHandler) InitMultipart(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, MaxBodyBytes)
+
+	var req dto.InitMultipartRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid body request", nil)
+		return
+	}
+
+	if errs := validation.Validate(&req); errs != nil {
+		response.Error(w, http.StatusBadRequest, "validation failed", errs)
+		return
+	}
+
+	req.WorkspaceID = chi.URLParam(r, "workspaceID")
+	req.FolderID = chi.URLParam(r, "folderID")
+
+	res, err := h.svc.InitMultipart(r.Context(), req)
+	if err != nil {
+		switch {
+		case errors.Is(err, service.ErrFolderNotFound):
+			response.Error(w, http.StatusNotFound, err.Error(), nil)
+		case errors.Is(err, service.ErrUploadTooLarge):
+			response.Error(w, http.StatusRequestEntityTooLarge, err.Error(), nil)
+		default:
+			log.Printf("init multipart internal error: %v", err)
+			response.Error(w, http.StatusInternalServerError, "internal server error", nil)
+		}
+		return
+	}
+
+	response.Success(w, http.StatusOK, "init multipart success", res)
+}
+
+func (h *ContentHandler) MultipartPartURLs(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, MaxBodyBytes)
+
+	var req dto.MultipartPartURLsRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid body request", nil)
+		return
+	}
+
+	if errs := validation.Validate(&req); errs != nil {
+		response.Error(w, http.StatusBadRequest, "validation failed", errs)
+		return
+	}
+
+	req.WorkspaceID = chi.URLParam(r, "workspaceID")
+	req.FolderID = chi.URLParam(r, "folderID")
+
+	res, err := h.svc.MultipartPartURLs(r.Context(), req)
+	if err != nil {
+		switch {
+		case errors.Is(err, service.ErrInvalidStorageKey),
+			errors.Is(err, service.ErrInvalidPartNumber),
+			errors.Is(err, service.ErrTooManyParts):
+			response.Error(w, http.StatusBadRequest, err.Error(), nil)
+		default:
+			log.Printf("multipart part urls internal error: %v", err)
+			response.Error(w, http.StatusInternalServerError, "internal server error", nil)
+		}
+		return
+	}
+
+	response.Success(w, http.StatusOK, "get part urls success", res)
+}
+
+func (h *ContentHandler) MultipartParts(w http.ResponseWriter, r *http.Request) {
+	req := dto.AbortMultipartRequest{
+		WorkspaceID: chi.URLParam(r, "workspaceID"),
+		FolderID:    chi.URLParam(r, "folderID"),
+		UploadID:    r.URL.Query().Get("upload_id"),
+		StorageKey:  r.URL.Query().Get("storage_key"),
+	}
+
+	if req.UploadID == "" || req.StorageKey == "" {
+		response.Error(w, http.StatusBadRequest, "upload_id and storage_key are required", nil)
+		return
+	}
+
+	res, err := h.svc.MultipartParts(r.Context(), req)
+	if err != nil {
+		switch {
+		case errors.Is(err, service.ErrInvalidStorageKey):
+			response.Error(w, http.StatusBadRequest, err.Error(), nil)
+		default:
+			log.Printf("multipart parts internal error: %v", err)
+			response.Error(w, http.StatusInternalServerError, "internal server error", nil)
+		}
+		return
+	}
+
+	response.Success(w, http.StatusOK, "get uploaded parts success", res)
+}
+
+func (h *ContentHandler) CompleteMultipart(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, MaxBodyBytes)
+
+	claims, ok := middleware.ClaimsFromContext(r.Context())
+	if !ok {
+		response.Error(w, http.StatusUnauthorized, "unauthorized", nil)
+		return
+	}
+
+	var req dto.CompleteMultipartRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid body request", nil)
+		return
+	}
+
+	if errs := validation.Validate(&req); errs != nil {
+		response.Error(w, http.StatusBadRequest, "validation failed", errs)
+		return
+	}
+
+	req.WorkspaceID = chi.URLParam(r, "workspaceID")
+	req.FolderID = chi.URLParam(r, "folderID")
+	req.UploadedBy = claims.ID
+
+	res, err := h.svc.CompleteMultipart(r.Context(), req)
+	if err != nil {
+		switch {
+		case errors.Is(err, service.ErrFolderNotFound):
+			response.Error(w, http.StatusNotFound, err.Error(), nil)
+		case errors.Is(err, service.ErrInvalidStorageKey),
+			errors.Is(err, service.ErrUploadNotFound):
+			response.Error(w, http.StatusBadRequest, err.Error(), nil)
+		default:
+			log.Printf("complete multipart internal error: %v", err)
+			response.Error(w, http.StatusInternalServerError, "internal server error", nil)
+		}
+		return
+	}
+
+	response.Success(w, http.StatusCreated, "upload document success", res)
+}
+
+func (h *ContentHandler) AbortMultipart(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, MaxBodyBytes)
+
+	var req dto.AbortMultipartRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid body request", nil)
+		return
+	}
+
+	if errs := validation.Validate(&req); errs != nil {
+		response.Error(w, http.StatusBadRequest, "validation failed", errs)
+		return
+	}
+
+	req.WorkspaceID = chi.URLParam(r, "workspaceID")
+	req.FolderID = chi.URLParam(r, "folderID")
+
+	if err := h.svc.AbortMultipart(r.Context(), req); err != nil {
+		switch {
+		case errors.Is(err, service.ErrInvalidStorageKey):
+			response.Error(w, http.StatusBadRequest, err.Error(), nil)
+		default:
+			log.Printf("abort multipart internal error: %v", err)
+			response.Error(w, http.StatusInternalServerError, "internal server error", nil)
+		}
+		return
+	}
+
+	response.Success(w, http.StatusOK, "abort multipart success", nil)
+}

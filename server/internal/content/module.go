@@ -109,6 +109,11 @@ func (m *Module) RegisterRoutes(r chi.Router) {
 				r.With(m.mw.RequirePermission(permission.PermDocumentView)).Get("/{folderID}/documents", m.handler.ListDocuments)
 				r.With(m.mw.RequirePermission(permission.PermDocumentUpload)).Post("/{folderID}/documents/upload-url", m.handler.RequestUploadURL)
 				r.With(m.mw.RequirePermission(permission.PermDocumentUpload)).Post("/{folderID}/documents", m.handler.CompletedUpload)
+				r.With(m.mw.RequirePermission(permission.PermDocumentUpload)).Post("/{folderID}/documents/multipart/init", m.handler.InitMultipart)
+				r.With(m.mw.RequirePermission(permission.PermDocumentUpload)).Post("/{folderID}/documents/multipart/part-urls", m.handler.MultipartPartURLs)
+				r.With(m.mw.RequirePermission(permission.PermDocumentUpload)).Get("/{folderID}/documents/multipart/parts", m.handler.MultipartParts)
+				r.With(m.mw.RequirePermission(permission.PermDocumentUpload)).Post("/{folderID}/documents/multipart/complete", m.handler.CompleteMultipart)
+				r.With(m.mw.RequirePermission(permission.PermDocumentUpload)).Delete("/{folderID}/documents/multipart", m.handler.AbortMultipart)
 			})
 
 			r.Route("/documents/{documentID}", func(r chi.Router) {
