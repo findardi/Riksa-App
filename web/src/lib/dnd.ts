@@ -20,3 +20,18 @@ export function filesFrom(dt: DataTransfer | null): File[] {
 	}
 	return Array.from(dt.files);
 }
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export const isUuid = (v: string) => UUID_RE.test(v);
+
+// A reorder sends `position` through a form field, so it arrives as a string.
+// `null` means "no position given" — the server then appends. Anything that is
+// not a non-negative integer is treated as absent rather than sent as garbage.
+export function parsePosition(raw: FormDataEntryValue | null): number | null {
+	if (raw === null) return null;
+	const s = raw.toString().trim();
+	if (!s) return null;
+	const n = Number(s);
+	return Number.isInteger(n) && n >= 0 ? n : null;
+}

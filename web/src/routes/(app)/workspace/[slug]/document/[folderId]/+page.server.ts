@@ -1,5 +1,6 @@
 import { error, fail, redirect } from '@sveltejs/kit';
 import { deleteDocument, listDocuments, moveDocument, resolveWorkspaceId } from '$lib/server/api';
+import { isUuid, parsePosition } from '$lib/dnd';
 import { t } from '$lib/i18n';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -27,11 +28,19 @@ export const actions: Actions = {
 		const documentId = (form.get('documentId') ?? '').toString();
 		const folderId = (form.get('folderId') ?? '').toString();
 		if (!documentId || !folderId) return fail(400, { message: t('err.generic') });
+		// A non-UUID document id in the path turns into a 500 upstream; reject here.
+		if (!isUuid(documentId) || !isUuid(folderId))
+			return fail(400, { message: t('doc.docs.err.invalidMove') });
+
+		const position = parsePosition(form.get('position'));
 
 		const wsId = await resolveWorkspaceId(locals.session, params.slug);
 		if (!wsId) return fail(404, { message: t('ws.detail.notFound') });
 
-		const res = await moveDocument(locals.session, wsId, documentId, { folder_id: folderId });
+		const res = await moveDocument(locals.session, wsId, documentId, {
+			folder_id: folderId,
+			...(position === null ? {} : { position })
+		});
 		if (!res.ok) {
 			if (res.status === 401) redirect(303, '/login');
 			if (res.status === 404) return fail(404, { message: t('doc.docs.err.notFound') });

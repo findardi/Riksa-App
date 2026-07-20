@@ -237,7 +237,7 @@ with ordered as (
 update folders t 
 set position = o.rn 
 from ordered o 
-where t.id = o.id and t.position <> o.rn
+where t.id = o.folder_id and t.position <> o.rn
 `
 
 type ReindexFolderSiblingsParams struct {

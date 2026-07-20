@@ -3,8 +3,11 @@ export interface CreateFolderPayload {
 	parent_id: string;
 }
 
+// `position` is "insert before whatever currently sits at index N"; omitting it
+// appends. The server clamps out-of-range values instead of erroring.
 export interface MoveFolderPayload {
 	parent_id: string;
+	position?: number;
 }
 
 export interface RenameFolderPayload {
@@ -67,6 +70,7 @@ export interface CompleteUploadPayload {
 
 export interface MoveDocumentPayload {
 	folder_id: string;
+	position?: number;
 }
 
 export interface FolderAccessData {
