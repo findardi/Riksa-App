@@ -23,6 +23,9 @@ const (
 	downloadURLTTL     = 5 * time.Minute
 	maxBulkFolderNodes = 500
 	maxBulkFolderDepth = 32
+	multipartPartSize  = 8 << 20
+	maxMultipartParts  = 1000
+	maxPartURLsPerCall = 100
 )
 
 var (
@@ -43,6 +46,10 @@ var (
 	ErrBulkTooManyFolders   = errors.New("too many folders in one request")
 	ErrBulkTooDeep          = errors.New("folder tree in request is too deep")
 	ErrFolderNameInvalid    = errors.New("folder name is invalid")
+	ErrInvalidStorageKey    = errors.New("storage key does not belong to this folder")
+	ErrUploadTooLarge       = errors.New("file is too large")
+	ErrInvalidPartNumber    = errors.New("invalid part number")
+	ErrTooManyParts         = errors.New("too many parts requested at once")
 )
 
 type ContentService struct {
@@ -131,6 +138,20 @@ func validateBulkNodes(nodes []dto.BulkFolderNode, depth int) (int, error) {
 	}
 
 	return total, nil
+}
+
+func validateStorageKey(key, workspaceID, folderID string) error {
+	prefix := fmt.Sprintf("%s/%s/", workspaceID, folderID)
+	if !strings.HasPrefix(key, prefix) {
+		return ErrInvalidStorageKey
+	}
+
+	rest := strings.TrimPrefix(key, prefix)
+	if rest == "" || strings.Contains(rest, "/") {
+		return ErrInvalidStorageKey
+	}
+
+	return nil
 }
 
 func (s *ContentService) CreateFolder(ctx context.Context, req dto.CreateFolderRequest) (dto.FolderResponse, error) {

@@ -4,9 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sort"
 
 	"github.com/findardi/Riksa-App/server/internal/content/dto"
 	contentdb "github.com/findardi/Riksa-App/server/internal/content/repository/sqlc"
+	"github.com/findardi/Riksa-App/server/internal/platform/storage"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 )
@@ -472,4 +474,146 @@ func (s *ContentService) MoveDocument(ctx context.Context, req dto.MoveDocumentR
 
 		return nil
 	})
+}
+
+func (s *ContentService) CompleteMultipart(ctx context.Context, req dto.CompleteMultipartRequest) (dto.DocumentResponse, error) {
+	if err := validateStorageKey(req.StorageKey, req.WorkspaceID, req.FolderID); err != nil {
+		return dto.DocumentResponse{}, err
+	}
+
+	parts := make([]storage.Part, 0, len(req.Parts))
+	for _, p := range req.Parts {
+		parts = append(parts, storage.Part{
+			PartNumber: p.PartNumber,
+			ETag:       p.ETag,
+		})
+	}
+
+	sort.Slice(parts, func(i, j int) bool {
+		return parts[i].PartNumber < parts[j].PartNumber
+	})
+
+	if err := s.store.CompleteMultiPart(ctx, req.StorageKey, req.UploadID, parts); err != nil {
+		_ = s.store.AbortMultipart(ctx, req.StorageKey, req.UploadID)
+		return dto.DocumentResponse{}, fmt.Errorf("complete multipart: %w", err)
+	}
+
+	return s.CompletedUpload(ctx, dto.CompleteUploadRequest{
+		WorkspaceID: req.WorkspaceID,
+		FolderID:    req.FolderID,
+		UploadedBy:  req.UploadedBy,
+		Name:        req.Name,
+		StorageKey:  req.StorageKey,
+	})
+}
+
+func (s *ContentService) assertFolderInWorkspace(ctx context.Context, workspaceID, folderID string) error {
+	var fID pgtype.UUID
+	if err := fID.Scan(folderID); err != nil {
+		return fmt.Errorf("folder id parse: %w", err)
+	}
+
+	folder, err := s.repo.GetFolderByID(ctx, fID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return ErrFolderNotFound
+	}
+
+	if err != nil {
+		return fmt.Errorf("get filder: %w", err)
+	}
+
+	if uuidString(folder.WorkspaceID) != workspaceID {
+		return ErrFolderNotFound
+	}
+
+	return nil
+}
+
+func (s *ContentService) InitMultipart(ctx context.Context, req dto.InitMultipartRequest) (dto.InitMultipartResponse, error) {
+	if err := s.assertFolderInWorkspace(ctx, req.WorkspaceID, req.FolderID); err != nil {
+		return dto.InitMultipartResponse{}, err
+	}
+
+	partCount := int((req.Size + multipartPartSize - 1) / multipartPartSize)
+	if partCount > maxMultipartParts {
+		return dto.InitMultipartResponse{}, ErrUploadTooLarge
+	}
+
+	key := storageKey(req.WorkspaceID, req.FolderID)
+	uploadID, err := s.store.InitMultipart(ctx, key)
+	if err != nil {
+		return dto.InitMultipartResponse{}, fmt.Errorf("init multipart: %w", err)
+	}
+
+	return dto.InitMultipartResponse{
+		UploadID:   uploadID,
+		StorageKey: key,
+		PartSize:   multipartPartSize,
+		PartCount:  partCount,
+	}, nil
+}
+
+func (s *ContentService) MultipartPartURLs(ctx context.Context, req dto.MultipartPartURLsRequest) (dto.MultipartPartURLsResponse, error) {
+	if err := validateStorageKey(req.StorageKey, req.WorkspaceID, req.FolderID); err != nil {
+		return dto.MultipartPartURLsResponse{}, err
+	}
+
+	if len(req.PartNumbers) > maxPartURLsPerCall {
+		return dto.MultipartPartURLsResponse{}, ErrTooManyParts
+	}
+
+	urls := make([]dto.MultipartPartURL, 0, len(req.PartNumbers))
+	for _, n := range req.PartNumbers {
+		if n < 1 || n > maxMultipartParts {
+			return dto.MultipartPartURLsResponse{}, ErrInvalidPartNumber
+		}
+
+		u, err := s.store.PresignPart(ctx, req.StorageKey, req.UploadID, n, uploadURLTTL)
+		if err != nil {
+			return dto.MultipartPartURLsResponse{}, fmt.Errorf("presign part %d: %w", n, err)
+		}
+
+		urls = append(urls, dto.MultipartPartURL{
+			PartNumber: n,
+			URL:        u,
+		})
+	}
+
+	return dto.MultipartPartURLsResponse{
+		URLs: urls,
+	}, nil
+}
+
+func (s *ContentService) MultipartParts(ctx context.Context, req dto.AbortMultipartRequest) (dto.MultipartPartsResponse, error) {
+	if err := validateStorageKey(req.StorageKey, req.WorkspaceID, req.FolderID); err != nil {
+		return dto.MultipartPartsResponse{}, err
+	}
+
+	parts, err := s.store.ListParts(ctx, req.StorageKey, req.UploadID)
+	if err != nil {
+		return dto.MultipartPartsResponse{}, fmt.Errorf("list parts: %w", err)
+	}
+
+	out := make([]dto.UploadedPart, 0, len(parts))
+	for _, p := range parts {
+		out = append(out, dto.UploadedPart{
+			PartNumber: p.PartNumber,
+			ETag:       p.ETag,
+			Size:       p.Size,
+		})
+	}
+
+	return dto.MultipartPartsResponse{Parts: out}, nil
+}
+
+func (s *ContentService) AbortMultipart(ctx context.Context, req dto.AbortMultipartRequest) error {
+	if err := validateStorageKey(req.StorageKey, req.WorkspaceID, req.FolderID); err != nil {
+		return err
+	}
+
+	if err := s.store.AbortMultipart(ctx, req.StorageKey, req.UploadID); err != nil {
+		return fmt.Errorf("abort multipart: %w", err)
+	}
+
+	return nil
 }
