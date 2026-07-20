@@ -6,13 +6,14 @@
 	import type { ActionResult, SubmitFunction } from '@sveltejs/kit';
 	import { normalizeRole } from '$lib/access/roles';
 	import { Alert, Button, showToast } from '$lib/components/common';
-	import { DOCUMENT_MIME, filesFrom } from '$lib/dnd';
+	import { DOCUMENT_MIME, filesFrom, treeFromInput } from '$lib/dnd';
 	import { formatBytes, formatDate, formatDateTime } from '$lib/format';
 	import { t } from '$lib/i18n';
 	import { findNode } from '$lib/tree';
 	import type { DocumentData, FolderTreeNode } from '$lib/types/content';
 	import type { MyAccessWorkspace } from '$lib/types/workspace';
 	import { uploadQueue } from '$lib/upload/queue.svelte';
+	import { uploadTree } from '$lib/upload/tree';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
@@ -47,6 +48,8 @@
 	const role = $derived(normalizeRole(access?.role ?? ''));
 	const canUpload = $derived(perms.includes('document:upload') && !forbidden);
 	const canDownload = $derived(perms.includes('document:download') && role !== 'guest');
+	// Picking a folder creates subfolders, so it needs more than upload rights.
+	const canCreate = $derived(perms.includes('folder:create') && !forbidden);
 
 	let downloadingId = $state<string | null>(null);
 
@@ -91,6 +94,7 @@
 	const shownFolder = $derived(switching ? findNode(folders, targetId) : folder);
 
 	let fileInput = $state<HTMLInputElement>();
+	let folderInput = $state<HTMLInputElement>();
 	let paneTargeted = $state(false);
 
 	function enqueue(files: File[]) {
@@ -122,6 +126,30 @@
 		const input = e.currentTarget as HTMLInputElement;
 		enqueue(Array.from(input.files ?? []));
 		input.value = '';
+	}
+
+	async function onPickFolder(e: Event) {
+		const input = e.currentTarget as HTMLInputElement;
+		const picked = Array.from(input.files ?? []);
+		input.value = '';
+		if (!canUpload || !folder || !picked.length) return;
+
+		try {
+			const tree = treeFromInput(picked);
+			const created = tree.folders.length;
+			// Picking from inside a folder: subfolders go under it, loose files in it.
+			await uploadTree(
+				workspace.id,
+				{ parentId: folder.id, loose: { id: folder.id, name: folder.name } },
+				tree
+			);
+			if (created) {
+				await invalidateAll();
+				showToast(t('doc.drop.created', { n: created }), 'success');
+			}
+		} catch (err) {
+			showToast(err instanceof Error ? err.message : t('doc.drop.err.read'), 'error');
+		}
 	}
 
 	// --- drag out (the tree in the layout owns the drop targets) ---
@@ -398,6 +426,34 @@
 					class="sr-only"
 					aria-label={t('doc.docs.upload')}
 				/>
+				<!-- The non-drag route to the same feature: `webkitdirectory` reports a
+				     folder as a flat list carrying webkitRelativePath. -->
+				{#if canCreate}
+					<input
+						bind:this={folderInput}
+						onchange={onPickFolder}
+						type="file"
+						multiple
+						{...{ webkitdirectory: true }}
+						class="sr-only"
+						aria-label={t('doc.drop.folders')}
+					/>
+					<Button variant="ghost" onclick={() => folderInput?.click()}>
+						<svg
+							class="h-4 w-4"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="1.8"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							aria-hidden="true"
+						>
+							<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+						</svg>
+						{t('doc.drop.folders')}
+					</Button>
+				{/if}
 				<Button onclick={() => fileInput?.click()}>
 					<svg
 						class="h-4 w-4"

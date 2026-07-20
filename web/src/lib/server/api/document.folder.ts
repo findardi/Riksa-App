@@ -1,5 +1,7 @@
 import type { ApiResult } from '$lib/types';
 import type {
+	BulkCreateFolderData,
+	BulkCreateFolderPayload,
 	CreateFolderPayload,
 	FolderData,
 	FolderTreeNode,
@@ -23,6 +25,14 @@ export function createFolder(
 	p: CreateFolderPayload
 ): Promise<ApiResult<FolderData>> {
 	return post<FolderData>(foldersBase(workspaceId), p, token);
+}
+
+export function bulkCreateFolders(
+	token: string,
+	workspaceId: string,
+	p: BulkCreateFolderPayload
+): Promise<ApiResult<BulkCreateFolderData>> {
+	return post<BulkCreateFolderData>(`${foldersBase(workspaceId)}/bulk`, p, token);
 }
 
 export function renameFolder(

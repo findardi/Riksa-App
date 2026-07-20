@@ -7,12 +7,20 @@
 	import type { ActionResult, SubmitFunction } from '@sveltejs/kit';
 	import { UploadQueue } from '$lib/components/app';
 	import { Alert, Button, Field, Toaster, showToast } from '$lib/components/common';
-	import { DOCUMENT_MIME, FOLDER_MIME, filesFrom } from '$lib/dnd';
+	import {
+		DOCUMENT_MIME,
+		FOLDER_MIME,
+		entriesFrom,
+		filesFrom,
+		hasDirectory,
+		readTree
+	} from '$lib/dnd';
 	import { t } from '$lib/i18n';
 	import { findNode } from '$lib/tree';
 	import type { FolderTreeNode } from '$lib/types/content';
 	import type { MyAccessWorkspace } from '$lib/types/workspace';
 	import { uploadQueue } from '$lib/upload/queue.svelte';
+	import { uploadTree, type TreeDestination } from '$lib/upload/tree';
 	import type { LayoutProps } from './$types';
 
 	let { data, children }: LayoutProps = $props();
@@ -223,11 +231,26 @@
 		return fallbackFolder?.name ?? null;
 	});
 
+	// What releasing right now would do. A dragover cannot see inside the payload
+	// — `types` only ever says "Files" — so at the root, where a folder and a file
+	// land in two different places, the hint has to name both outcomes rather than
+	// promise the wrong one.
+	const dropHint = $derived.by(() => {
+		const rootNow = dropTarget === ROOT || (dropTarget === null && !activeFolder);
+		if (rootNow) {
+			return defaultFolder
+				? t('doc.drop.atRoot', { name: defaultFolder.name })
+				: t('doc.upload.noDefault');
+		}
+		const name = dropTarget ? (findNode(folders, dropTarget)?.name ?? null) : dropLabel;
+		return name ? t('doc.drop.intoFolder', { name }) : t('doc.upload.noDefault');
+	});
+
 	// The announcement has to match the gesture: an upload, a reparent, and an
 	// insertion between two rows are three different outcomes on the same target.
 	const dropMessage = $derived.by(() => {
+		if (dragKind === 'files') return dropHint;
 		if (dropTarget === null || !dropLabel) return null;
-		if (dragKind === 'files') return t('doc.dropAnywhere.body', { name: dropLabel });
 		if (dropEdge === 'before') return t('doc.reorder.before', { name: dropLabel });
 		if (dropEdge === 'after') return t('doc.reorder.after', { name: dropLabel });
 		return t('doc.reorder.into', { name: dropLabel });
@@ -247,24 +270,63 @@
 		uploadQueue.enqueue(workspace.id, folderId, folderName, files);
 	}
 
-	function uploadToDefault(files: File[]) {
-		if (!files.length) return;
-		if (!defaultFolder) {
-			showToast(t('doc.upload.noDefault'), 'error');
+	// A dropped folder needs its structure created before any file has somewhere
+	// to go. `entriesFrom` has to run inside the drop handler — dataTransfer is
+	// emptied when the event ends — so the entries are captured first and walked
+	// afterwards.
+	function dropAt(e: DragEvent, dest: TreeDestination) {
+		if (!canUpload) return;
+		const entries = entriesFrom(e.dataTransfer);
+
+		if (!hasDirectory(entries)) {
+			// Plain files never land at the root — they follow the loose target.
+			if (!dest.loose) {
+				showToast(t('doc.upload.noDefault'), 'error');
+				return;
+			}
+			uploadTo(dest.loose.id, dest.loose.name, filesFrom(e.dataTransfer));
 			return;
 		}
-		uploadTo(defaultFolder.id, defaultFolder.name, files);
+		if (!canCreate) {
+			showToast(t('doc.drop.err.noCreate'), 'error');
+			return;
+		}
+		void ingestTree(entries, dest);
 	}
 
-	// A loose drop belongs to whatever folder the user is looking at; only the
-	// index itself (no folder open) falls back to the default folder.
-	function uploadToFallback(files: File[]) {
-		if (!files.length) return;
-		if (!fallbackFolder) {
-			showToast(t('doc.upload.noDefault'), 'error');
-			return;
+	// Dropping into a folder: that folder is both the parent for new subfolders
+	// and the home for loose files.
+	const intoFolder = (id: string, name: string): TreeDestination => ({
+		parentId: id,
+		loose: { id, name }
+	});
+
+	// Dropping at the root: folders stay at the root, loose files go to General.
+	const atRoot = (): TreeDestination => ({
+		parentId: ROOT,
+		loose: defaultFolder ? { id: defaultFolder.id, name: defaultFolder.name } : null
+	});
+
+	async function ingestTree(entries: FileSystemEntry[], dest: TreeDestination) {
+		try {
+			const tree = await readTree(entries);
+			const created = tree.folders.length;
+			await uploadTree(workspace.id, dest, tree);
+			if (created) {
+				// New folders only exist upstream until the tree is refetched.
+				await invalidateAll();
+				showToast(t('doc.drop.created', { n: created }), 'success');
+			}
+		} catch (err) {
+			showToast(err instanceof Error ? err.message : t('doc.drop.err.read'), 'error');
 		}
-		uploadTo(fallbackFolder.id, fallbackFolder.name, files);
+	}
+
+	// A loose drop belongs to whatever folder the user is looking at; the index
+	// itself (no folder open) behaves like a drop at the root.
+	function dropIntoFallback(e: DragEvent) {
+		if (activeFolder) dropAt(e, intoFolder(activeFolder.id, activeFolder.name));
+		else dropAt(e, atRoot());
 	}
 
 	function canMoveInto(targetId: string): boolean {
@@ -434,7 +496,7 @@
 		if (hasFiles(e)) {
 			if (!canUpload) return;
 			claim(e);
-			uploadTo(node.id, node.name, filesFrom(e.dataTransfer));
+			dropAt(e, intoFolder(node.id, node.name));
 			resetDrag();
 		} else if (hasFolder(e) && canEdit && draggingId) {
 			claim(e);
@@ -458,7 +520,9 @@
 	function railDragOver(e: DragEvent) {
 		dropEdge = 'into';
 		if (hasFiles(e)) {
-			if (!canUpload || !defaultFolder) return;
+			// `types` cannot tell a folder from a file during dragover, so the rail
+			// accepts the drag either way and dropAt sorts out where things land.
+			if (!canUpload) return;
 			e.preventDefault();
 			if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
 			dragKind = 'files';
@@ -484,9 +548,11 @@
 
 	function railDrop(e: DragEvent) {
 		if (hasFiles(e)) {
-			if (!canUpload || !defaultFolder) return;
+			// No `defaultFolder` check: a dropped folder belongs at the root and
+			// needs no default. Only loose files do, and dropAt reports that.
+			if (!canUpload) return;
 			e.preventDefault();
-			uploadToDefault(filesFrom(e.dataTransfer));
+			dropAt(e, atRoot());
 			resetDrag();
 		} else if (hasFolder(e) && draggingId && canEdit && parentOf[draggingId] !== ROOT) {
 			e.preventDefault();
@@ -562,7 +628,7 @@
 		const handled = e.defaultPrevented;
 		e.preventDefault();
 
-		if (!handled && hasFiles(e) && canUpload) uploadToFallback(filesFrom(e.dataTransfer));
+		if (!handled && hasFiles(e) && canUpload) dropIntoFallback(e);
 		resetDrag();
 	}
 
@@ -1229,13 +1295,7 @@
 		<div
 			class="max-w-full rounded-box border border-primary/40 bg-base-100/95 px-3.5 py-2 shadow-sm"
 		>
-			<p class="truncate text-xs">
-				{#if dropLabel}
-					{t('doc.dropAnywhere.body', { name: dropLabel })}
-				{:else}
-					{t('doc.upload.noDefault')}
-				{/if}
-			</p>
+			<p class="text-xs text-pretty">{dropHint}</p>
 		</div>
 	</div>
 {/if}

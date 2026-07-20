@@ -279,8 +279,6 @@ export const id = {
 	'doc.pick.bodyEmpty': 'Buat folder terlebih dahulu, lalu unggah dokumen ke dalamnya.',
 	'doc.pick.openDefault': 'Buka {name}',
 
-	'doc.dropAnywhere.body': 'Lepaskan untuk mengunggah ke {name}',
-
 	'doc.upload.title': 'Unggahan',
 	'doc.upload.uploading': 'Mengunggah {n} berkas…',
 	'doc.upload.failed': '{n} berkas gagal',
@@ -290,8 +288,26 @@ export const id = {
 	'doc.upload.remove': 'Hapus {name} dari daftar',
 	'doc.upload.progressOf': 'Kemajuan unggahan {name}',
 	'doc.upload.status.canceled': 'Dibatalkan',
+	'doc.upload.status.stalled': 'Tertunda — pilih berkasnya lagi untuk melanjutkan',
+	'doc.upload.stalledCount': '{n} unggahan menunggu dilanjutkan',
+	'doc.upload.repick': 'Pilih berkas',
+	'doc.upload.repickOf': 'Pilih {name} lagi untuk melanjutkan unggahannya',
+	'doc.upload.resumed': 'Melanjutkan — bagian yang sudah terkirim dilewati.',
 	'doc.upload.err.storage': 'Penyimpanan menolak berkas ini.',
+	'doc.upload.err.mismatch':
+		'Berkasnya berbeda. Pilih yang tadi Anda mulai — nama dan ukuran harus sama.',
+	'doc.upload.err.incomplete': 'Ada bagian yang belum terkirim. Coba lagi untuk mengirim sisanya.',
 	'doc.upload.noDefault': 'Ruang ini belum punya folder bawaan. Pilih folder tujuan dahulu.',
+	'doc.drop.atRoot': 'Lepaskan di sini — folder jadi folder utama, berkas lepas masuk ke {name}',
+	'doc.drop.intoFolder': 'Lepaskan untuk menambahkan ke {name}',
+	'doc.drop.folders': 'Pilih folder',
+	'doc.drop.reading': 'Membaca folder…',
+	'doc.drop.created': '{n} folder dibuat.',
+	'doc.drop.err.tooMany':
+		'Folder itu berisi {n} subfolder. Batasnya {max} dalam sekali drop — coba drop bagiannya satu per satu.',
+	'doc.drop.err.tooDeep': 'Folder itu bersarang lebih dari {max} tingkat.',
+	'doc.drop.err.noCreate': 'Anda bisa mengunggah berkas di sini, tetapi tidak bisa membuat folder.',
+	'doc.drop.err.read': 'Gagal membaca folder itu.',
 
 	'doc.docs.countOne': '{n} dokumen',
 	'doc.docs.countMany': '{n} dokumen',

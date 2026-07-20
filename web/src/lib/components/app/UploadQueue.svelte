@@ -8,7 +8,34 @@
 	const total = $derived(items.length);
 	const done = $derived(items.filter((i) => i.status === 'done').length);
 	const idle = $derived(busy === 0);
+
+	// One shared picker, retargeted per row: a stalled upload needs its File
+	// handed back before it can continue, and only a user gesture can supply it.
+	let repickInput = $state<HTMLInputElement>();
+	let repickId = $state<string | null>(null);
+
+	function askForFile(id: string) {
+		repickId = id;
+		repickInput?.click();
+	}
+
+	function onRepick(e: Event) {
+		const input = e.currentTarget as HTMLInputElement;
+		const file = input.files?.[0];
+		if (file && repickId) uploadQueue.attach(repickId, file);
+		input.value = '';
+		repickId = null;
+	}
 </script>
+
+<input
+	bind:this={repickInput}
+	onchange={onRepick}
+	type="file"
+	class="sr-only"
+	tabindex="-1"
+	aria-hidden="true"
+/>
 
 {#if total > 0}
 	<section
@@ -22,6 +49,8 @@
 						{t('doc.upload.uploading', { n: busy })}
 					{:else if uploadQueue.failed > 0}
 						{t('doc.upload.failed', { n: uploadQueue.failed })}
+					{:else if uploadQueue.stalled > 0}
+						{t('doc.upload.stalledCount', { n: uploadQueue.stalled })}
 					{:else}
 						{t('doc.upload.allDone', { n: done })}
 					{/if}
@@ -76,7 +105,9 @@
 										? (item.message ?? t('err.generic'))
 										: item.status === 'canceled'
 											? t('doc.upload.status.canceled')
-											: item.folderName}
+											: item.status === 'stalled'
+												? (item.message ?? t('doc.upload.status.stalled'))
+												: item.folderName}
 								</span>
 
 								{#if item.status === 'uploading' || item.status === 'pending'}
@@ -86,6 +117,15 @@
 										class="flex-none rounded-field px-1.5 py-0.5 text-xs text-muted transition-colors hover:bg-base-content/5 hover:text-base-content"
 									>
 										{t('doc.cancel')}
+									</button>
+								{:else if item.status === 'stalled'}
+									<button
+										type="button"
+										onclick={() => askForFile(item.id)}
+										aria-label={t('doc.upload.repickOf', { name: item.name })}
+										class="flex-none rounded-field px-1.5 py-0.5 text-xs font-medium text-primary transition-colors hover:bg-primary/8"
+									>
+										{t('doc.upload.repick')}
 									</button>
 								{:else if item.status === 'error'}
 									<button
@@ -136,6 +176,8 @@
 								<div class="mt-1.5 h-0.5 rounded-full bg-success/60"></div>
 							{:else if item.status === 'error'}
 								<div class="mt-1.5 h-0.5 rounded-full bg-error/60"></div>
+							{:else if item.status === 'stalled'}
+								<div class="mt-1.5 h-0.5 rounded-full bg-warning/60"></div>
 							{:else}
 								<div class="mt-1.5 h-0.5 rounded-full bg-base-content/10"></div>
 							{/if}
