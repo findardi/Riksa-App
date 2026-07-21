@@ -498,7 +498,7 @@ func (s *ContentService) CompleteMultipart(ctx context.Context, req dto.Complete
 		return parts[i].PartNumber < parts[j].PartNumber
 	})
 
-	if err := s.store.CompleteMultiPart(ctx, req.StorageKey, req.UploadID, req.ContentType, parts); err != nil {
+	if err := s.store.CompleteMultipart(ctx, req.StorageKey, req.UploadID, req.ContentType, parts); err != nil {
 		_ = s.store.AbortMultipart(ctx, req.StorageKey, req.UploadID)
 		return dto.DocumentResponse{}, fmt.Errorf("complete multipart: %w", err)
 	}

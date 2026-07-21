@@ -22,6 +22,6 @@ type Storage interface {
 	InitMultipart(ctx context.Context, key string) (string, error)
 	PresignPart(ctx context.Context, key, uploadID string, partNumber int, expiry time.Duration) (string, error)
 	ListParts(ctx context.Context, key, uploadID string) ([]Part, error)
-	CompleteMultiPart(ctx context.Context, key, uploadID, contentType string, parts []Part) error
+	CompleteMultipart(ctx context.Context, key, uploadID, contentType string, parts []Part) error
 	AbortMultipart(ctx context.Context, key, uploadID string) error
 }

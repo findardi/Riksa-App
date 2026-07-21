@@ -18,11 +18,10 @@ import (
 )
 
 const (
-	maxFolderDepth     = 256
+	maxFolderDepth     = 32
 	uploadURLTTL       = 15 * time.Minute
 	downloadURLTTL     = 5 * time.Minute
 	maxBulkFolderNodes = 500
-	maxBulkFolderDepth = 32
 	multipartPartSize  = 8 << 20
 	maxMultipartParts  = 1000
 	maxPartURLsPerCall = 100
@@ -119,7 +118,7 @@ func clampPosition(pos, max int32) int32 {
 }
 
 func validateBulkNodes(nodes []dto.BulkFolderNode, depth int) (int, error) {
-	if depth > maxBulkFolderDepth {
+	if depth > maxFolderDepth {
 		return 0, ErrBulkTooDeep
 	}
 
@@ -178,6 +177,22 @@ func (s *ContentService) CreateFolder(ctx context.Context, req dto.CreateFolderR
 
 		if uuidString(pFolder.WorkspaceID) != req.WorkspaceID {
 			return dto.FolderResponse{}, ErrParentCrossWorkspace
+		}
+
+		cursor := pFolder
+		for depth := 0; ; depth++ {
+			if !cursor.ParentID.Valid {
+				break
+			}
+
+			if depth >= maxFolderDepth {
+				return dto.FolderResponse{}, ErrFolderTreeTooDeep
+			}
+
+			cursor, err = s.repo.GetFolderByID(ctx, cursor.ParentID)
+			if err != nil {
+				return dto.FolderResponse{}, fmt.Errorf("walk ancestors: %w", err)
+			}
 		}
 	}
 
