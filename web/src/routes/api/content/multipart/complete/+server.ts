@@ -13,6 +13,7 @@ export const POST: RequestHandler = async ({ locals, request }) => {
 		uploadId?: string;
 		name?: string;
 		storageKey?: string;
+		contentType?: string;
 		parts?: CompletedPart[];
 	} | null;
 
@@ -31,6 +32,7 @@ export const POST: RequestHandler = async ({ locals, request }) => {
 		upload_id: body.uploadId,
 		name: body.name,
 		storage_key: body.storageKey,
+		content_type: body.contentType || 'application/octet-stream',
 		parts: body.parts
 	});
 	if (!res.ok) error(res.status || 500, res.message);

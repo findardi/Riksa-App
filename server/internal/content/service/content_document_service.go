@@ -13,7 +13,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-func (s *ContentService) RequestUploadURL(ctx context.Context, workspaceID, folderID string) (dto.UploadURLResponse, error) {
+func (s *ContentService) RequestUploadURL(ctx context.Context, workspaceID, folderID, reuseKey string) (dto.UploadURLResponse, error) {
 	var fID pgtype.UUID
 	if err := fID.Scan(folderID); err != nil {
 		return dto.UploadURLResponse{}, fmt.Errorf("folder id parse: %w", err)
@@ -32,7 +32,12 @@ func (s *ContentService) RequestUploadURL(ctx context.Context, workspaceID, fold
 		return dto.UploadURLResponse{}, ErrFolderNotFound
 	}
 
-	key := storageKey(workspaceID, folderID)
+	key := reuseKey
+	if key == "" {
+		key = storageKey(workspaceID, folderID)
+	} else if err := validateStorageKey(key, workspaceID, folderID); err != nil {
+		return dto.UploadURLResponse{}, err
+	}
 	url, err := s.store.PresignedPut(ctx, key, uploadURLTTL)
 	if err != nil {
 		return dto.UploadURLResponse{}, fmt.Errorf("presign put: %w", err)
@@ -493,7 +498,7 @@ func (s *ContentService) CompleteMultipart(ctx context.Context, req dto.Complete
 		return parts[i].PartNumber < parts[j].PartNumber
 	})
 
-	if err := s.store.CompleteMultiPart(ctx, req.StorageKey, req.UploadID, parts); err != nil {
+	if err := s.store.CompleteMultiPart(ctx, req.StorageKey, req.UploadID, req.ContentType, parts); err != nil {
 		_ = s.store.AbortMultipart(ctx, req.StorageKey, req.UploadID)
 		return dto.DocumentResponse{}, fmt.Errorf("complete multipart: %w", err)
 	}
@@ -532,6 +537,20 @@ func (s *ContentService) assertFolderInWorkspace(ctx context.Context, workspaceI
 func (s *ContentService) InitMultipart(ctx context.Context, req dto.InitMultipartRequest) (dto.InitMultipartResponse, error) {
 	if err := s.assertFolderInWorkspace(ctx, req.WorkspaceID, req.FolderID); err != nil {
 		return dto.InitMultipartResponse{}, err
+	}
+
+	var fID pgtype.UUID
+	if err := fID.Scan(req.FolderID); err != nil {
+		return dto.InitMultipartResponse{}, fmt.Errorf("folder id parse: %w", err)
+	}
+
+	if _, err := s.repo.GetDocumentByNameInFolder(ctx, contentdb.GetDocumentByNameInFolderParams{
+		FolderID: fID,
+		Name:     req.Name,
+	}); err == nil {
+		return dto.InitMultipartResponse{}, ErrDocumentNameTaken
+	} else if !errors.Is(err, pgx.ErrNoRows) {
+		return dto.InitMultipartResponse{}, fmt.Errorf("check document name: %w", err)
 	}
 
 	partCount := int((req.Size + multipartPartSize - 1) / multipartPartSize)
@@ -584,7 +603,7 @@ func (s *ContentService) MultipartPartURLs(ctx context.Context, req dto.Multipar
 	}, nil
 }
 
-func (s *ContentService) MultipartParts(ctx context.Context, req dto.AbortMultipartRequest) (dto.MultipartPartsResponse, error) {
+func (s *ContentService) MultipartParts(ctx context.Context, req dto.ListPartsRequest) (dto.MultipartPartsResponse, error) {
 	if err := validateStorageKey(req.StorageKey, req.WorkspaceID, req.FolderID); err != nil {
 		return dto.MultipartPartsResponse{}, err
 	}

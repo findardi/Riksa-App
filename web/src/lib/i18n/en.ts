@@ -298,7 +298,10 @@ export const en: Record<keyof Dict, string> = {
 	'doc.upload.repick': 'Choose file',
 	'doc.upload.repickOf': 'Choose {name} again to resume its upload',
 	'doc.upload.resumed': 'Resuming — parts already uploaded will be skipped.',
+	'doc.upload.completing': 'Completing upload…',
 	'doc.upload.err.storage': 'Storage rejected this file.',
+	'doc.upload.err.noStorage':
+		'This browser is blocking local storage, so uploads cannot be resumed after a reload.',
 	'doc.upload.err.mismatch':
 		'That is a different file. Pick the one you started with — same name and size.',
 	'doc.upload.err.incomplete': 'Some parts are missing. Retry to send the rest.',

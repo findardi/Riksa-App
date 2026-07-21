@@ -50,6 +50,7 @@ var (
 	ErrUploadTooLarge       = errors.New("file is too large")
 	ErrInvalidPartNumber    = errors.New("invalid part number")
 	ErrTooManyParts         = errors.New("too many parts requested at once")
+	ErrDocumentNameTaken    = errors.New("a document with this name already exists in the folder")
 )
 
 type ContentService struct {

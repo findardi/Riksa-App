@@ -19,6 +19,7 @@ type Querier interface {
 	DeleteFolder(ctx context.Context, id pgtype.UUID) error
 	GetCurrentVersion(ctx context.Context, id pgtype.UUID) (DocumentVersion, error)
 	GetDocumentByID(ctx context.Context, id pgtype.UUID) (Document, error)
+	GetDocumentByNameInFolder(ctx context.Context, arg GetDocumentByNameInFolderParams) (Document, error)
 	GetFolderByID(ctx context.Context, id pgtype.UUID) (Folder, error)
 	GetFolderByNameInParent(ctx context.Context, arg GetFolderByNameInParentParams) (Folder, error)
 	GetFoldersByWorkspace(ctx context.Context, workspaceID pgtype.UUID) ([]Folder, error)

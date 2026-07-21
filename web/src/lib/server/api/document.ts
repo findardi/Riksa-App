@@ -30,11 +30,12 @@ export function listDocuments(
 export function requestUploadUrl(
 	token: string,
 	workspaceId: string,
-	folderId: string
+	folderId: string,
+	storageKey?: string
 ): Promise<ApiResult<UploadUrlData>> {
 	return post<UploadUrlData>(
 		`${foldersBase(workspaceId)}/${folderId}/documents/upload-url`,
-		undefined,
+		storageKey ? { storage_key: storageKey } : undefined,
 		token
 	);
 }

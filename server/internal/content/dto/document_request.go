@@ -1,5 +1,11 @@
 package dto
 
+type UploadURLRequest struct {
+	WorkspaceID string `json:"-"`
+	FolderID    string `json:"-"`
+	StorageKey  string `json:"storage_key"`
+}
+
 type CompleteUploadRequest struct {
 	WorkspaceID string `json:"-"`
 	FolderID    string `json:"-"`
@@ -41,6 +47,7 @@ type CompleteMultipartRequest struct {
 	UploadID    string          `json:"upload_id" validate:"required"`
 	Name        string          `json:"name" validate:"required"`
 	StorageKey  string          `json:"storage_key" validate:"required"`
+	ContentType string          `json:"content_type"`
 	Parts       []MultipartPart `json:"parts" validate:"required,min=1,dive"`
 }
 
@@ -57,6 +64,13 @@ type MultipartPartURLsRequest struct {
 	UploadID    string `json:"upload_id" validate:"required"`
 	StorageKey  string `json:"storage_key" validate:"required"`
 	PartNumbers []int  `json:"part_numbers" validate:"required,min=1"`
+}
+
+type ListPartsRequest struct {
+	WorkspaceID string
+	FolderID    string
+	UploadID    string
+	StorageKey  string
 }
 
 type AbortMultipartRequest struct {

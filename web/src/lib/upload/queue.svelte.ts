@@ -33,6 +33,7 @@ export interface UploadItem {
 	folderId: string;
 	folderName: string;
 	resume: ResumeHandle | null;
+	storageKey: string | null;
 }
 
 // Files at or above this go through multipart. The threshold is the client's
@@ -45,10 +46,13 @@ const PART_CONCURRENCY = 3;
 // Upstream rejects a batch larger than this, and presigned URLs live 15 minutes,
 // so they are requested in waves rather than all at once.
 const URL_BATCH = 100;
-const STORE_KEY = 'riksa:uploads:v1';
+const STORE_KEY = 'wadi:uploads:v1';
 
 let items = $state<UploadItem[]>([]);
 let panelOpen = $state(true);
+// Set when the browser refuses to persist — the panel surfaces it so a lost
+// upload has a visible reason rather than looking like a bug.
+let storageBlocked = $state(false);
 
 // Plain Maps, not SvelteMap: their values are File and XMLHttpRequest handles.
 // A reactive proxy around either breaks `xhr.send(blob)`, and nothing renders
@@ -69,8 +73,15 @@ function find(id: string): UploadItem | undefined {
 
 function persist(): void {
 	if (!browser) return;
+
 	const keep = items
-		.filter((i) => i.resume && i.status !== 'done' && i.status !== 'canceled')
+		.filter(
+			(i) =>
+				i.status === 'pending' ||
+				i.status === 'uploading' ||
+				i.status === 'error' ||
+				i.status === 'stalled'
+		)
 		.map((i) => ({
 			id: i.id,
 			name: i.name,
@@ -78,13 +89,17 @@ function persist(): void {
 			workspaceId: i.workspaceId,
 			folderId: i.folderId,
 			folderName: i.folderName,
-			resume: i.resume
+			resume: i.resume,
+			storageKey: i.storageKey
 		}));
 	try {
 		if (keep.length) localStorage.setItem(STORE_KEY, JSON.stringify(keep));
 		else localStorage.removeItem(STORE_KEY);
+		storageBlocked = false;
 	} catch {
-		// A full or blocked localStorage costs resumability, not the upload.
+		// Private windows and hardened browser profiles can refuse writes. Losing
+		// resumability silently is worse than saying so.
+		storageBlocked = true;
 	}
 }
 
@@ -104,7 +119,7 @@ function restore(): void {
 			...s,
 			progress: 0,
 			status: 'stalled' as const,
-			message: null
+			message: s.resume || s.storageKey ? t('doc.upload.status.stalled') : null
 		}));
 	} catch {
 		try {
@@ -188,10 +203,21 @@ function put(id: string, url: string, body: Blob, onProgress?: (loaded: number) 
 // --- single-PUT path (small files) -------------------------------------
 
 async function runSimple(item: UploadItem, file: File): Promise<void> {
+	const body: { workspaceId: string; folderId: string; storageKey?: string } = {
+		workspaceId: item.workspaceId,
+		folderId: item.folderId
+	};
+	if (item.storageKey) body.storageKey = item.storageKey;
+
 	const { upload_url, storage_key } = await postJson<{ upload_url: string; storage_key: string }>(
 		'/api/content/upload-url',
-		{ workspaceId: item.workspaceId, folderId: item.folderId }
+		body
 	);
+
+	if (!item.storageKey) {
+		item.storageKey = storage_key;
+		persist();
+	}
 
 	await put(item.id, upload_url, file, (loaded) => {
 		item.progress = Math.round((loaded / file.size) * 100);
@@ -203,6 +229,8 @@ async function runSimple(item: UploadItem, file: File): Promise<void> {
 		name: item.name,
 		storageKey: storage_key
 	});
+
+	item.storageKey = null;
 }
 
 // --- multipart path ----------------------------------------------------
@@ -223,6 +251,23 @@ async function listParts(item: UploadItem, handle: ResumeHandle): Promise<Upload
 	return ((await res.json()) as MultipartPartsData).parts ?? [];
 }
 
+async function listPartsWithRetry(
+	item: UploadItem,
+	handle: ResumeHandle,
+	attempts = 3
+): Promise<UploadedPart[]> {
+	let lastErr: unknown;
+	for (let i = 0; i < attempts; i++) {
+		try {
+			return await listParts(item, handle);
+		} catch (e) {
+			lastErr = e;
+			if (i < attempts - 1) await new Promise((r) => setTimeout(r, 800 * (i + 1)));
+		}
+	}
+	throw lastErr;
+}
+
 async function runMultipart(item: UploadItem, file: File): Promise<void> {
 	let handle = item.resume;
 
@@ -230,7 +275,7 @@ async function runMultipart(item: UploadItem, file: File): Promise<void> {
 	let uploaded: UploadedPart[] = [];
 	if (handle) {
 		try {
-			uploaded = await listParts(item, handle);
+			uploaded = await listPartsWithRetry(item, handle);
 		} catch {
 			// The session is gone — expired, aborted, or reaped by the bucket's
 			// lifecycle rule. Starting over beats dead-ending on a stale handle.
@@ -320,8 +365,11 @@ async function runMultipart(item: UploadItem, file: File): Promise<void> {
 	// depending on how the object store is configured. It also double-checks
 	// completeness — a failed `complete` makes the server abort the whole upload,
 	// so it must not be attempted against a gap.
-	const final = await listParts(item, handle);
+	const final = await listPartsWithRetry(item, handle);
 	if (final.length < handle.partCount) throw new Error(t('doc.upload.err.incomplete'));
+
+	item.progress = 99;
+	item.message = t('doc.upload.completing');
 
 	await postJson('/api/content/multipart/complete', {
 		workspaceId: item.workspaceId,
@@ -329,6 +377,7 @@ async function runMultipart(item: UploadItem, file: File): Promise<void> {
 		uploadId: handle.uploadId,
 		name: item.name,
 		storageKey: handle.storageKey,
+		contentType: file.type || 'application/octet-stream',
 		parts: final.map((p) => ({ part_number: p.part_number, etag: p.etag }))
 	});
 
@@ -371,7 +420,7 @@ async function run(id: string): Promise<void> {
 	}
 
 	item.status = 'uploading';
-	item.progress = 0;
+	item.progress = item.resume || item.storageKey ? item.progress : 0;
 	item.message = null;
 
 	try {
@@ -391,6 +440,9 @@ async function run(id: string): Promise<void> {
 	} finally {
 		requests.delete(id);
 		running--;
+		// Status changed — a finished upload must stop being restorable, and a
+		// failed one must stay restorable.
+		persist();
 		pump();
 		settle();
 	}
@@ -408,7 +460,23 @@ function pump(): void {
 function settle(): void {
 	const busy = items.some((i) => i.status === 'pending' || i.status === 'uploading');
 	if (busy) return;
-	if (items.some((i) => i.status === 'done')) void invalidateAll();
+	if (items.some((i) => i.status === 'done')) {
+		void invalidateAll();
+		setTimeout(clearDone, 4000);
+	}
+}
+
+function clearDone(): void {
+	if (items.some((i) => i.status === 'pending' || i.status === 'uploading')) return;
+	for (const item of items) {
+		if (item.status !== 'pending' && item.status !== 'uploading' && item.status !== 'stalled') {
+			pendingFiles.delete(item.id);
+		}
+	}
+	items = items.filter(
+		(i) => i.status === 'pending' || i.status === 'uploading' || i.status === 'stalled'
+	);
+	persist();
 }
 
 function drop(id: string): void {
@@ -430,6 +498,9 @@ export const uploadQueue = {
 	},
 	get stalled(): number {
 		return items.filter((i) => i.status === 'stalled').length;
+	},
+	get storageBlocked(): boolean {
+		return storageBlocked;
 	},
 	get open(): boolean {
 		return panelOpen;
@@ -454,11 +525,14 @@ export const uploadQueue = {
 				workspaceId,
 				folderId,
 				folderName,
-				resume: null
+				resume: null,
+				storageKey: null
 			});
 		}
 
 		panelOpen = true;
+		// Before the first byte moves: a reload seconds later must still find it.
+		persist();
 		pump();
 	},
 
@@ -496,9 +570,8 @@ export const uploadQueue = {
 	retry(id: string): void {
 		const item = find(id);
 		if (!item) return;
-		// A resumable item with no file in hand needs `attach` first, not a retry.
 		if (!pendingFiles.has(id)) {
-			if (item.resume) item.status = 'stalled';
+			if (item.resume || item.storageKey) item.status = 'stalled';
 			return;
 		}
 
@@ -518,14 +591,6 @@ export const uploadQueue = {
 	},
 
 	clearFinished(): void {
-		for (const item of items) {
-			if (item.status !== 'pending' && item.status !== 'uploading' && item.status !== 'stalled') {
-				pendingFiles.delete(item.id);
-			}
-		}
-		items = items.filter(
-			(i) => i.status === 'pending' || i.status === 'uploading' || i.status === 'stalled'
-		);
-		persist();
+		clearDone();
 	}
 };
