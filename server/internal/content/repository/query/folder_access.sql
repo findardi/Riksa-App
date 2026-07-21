@@ -1,6 +1,6 @@
 -- name: SetFolderAccess :one
-insert into folder_access (folder_id, group_id, can_view, can_download, can_watermark)
-select f.id, g.id, sqlc.arg(can_view), sqlc.arg(can_download), sqlc.arg(can_watermark)
+insert into folder_access (folder_id, group_id, can_view, can_download, can_watermark, can_download_original)
+select f.id, g.id, sqlc.arg(can_view), sqlc.arg(can_download), sqlc.arg(can_watermark), sqlc.arg(can_download_original)
 from folders f
 join workspace_groups g
     on g.id = sqlc.arg(group_id) and g.workspace_id = f.workspace_id
@@ -10,6 +10,7 @@ on conflict (folder_id, group_id) do update
         can_view = excluded.can_view,
         can_download = excluded.can_download,
         can_watermark = excluded.can_watermark,
+        can_download_original = excluded.can_download_original,
         updated_at = now()
 returning *;
 
@@ -28,7 +29,8 @@ select
     g.name as group_name,
     fa.can_view,
     fa.can_download,
-    fa.can_watermark
+    fa.can_watermark,
+    fa.can_download_original
 from folder_access fa
 join folders f on f.id = fa.folder_id
 join workspace_groups g on g.id = fa.group_id
@@ -50,7 +52,8 @@ with recursive chain as (
 select
     fa.can_view,
     fa.can_download,
-    fa.can_watermark
+    fa.can_watermark,
+    fa.can_download_original
 from chain c
 join folder_access fa on fa.folder_id = c.id
 join workspace_group_members gm on gm.group_id = fa.group_id

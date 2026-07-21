@@ -18,7 +18,8 @@ select
     g.name as group_name,
     fa.can_view,
     fa.can_download,
-    fa.can_watermark
+    fa.can_watermark,
+    fa.can_download_original
 from folder_access fa
 join folders f on f.id = fa.folder_id
 join workspace_groups g on g.id = fa.group_id
@@ -32,12 +33,13 @@ type ListFolderAccessParams struct {
 }
 
 type ListFolderAccessRow struct {
-	FolderID     pgtype.UUID `json:"folder_id"`
-	GroupID      pgtype.UUID `json:"group_id"`
-	GroupName    string      `json:"group_name"`
-	CanView      bool        `json:"can_view"`
-	CanDownload  bool        `json:"can_download"`
-	CanWatermark bool        `json:"can_watermark"`
+	FolderID            pgtype.UUID `json:"folder_id"`
+	GroupID             pgtype.UUID `json:"group_id"`
+	GroupName           string      `json:"group_name"`
+	CanView             bool        `json:"can_view"`
+	CanDownload         bool        `json:"can_download"`
+	CanWatermark        bool        `json:"can_watermark"`
+	CanDownloadOriginal bool        `json:"can_download_original"`
 }
 
 func (q *Queries) ListFolderAccess(ctx context.Context, arg ListFolderAccessParams) ([]ListFolderAccessRow, error) {
@@ -56,6 +58,7 @@ func (q *Queries) ListFolderAccess(ctx context.Context, arg ListFolderAccessPara
 			&i.CanView,
 			&i.CanDownload,
 			&i.CanWatermark,
+			&i.CanDownloadOriginal,
 		); err != nil {
 			return nil, err
 		}
@@ -191,7 +194,8 @@ with recursive chain as (
 select
     fa.can_view,
     fa.can_download,
-    fa.can_watermark
+    fa.can_watermark,
+    fa.can_download_original
 from chain c
 join folder_access fa on fa.folder_id = c.id
 join workspace_group_members gm on gm.group_id = fa.group_id
@@ -208,41 +212,49 @@ type ResolveFolderAccessParams struct {
 }
 
 type ResolveFolderAccessRow struct {
-	CanView      bool `json:"can_view"`
-	CanDownload  bool `json:"can_download"`
-	CanWatermark bool `json:"can_watermark"`
+	CanView             bool `json:"can_view"`
+	CanDownload         bool `json:"can_download"`
+	CanWatermark        bool `json:"can_watermark"`
+	CanDownloadOriginal bool `json:"can_download_original"`
 }
 
 func (q *Queries) ResolveFolderAccess(ctx context.Context, arg ResolveFolderAccessParams) (ResolveFolderAccessRow, error) {
 	row := q.db.QueryRow(ctx, resolveFolderAccess, arg.WorkspaceID, arg.UserID, arg.FolderID)
 	var i ResolveFolderAccessRow
-	err := row.Scan(&i.CanView, &i.CanDownload, &i.CanWatermark)
+	err := row.Scan(
+		&i.CanView,
+		&i.CanDownload,
+		&i.CanWatermark,
+		&i.CanDownloadOriginal,
+	)
 	return i, err
 }
 
 const setFolderAccess = `-- name: SetFolderAccess :one
-insert into folder_access (folder_id, group_id, can_view, can_download, can_watermark)
-select f.id, g.id, $1, $2, $3
+insert into folder_access (folder_id, group_id, can_view, can_download, can_watermark, can_download_original)
+select f.id, g.id, $1, $2, $3, $4
 from folders f
 join workspace_groups g
-    on g.id = $4 and g.workspace_id = f.workspace_id
-where f.id = $5 and f.workspace_id = $6
+    on g.id = $5 and g.workspace_id = f.workspace_id
+where f.id = $6 and f.workspace_id = $7
 on conflict (folder_id, group_id) do update
     set
         can_view = excluded.can_view,
         can_download = excluded.can_download,
         can_watermark = excluded.can_watermark,
+        can_download_original = excluded.can_download_original,
         updated_at = now()
-returning folder_id, group_id, created_at, updated_at, can_view, can_download, can_watermark
+returning folder_id, group_id, created_at, updated_at, can_view, can_download, can_watermark, can_download_original, can_share
 `
 
 type SetFolderAccessParams struct {
-	CanView      bool        `json:"can_view"`
-	CanDownload  bool        `json:"can_download"`
-	CanWatermark bool        `json:"can_watermark"`
-	GroupID      pgtype.UUID `json:"group_id"`
-	FolderID     pgtype.UUID `json:"folder_id"`
-	WorkspaceID  pgtype.UUID `json:"workspace_id"`
+	CanView             bool        `json:"can_view"`
+	CanDownload         bool        `json:"can_download"`
+	CanWatermark        bool        `json:"can_watermark"`
+	CanDownloadOriginal bool        `json:"can_download_original"`
+	GroupID             pgtype.UUID `json:"group_id"`
+	FolderID            pgtype.UUID `json:"folder_id"`
+	WorkspaceID         pgtype.UUID `json:"workspace_id"`
 }
 
 func (q *Queries) SetFolderAccess(ctx context.Context, arg SetFolderAccessParams) (FolderAccess, error) {
@@ -250,6 +262,7 @@ func (q *Queries) SetFolderAccess(ctx context.Context, arg SetFolderAccessParams
 		arg.CanView,
 		arg.CanDownload,
 		arg.CanWatermark,
+		arg.CanDownloadOriginal,
 		arg.GroupID,
 		arg.FolderID,
 		arg.WorkspaceID,
@@ -263,6 +276,8 @@ func (q *Queries) SetFolderAccess(ctx context.Context, arg SetFolderAccessParams
 		&i.CanView,
 		&i.CanDownload,
 		&i.CanWatermark,
+		&i.CanDownloadOriginal,
+		&i.CanShare,
 	)
 	return i, err
 }

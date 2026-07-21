@@ -111,6 +111,36 @@ func (q *Queries) GetFolderByID(ctx context.Context, id pgtype.UUID) (Folder, er
 	return i, err
 }
 
+const getFolderByNameInParent = `-- name: GetFolderByNameInParent :one
+select id, workspace_id, parent_id, name, position, created_by, created_at, updated_at, is_default from folders
+where workspace_id = $1
+    and parent_id is not distinct from $2
+    and name = $3
+`
+
+type GetFolderByNameInParentParams struct {
+	WorkspaceID pgtype.UUID `json:"workspace_id"`
+	ParentID    pgtype.UUID `json:"parent_id"`
+	Name        string      `json:"name"`
+}
+
+func (q *Queries) GetFolderByNameInParent(ctx context.Context, arg GetFolderByNameInParentParams) (Folder, error) {
+	row := q.db.QueryRow(ctx, getFolderByNameInParent, arg.WorkspaceID, arg.ParentID, arg.Name)
+	var i Folder
+	err := row.Scan(
+		&i.ID,
+		&i.WorkspaceID,
+		&i.ParentID,
+		&i.Name,
+		&i.Position,
+		&i.CreatedBy,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.IsDefault,
+	)
+	return i, err
+}
+
 const getFoldersByWorkspace = `-- name: GetFoldersByWorkspace :many
 select id, workspace_id, parent_id, name, position, created_by, created_at, updated_at, is_default from folders where workspace_id = $1
 order by parent_id nulls first, position, created_at
@@ -164,6 +194,15 @@ func (q *Queries) GetMaxPositionInParent(ctx context.Context, arg GetMaxPosition
 	return max_position, err
 }
 
+const lockWorkspaceStructure = `-- name: LockWorkspaceStructure :exec
+select pg_advisory_xact_lock(hashtext($1::uuid::text))
+`
+
+func (q *Queries) LockWorkspaceStructure(ctx context.Context, workspaceID pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, lockWorkspaceStructure, workspaceID)
+	return err
+}
+
 const moveFolder = `-- name: MoveFolder :exec
 update folders set
     parent_id = $2,
@@ -180,6 +219,35 @@ type MoveFolderParams struct {
 
 func (q *Queries) MoveFolder(ctx context.Context, arg MoveFolderParams) error {
 	_, err := q.db.Exec(ctx, moveFolder, arg.ID, arg.ParentID, arg.Position)
+	return err
+}
+
+const reindexFolderSiblings = `-- name: ReindexFolderSiblings :exec
+with ordered as (
+    select f.id as folder_id,
+        (row_number() over (
+            order by position,
+                    case when f.id = $1 then 0 else 1 end,
+                    f.name
+        ))::int - 1 as rn
+    from folders f
+    where f.workspace_id = $2
+    and f.parent_id is not distinct from $3
+)
+update folders t 
+set position = o.rn 
+from ordered o 
+where t.id = o.folder_id and t.position <> o.rn
+`
+
+type ReindexFolderSiblingsParams struct {
+	MovedID     pgtype.UUID `json:"moved_id"`
+	WorkspaceID pgtype.UUID `json:"workspace_id"`
+	ParentID    pgtype.UUID `json:"parent_id"`
+}
+
+func (q *Queries) ReindexFolderSiblings(ctx context.Context, arg ReindexFolderSiblingsParams) error {
+	_, err := q.db.Exec(ctx, reindexFolderSiblings, arg.MovedID, arg.WorkspaceID, arg.ParentID)
 	return err
 }
 

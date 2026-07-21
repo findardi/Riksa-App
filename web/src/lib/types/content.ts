@@ -3,8 +3,11 @@ export interface CreateFolderPayload {
 	parent_id: string;
 }
 
+// `position` is "insert before whatever currently sits at index N"; omitting it
+// appends. The server clamps out-of-range values instead of erroring.
 export interface MoveFolderPayload {
 	parent_id: string;
+	position?: number;
 }
 
 export interface RenameFolderPayload {
@@ -57,7 +60,7 @@ export interface ViewMetaData {
 	name: string;
 	mime: string;
 	page_count: number;
-	can_download: boolean;
+	can_download_original: boolean;
 }
 
 export interface CompleteUploadPayload {
@@ -65,8 +68,92 @@ export interface CompleteUploadPayload {
 	storage_key: string;
 }
 
+// --- bulk folder tree ---
+// Server caps a request at 500 nodes total and 32 levels, reuses folders that
+// already exist (`created: false`), and does the whole thing in one transaction.
+
+export interface BulkFolderNode {
+	name: string;
+	children: BulkFolderNode[];
+}
+
+export interface BulkCreateFolderPayload {
+	parent_id: string;
+	folders: BulkFolderNode[];
+}
+
+export interface BulkFolderResult {
+	path: string;
+	id: string;
+	created: boolean;
+}
+
+export interface BulkCreateFolderData {
+	folders: BulkFolderResult[];
+}
+
+// --- multipart / resumable upload ---
+// `upload_id` + `storage_key` are the whole resume handle: the server keeps no
+// upload-session row, so losing this pair strands the upload in object storage.
+
+export interface InitMultipartPayload {
+	name: string;
+	size: number;
+}
+
+export interface InitMultipartData {
+	upload_id: string;
+	storage_key: string;
+	part_size: number;
+	part_count: number;
+}
+
+export interface MultipartPartUrlsPayload {
+	upload_id: string;
+	storage_key: string;
+	part_numbers: number[];
+}
+
+export interface MultipartPartUrl {
+	part_number: number;
+	url: string;
+}
+
+export interface MultipartPartUrlsData {
+	urls: MultipartPartUrl[];
+}
+
+export interface UploadedPart {
+	part_number: number;
+	etag: string;
+	size: number;
+}
+
+export interface MultipartPartsData {
+	parts: UploadedPart[];
+}
+
+export interface CompletedPart {
+	part_number: number;
+	etag: string;
+}
+
+export interface CompleteMultipartPayload {
+	upload_id: string;
+	name: string;
+	storage_key: string;
+	content_type: string;
+	parts: CompletedPart[];
+}
+
+export interface AbortMultipartPayload {
+	upload_id: string;
+	storage_key: string;
+}
+
 export interface MoveDocumentPayload {
 	folder_id: string;
+	position?: number;
 }
 
 export interface FolderAccessData {
@@ -76,6 +163,7 @@ export interface FolderAccessData {
 	can_view: boolean;
 	can_download: boolean;
 	can_watermark: boolean;
+	can_download_original: boolean;
 }
 
 export interface SetFolderAccessPayload {
@@ -83,6 +171,7 @@ export interface SetFolderAccessPayload {
 	can_view: boolean;
 	can_download: boolean;
 	can_watermark: boolean;
+	can_download_original: boolean;
 }
 
 export interface InheritedFolderAccess extends FolderAccessData {

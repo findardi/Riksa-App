@@ -7,12 +7,20 @@
 	import type { ActionResult, SubmitFunction } from '@sveltejs/kit';
 	import { UploadQueue } from '$lib/components/app';
 	import { Alert, Button, Field, Toaster, showToast } from '$lib/components/common';
-	import { DOCUMENT_MIME, FOLDER_MIME, filesFrom } from '$lib/dnd';
+	import {
+		DOCUMENT_MIME,
+		FOLDER_MIME,
+		entriesFrom,
+		filesFrom,
+		hasDirectory,
+		readTree
+	} from '$lib/dnd';
 	import { t } from '$lib/i18n';
 	import { findNode } from '$lib/tree';
 	import type { FolderTreeNode } from '$lib/types/content';
 	import type { MyAccessWorkspace } from '$lib/types/workspace';
 	import { uploadQueue } from '$lib/upload/queue.svelte';
+	import { uploadTree, type TreeDestination } from '$lib/upload/tree';
 	import type { LayoutProps } from './$types';
 
 	let { data, children }: LayoutProps = $props();
@@ -162,17 +170,51 @@
 		return into;
 	}
 
-	const indent = (depth: number) => `padding-left: ${depth * 1.375 + 0.25}rem`;
+	// Siblings straight from the server payload, so `position` below is the
+	// server's own index — not an array index that search or folder-level
+	// visibility could have thinned out.
+	const siblingsOf = $derived.by(() => {
+		const map: Record<string, FolderTreeNode[]> = { [ROOT]: folders };
+		const visit = (nodes: FolderTreeNode[]) => {
+			for (const n of nodes) {
+				const kids = n.children ?? [];
+				if (!kids.length) continue;
+				map[n.id] = kids;
+				visit(kids);
+			}
+		};
+		visit(folders);
+		return map;
+	});
+
+	const indentRem = (depth: number) => `${depth * 1.375 + 0.25}rem`;
+	const indent = (depth: number) => `padding-left: ${indentRem(depth)}`;
 
 	// --- drag & drop -------------------------------------------------------
 	// `Files` is an upload from the OS, FOLDER_MIME moves a folder, DOCUMENT_MIME
 	// moves a document. `types` is the only payload readable during dragover, so
 	// it is the switch.
 
+	type Edge = 'before' | 'into' | 'after';
+
 	let draggingId = $state<string | null>(null);
 	let dropTarget = $state<string | null>(null);
+	// 'into' reparents, 'before'/'after' reorder among the target's siblings.
+	let dropEdge = $state<Edge>('into');
+	let dragKind = $state<'files' | 'folder' | 'document' | null>(null);
 	let fileDragging = $state(false);
+	// The row a move is in flight for — the tree reloads wholesale afterwards,
+	// so this is the only feedback between drop and the fresh numbering.
+	let pendingId = $state<string | null>(null);
 	let dragDepth = 0;
+
+	// Moves are serialised per workspace by an advisory lock on the server, so
+	// firing them concurrently just makes them queue on the database. Chaining
+	// keeps held-down Alt+Arrow ordered and keeps the lock uncontended.
+	let moveChain: Promise<unknown> = Promise.resolve();
+	const enqueueMove = (run: () => Promise<unknown>) => {
+		moveChain = moveChain.then(run, run);
+	};
 
 	const hasFiles = (e: DragEvent) => !!e.dataTransfer?.types.includes('Files');
 	const hasFolder = (e: DragEvent) => !!e.dataTransfer?.types.includes(FOLDER_MIME);
@@ -189,10 +231,37 @@
 		return fallbackFolder?.name ?? null;
 	});
 
+	// What releasing right now would do. A dragover cannot see inside the payload
+	// — `types` only ever says "Files" — so at the root, where a folder and a file
+	// land in two different places, the hint has to name both outcomes rather than
+	// promise the wrong one.
+	const dropHint = $derived.by(() => {
+		const rootNow = dropTarget === ROOT || (dropTarget === null && !activeFolder);
+		if (rootNow) {
+			return defaultFolder
+				? t('doc.drop.atRoot', { name: defaultFolder.name })
+				: t('doc.upload.noDefault');
+		}
+		const name = dropTarget ? (findNode(folders, dropTarget)?.name ?? null) : dropLabel;
+		return name ? t('doc.drop.intoFolder', { name }) : t('doc.upload.noDefault');
+	});
+
+	// The announcement has to match the gesture: an upload, a reparent, and an
+	// insertion between two rows are three different outcomes on the same target.
+	const dropMessage = $derived.by(() => {
+		if (dragKind === 'files') return dropHint;
+		if (dropTarget === null || !dropLabel) return null;
+		if (dropEdge === 'before') return t('doc.reorder.before', { name: dropLabel });
+		if (dropEdge === 'after') return t('doc.reorder.after', { name: dropLabel });
+		return t('doc.reorder.into', { name: dropLabel });
+	});
+
 	function resetDrag() {
 		dragDepth = 0;
 		fileDragging = false;
 		dropTarget = null;
+		dropEdge = 'into';
+		dragKind = null;
 		draggingId = null;
 	}
 
@@ -201,24 +270,63 @@
 		uploadQueue.enqueue(workspace.id, folderId, folderName, files);
 	}
 
-	function uploadToDefault(files: File[]) {
-		if (!files.length) return;
-		if (!defaultFolder) {
-			showToast(t('doc.upload.noDefault'), 'error');
+	// A dropped folder needs its structure created before any file has somewhere
+	// to go. `entriesFrom` has to run inside the drop handler — dataTransfer is
+	// emptied when the event ends — so the entries are captured first and walked
+	// afterwards.
+	function dropAt(e: DragEvent, dest: TreeDestination) {
+		if (!canUpload) return;
+		const entries = entriesFrom(e.dataTransfer);
+
+		if (!hasDirectory(entries)) {
+			// Plain files never land at the root — they follow the loose target.
+			if (!dest.loose) {
+				showToast(t('doc.upload.noDefault'), 'error');
+				return;
+			}
+			uploadTo(dest.loose.id, dest.loose.name, filesFrom(e.dataTransfer));
 			return;
 		}
-		uploadTo(defaultFolder.id, defaultFolder.name, files);
+		if (!canCreate) {
+			showToast(t('doc.drop.err.noCreate'), 'error');
+			return;
+		}
+		void ingestTree(entries, dest);
 	}
 
-	// A loose drop belongs to whatever folder the user is looking at; only the
-	// index itself (no folder open) falls back to the default folder.
-	function uploadToFallback(files: File[]) {
-		if (!files.length) return;
-		if (!fallbackFolder) {
-			showToast(t('doc.upload.noDefault'), 'error');
-			return;
+	// Dropping into a folder: that folder is both the parent for new subfolders
+	// and the home for loose files.
+	const intoFolder = (id: string, name: string): TreeDestination => ({
+		parentId: id,
+		loose: { id, name }
+	});
+
+	// Dropping at the root: folders stay at the root, loose files go to General.
+	const atRoot = (): TreeDestination => ({
+		parentId: ROOT,
+		loose: defaultFolder ? { id: defaultFolder.id, name: defaultFolder.name } : null
+	});
+
+	async function ingestTree(entries: FileSystemEntry[], dest: TreeDestination) {
+		try {
+			const tree = await readTree(entries);
+			const created = tree.folders.length;
+			await uploadTree(workspace.id, dest, tree);
+			if (created) {
+				// New folders only exist upstream until the tree is refetched.
+				await invalidateAll();
+				showToast(t('doc.drop.created', { n: created }), 'success');
+			}
+		} catch (err) {
+			showToast(err instanceof Error ? err.message : t('doc.drop.err.read'), 'error');
 		}
-		uploadTo(fallbackFolder.id, fallbackFolder.name, files);
+	}
+
+	// A loose drop belongs to whatever folder the user is looking at; the index
+	// itself (no folder open) behaves like a drop at the root.
+	function dropIntoFallback(e: DragEvent) {
+		if (activeFolder) dropAt(e, intoFolder(activeFolder.id, activeFolder.name));
+		else dropAt(e, atRoot());
 	}
 
 	function canMoveInto(targetId: string): boolean {
@@ -229,21 +337,72 @@
 		return !!node && !subtreeIds(node).includes(targetId);
 	}
 
-	async function moveTo(folderId: string, parentId: string) {
+	// Top and bottom quarters insert between rows; the middle half keeps the
+	// existing "drop into this folder" behaviour.
+	function edgeAt(e: DragEvent, row: Row): Edge {
+		// Under search the visible rows are not contiguous siblings, so an
+		// insertion point between two of them would be a lie. Only 'into' is honest.
+		if (matched) return 'into';
+		const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+		if (!rect.height) return 'into';
+		const y = (e.clientY - rect.top) / rect.height;
+		if (y <= 0.25) return 'before';
+		// An open branch is followed by its own first child, so "after it" and
+		// "before that child" would point at the same gap with different meanings.
+		// The child's own 'before' band owns it.
+		if (y >= 0.75 && !(row.open && row.hasChildren)) return 'after';
+		return 'into';
+	}
+
+	function canReorderAt(node: FolderTreeNode, edge: Edge): boolean {
+		if (!draggingId || !canEdit || edge === 'into') return false;
+		if (node.id === draggingId) return false;
+		// General is pinned to position 0 of the root list; nothing goes above it.
+		if (edge === 'before' && node.is_default) return false;
+
+		const parentId = parentOf[node.id] ?? ROOT;
+		const dragged = findNode(folders, draggingId);
+		if (!dragged || subtreeIds(dragged).includes(parentId)) return false;
+
+		// Landing back where it already sits: both edges around the dragged row's
+		// own slot are no-ops, and a no-op still costs a round trip.
+		if (parentId === (parentOf[draggingId] ?? ROOT)) {
+			const position = edge === 'before' ? node.position : node.position + 1;
+			if (position === dragged.position || position === dragged.position + 1) return false;
+		}
+		return true;
+	}
+
+	// `position` means "insert before whoever currently holds index N", and the
+	// server's reindex lets the moved row win that tie — so the target's own
+	// position is exactly right for 'before', and one past it for 'after'.
+	// No direction correction is needed for downward moves.
+	const reorderTarget = (node: FolderTreeNode, edge: Edge) => ({
+		parentId: parentOf[node.id] ?? ROOT,
+		position: edge === 'before' ? node.position : node.position + 1
+	});
+
+	async function moveTo(folderId: string, parentId: string, position?: number) {
+		// Read before the round trip: `parentOf` is rebuilt by invalidateAll().
+		const reorderOnly = (parentOf[folderId] ?? ROOT) === parentId;
+
 		const body = new FormData();
 		body.set('folderId', folderId);
 		body.set('parentId', parentId);
+		if (position !== undefined) body.set('position', String(position));
 
+		pendingId = folderId;
 		const res = await fetch(`${actionBase}?/move`, {
 			method: 'POST',
 			body,
 			headers: { 'x-sveltekit-action': 'true' }
 		});
 		const result: ActionResult = deserialize(await res.text());
+		pendingId = null;
 
 		if (result.type === 'success') {
 			await invalidateAll();
-			showToast(t('doc.moved'), 'success');
+			showToast(reorderOnly ? t('doc.reordered') : t('doc.moved'), 'success');
 		} else if (result.type === 'failure') {
 			showToast((result.data?.message as string) ?? t('err.generic'), 'error');
 		} else {
@@ -294,40 +453,61 @@
 		e.stopPropagation();
 	}
 
-	function rowDragOver(e: DragEvent, node: FolderTreeNode) {
+	function rowDragOver(e: DragEvent, row: Row) {
+		const node = row.node;
 		if (hasFiles(e)) {
 			if (!canUpload) return;
 			claim(e);
 			if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
+			dragKind = 'files';
+			dropEdge = 'into';
 			dropTarget = node.id;
 		} else if (hasFolder(e) && canEdit && draggingId) {
 			claim(e);
-			const ok = canMoveInto(node.id);
+			dragKind = 'folder';
+			const edge = edgeAt(e, row);
+			const ok = edge === 'into' ? canMoveInto(node.id) : canReorderAt(node, edge);
 			if (e.dataTransfer) e.dataTransfer.dropEffect = ok ? 'move' : 'none';
+			dropEdge = edge;
 			dropTarget = ok ? node.id : null;
 		} else if (hasDocument(e) && canEditDoc && activeId) {
 			claim(e);
+			dragKind = 'document';
+			// A document dragged onto the tree is always a reparent; ordering it
+			// happens in the document list, where its siblings are visible.
+			dropEdge = 'into';
 			const ok = canMoveDocInto(node.id);
 			if (e.dataTransfer) e.dataTransfer.dropEffect = ok ? 'move' : 'none';
 			dropTarget = ok ? node.id : null;
 		}
 	}
 
-	function rowDragLeave(e: DragEvent) {
+	function rowDragLeave(e: DragEvent, node: FolderTreeNode) {
 		const next = e.relatedTarget as Node | null;
 		if (next && (e.currentTarget as Element).contains(next)) return;
-		if (dropTarget !== null) dropTarget = null;
+		// Only clear a target this row still owns: dragover on the row being
+		// entered can fire before dragleave on the row being left, and clearing
+		// unconditionally would drop the new row's indicator on every crossing.
+		if (dropTarget === node.id) dropTarget = null;
 	}
 
-	function rowDrop(e: DragEvent, node: FolderTreeNode) {
+	function rowDrop(e: DragEvent, row: Row) {
+		const node = row.node;
 		if (hasFiles(e)) {
 			if (!canUpload) return;
 			claim(e);
-			uploadTo(node.id, node.name, filesFrom(e.dataTransfer));
+			dropAt(e, intoFolder(node.id, node.name));
 			resetDrag();
 		} else if (hasFolder(e) && canEdit && draggingId) {
 			claim(e);
-			if (canMoveInto(node.id)) void moveTo(draggingId, node.id);
+			const id = draggingId;
+			const edge = edgeAt(e, row);
+			if (edge === 'into') {
+				if (canMoveInto(node.id)) enqueueMove(() => moveTo(id, node.id));
+			} else if (canReorderAt(node, edge)) {
+				const { parentId, position } = reorderTarget(node, edge);
+				enqueueMove(() => moveTo(id, parentId, position));
+			}
 			resetDrag();
 		} else if (hasDocument(e) && canEditDoc && activeId) {
 			claim(e);
@@ -338,31 +518,46 @@
 	}
 
 	function railDragOver(e: DragEvent) {
+		dropEdge = 'into';
 		if (hasFiles(e)) {
-			if (!canUpload || !defaultFolder) return;
+			// `types` cannot tell a folder from a file during dragover, so the rail
+			// accepts the drag either way and dropAt sorts out where things land.
+			if (!canUpload) return;
 			e.preventDefault();
 			if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
+			dragKind = 'files';
 			dropTarget = ROOT;
 		} else if (hasFolder(e) && draggingId && canEdit && parentOf[draggingId] !== ROOT) {
 			e.preventDefault();
 			if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+			dragKind = 'folder';
 			dropTarget = ROOT;
 		} else if (hasDocument(e) && defaultFolder && canMoveDocInto(defaultFolder.id)) {
 			e.preventDefault();
 			if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+			dragKind = 'document';
 			dropTarget = ROOT;
 		}
 	}
 
+	function railDragLeave(e: DragEvent) {
+		const next = e.relatedTarget as Node | null;
+		if (next && (e.currentTarget as Element).contains(next)) return;
+		if (dropTarget === ROOT) dropTarget = null;
+	}
+
 	function railDrop(e: DragEvent) {
 		if (hasFiles(e)) {
-			if (!canUpload || !defaultFolder) return;
+			// No `defaultFolder` check: a dropped folder belongs at the root and
+			// needs no default. Only loose files do, and dropAt reports that.
+			if (!canUpload) return;
 			e.preventDefault();
-			uploadToDefault(filesFrom(e.dataTransfer));
+			dropAt(e, atRoot());
 			resetDrag();
 		} else if (hasFolder(e) && draggingId && canEdit && parentOf[draggingId] !== ROOT) {
 			e.preventDefault();
-			void moveTo(draggingId, ROOT);
+			const id = draggingId;
+			enqueueMove(() => moveTo(id, ROOT));
 			resetDrag();
 		} else if (hasDocument(e) && defaultFolder && canMoveDocInto(defaultFolder.id)) {
 			e.preventDefault();
@@ -370,6 +565,47 @@
 			if (documentId) void moveDocumentTo(documentId, defaultFolder.id);
 			resetDrag();
 		}
+	}
+
+	// Reordering by keyboard. The Move dialog already covers reparenting; this
+	// covers the one thing drag does that no dialog expresses — position among
+	// siblings — so the feature is not mouse-only.
+	function nudge(node: FolderTreeNode, dir: -1 | 1) {
+		if (!canEdit || node.is_default) return;
+		const parentId = parentOf[node.id] ?? ROOT;
+		const sibs = siblingsOf[parentId] ?? [];
+		const i = sibs.findIndex((s) => s.id === node.id);
+		const neighbour = sibs[i + dir];
+		if (i < 0 || !neighbour) return;
+		// Same reason as canReorderAt: nothing is allowed above General.
+		if (dir === -1 && neighbour.is_default) return;
+
+		const position = dir === -1 ? neighbour.position : neighbour.position + 1;
+		enqueueMove(() => moveTo(node.id, parentId, position));
+	}
+
+	// Listens on the window, not on the row: clicking a folder navigates, and
+	// SvelteKit moves focus off the link afterwards, so a handler bound to the
+	// row would never fire for the ordinary click-then-reorder flow.
+	function treeKeydown(e: KeyboardEvent) {
+		if (!e.altKey || e.ctrlKey || e.metaKey) return;
+		if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+		if (!canEdit || matched) return;
+
+		const el = e.target as HTMLElement | null;
+		// Never steal Alt+Arrow from a field or an open dialog.
+		if (el?.closest('input, textarea, select, [contenteditable="true"], dialog')) return;
+
+		// A row holding focus wins; otherwise the shortcut acts on the folder
+		// currently open, which is what the user just clicked.
+		const id = el?.closest<HTMLElement>('[data-folder-id]')?.dataset.folderId ?? activeId;
+		if (!id) return;
+
+		const node = findNode(folders, id);
+		if (!node || node.is_default) return;
+
+		e.preventDefault();
+		nudge(node, e.key === 'ArrowUp' ? -1 : 1);
 	}
 
 	function winDragEnter(e: DragEvent) {
@@ -392,7 +628,7 @@
 		const handled = e.defaultPrevented;
 		e.preventDefault();
 
-		if (!handled && hasFiles(e) && canUpload) uploadToFallback(filesFrom(e.dataTransfer));
+		if (!handled && hasFiles(e) && canUpload) dropIntoFallback(e);
 		resetDrag();
 	}
 
@@ -559,6 +795,7 @@
 	ondragover={winDragOver}
 	ondrop={winDrop}
 	ondragend={resetDrag}
+	onkeydown={treeKeydown}
 />
 
 <svelte:head><title>{t('doc.title')} · {t('brand.name')}</title></svelte:head>
@@ -655,7 +892,7 @@
 		<nav
 			aria-label={t('doc.index')}
 			ondragover={railDragOver}
-			ondragleave={rowDragLeave}
+			ondragleave={railDragLeave}
 			ondrop={railDrop}
 			class="flex min-h-64 flex-col rounded-box border bg-base-100 transition-colors lg:sticky lg:top-6 lg:max-h-[calc(100dvh-3rem)]
 				{dropTarget === ROOT ? 'border-primary/50 bg-primary/[0.04]' : 'border-base-content/10'}"
@@ -759,21 +996,33 @@
 						{@const renaming = renamingId === node.id}
 						{@const active = activeId === node.id}
 						{@const targeted = dropTarget === node.id}
+						{@const into = targeted && dropEdge === 'into'}
 						<li
+							data-folder-id={node.id}
 							draggable={canEdit && !node.is_default && !renaming}
 							ondragstart={(e) => rowDragStart(e, node)}
-							ondragover={(e) => rowDragOver(e, node)}
-							ondragleave={rowDragLeave}
-							ondrop={(e) => rowDrop(e, node)}
-							class="group flex items-start gap-1.5 py-1.5 pr-1 transition-colors
-								{targeted
+							ondragover={(e) => rowDragOver(e, row)}
+							ondragleave={(e) => rowDragLeave(e, node)}
+							ondrop={(e) => rowDrop(e, row)}
+							class="group relative flex items-start gap-1.5 py-1.5 pr-1 transition-colors
+								{into
 								? 'bg-primary/8 ring-1 ring-primary/40 ring-inset'
 								: active
 									? 'bg-primary/6'
 									: 'hover:bg-base-content/[0.045]'}
-								{draggingId === node.id ? 'opacity-40' : ''}"
+								{draggingId === node.id ? 'opacity-40' : ''}
+								{pendingId === node.id ? 'opacity-60' : ''}"
 							style={indent(row.depth)}
 						>
+							{#if targeted && dropEdge !== 'into'}
+								<span
+									class="riksa-dropline pointer-events-none absolute right-1 {dropEdge === 'before'
+										? '-top-px'
+										: '-bottom-px'}"
+									style="left: {indentRem(row.depth)}"
+									aria-hidden="true"
+								></span>
+							{/if}
 							{#if row.hasChildren}
 								<button
 									type="button"
@@ -838,6 +1087,9 @@
 									href={rowHref(node.id)}
 									draggable="false"
 									aria-current={active ? 'page' : undefined}
+									aria-keyshortcuts={canEdit && !node.is_default
+										? 'Alt+ArrowUp Alt+ArrowDown'
+										: undefined}
 									class="mt-0.5 flex min-w-0 flex-1 items-baseline gap-1.5 rounded-field no-underline"
 								>
 									<span class="font-mono text-xs tabular-nums text-muted">{node.number}</span>
@@ -918,7 +1170,10 @@
 												<button
 													type="button"
 													onclick={() => openMove(node)}
-													title={t('doc.action.move')}
+													title="{t('doc.action.move')} · {t('doc.reorder.up')}/{t(
+														'doc.reorder.down'
+													)}: Alt+↑ / Alt+↓"
+													aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown"
 													aria-label={t('doc.action.moveOf', { name: node.name })}
 													class="grid h-8 w-8 place-items-center rounded-field text-muted transition-colors hover:bg-base-content/5 hover:text-base-content pointer-coarse:h-11 pointer-coarse:w-11"
 												>
@@ -1040,20 +1295,14 @@
 		<div
 			class="max-w-full rounded-box border border-primary/40 bg-base-100/95 px-3.5 py-2 shadow-sm"
 		>
-			<p class="truncate text-xs">
-				{#if dropLabel}
-					{t('doc.dropAnywhere.body', { name: dropLabel })}
-				{:else}
-					{t('doc.upload.noDefault')}
-				{/if}
-			</p>
+			<p class="text-xs text-pretty">{dropHint}</p>
 		</div>
 	</div>
 {/if}
 
 <div aria-live="polite" class="sr-only">
-	{#if dropTarget !== null && dropLabel}
-		{t('doc.dropAnywhere.body', { name: dropLabel })}
+	{#if dropMessage}
+		{dropMessage}
 	{/if}
 </div>
 
@@ -1167,6 +1416,24 @@
 	}
 	.riksa-overlay {
 		animation: riksa-fade-in 150ms ease-out;
+	}
+	/* The insertion point reads as a caret, not a border: a 2px rule with a knob
+	   at its left end, starting at the indent of the level being joined. */
+	.riksa-dropline {
+		height: 2px;
+		border-radius: 1px;
+		background: var(--color-primary);
+	}
+	.riksa-dropline::before {
+		content: '';
+		position: absolute;
+		left: 0;
+		top: 50%;
+		height: 6px;
+		width: 6px;
+		margin-top: -3px;
+		border-radius: 9999px;
+		background: var(--color-primary);
 	}
 	@keyframes riksa-fade-in {
 		from {

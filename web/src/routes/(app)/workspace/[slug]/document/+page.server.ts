@@ -6,6 +6,7 @@ import {
 	renameFolder,
 	resolveWorkspaceId
 } from '$lib/server/api';
+import { isUuid, parsePosition } from '$lib/dnd';
 import { t } from '$lib/i18n';
 import type { Actions } from './$types';
 
@@ -61,11 +62,19 @@ export const actions: Actions = {
 		const folderId = (form.get('folderId') ?? '').toString();
 		const parentId = (form.get('parentId') ?? '').toString();
 		if (!folderId) return fail(400, { message: t('err.generic') });
+		// A non-UUID parent_id reaches the server as an unparsed uuid and comes
+		// back as a 500, so it is rejected here instead. '' is legal: root.
+		if (parentId && !isUuid(parentId)) return fail(400, { message: t('doc.err.invalidMove') });
+
+		const position = parsePosition(form.get('position'));
 
 		const wsId = await resolveWorkspaceId(locals.session, params.slug);
 		if (!wsId) return fail(404, { message: t('ws.detail.notFound') });
 
-		const res = await moveFolder(locals.session, wsId, folderId, { parent_id: parentId });
+		const res = await moveFolder(locals.session, wsId, folderId, {
+			parent_id: parentId,
+			...(position === null ? {} : { position })
+		});
 		if (!res.ok) {
 			if (res.status === 401) redirect(303, '/login');
 			if (res.status === 403) return fail(403, { message: t('doc.err.defaultLocked') });

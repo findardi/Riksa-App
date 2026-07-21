@@ -1,0 +1,63 @@
+# Wadi (Virtual Data Room)
+
+## Two-package monorepo
+- `web/` — SvelteKit 5 frontend (Bun package manager)
+- `server/` — Go 1.26 backend (Chi, PostgreSQL/pgx, Minio)
+
+## Web (`web/`)
+
+### Dev commands
+```sh
+bun run dev          # Start dev server (Vite, port 5173)
+bun run build        # Production build
+bun run lint         # prettier --check . && eslint .
+bun run format       # prettier --write .
+bun run check        # svelte-kit sync && svelte-check (type-check .svelte files)
+```
+
+### Stack notes
+- Svelte 5 **runes mode forced** project-wide (see vite config)
+- Tailwind CSS **v4** via `@tailwindcss/vite` plugin (no PostCSS config)
+- DaisyUI **v5** for components
+- i18n: Indonesian (`id`) + English (`en`), default `id`. Server locale via `AsyncLocalStorage`.
+- `.npmrc` sets `engine-strict=true` — install fails if Node/bun version mismatches.
+- Lint order matters: run `bun run lint` which runs prettier first, then eslint.
+
+## Server (`server/`)
+
+### Dev commands
+```sh
+go run ./cmd/main              # Starts API server (env from configs/.env)
+make migrate-up                # Run PostgreSQL migrations (goose)
+make migrate-create name=xxx   # Create a new migration
+make sqlc                      # Regenerate type-safe SQL code (sqlc)
+go test ./...                  # Run all tests
+```
+
+### Prerequisites
+- `configs/.env` is **gitignored** but required. Copy from example or create manually.
+- `configs/.env` is `include`d by the Makefile as if sourcing shell vars.
+- Requires running PostgreSQL + Minio instance.
+- Gotenberg service for document conversion at runtime.
+
+### Architecture
+- Modules: `auth`, `workspace`, `access`, `invitation`, `content` under `internal/`.
+- Each module follows: `handler/` → `service/` → `repository/` (sqlc-generated queries).
+- Shared platform layer at `internal/platform/`: config, database, middleware, oauth, otp, storage, token, etc.
+- 5 separate sqlc packages in `sqlc.yaml` — one per domain (authdb, workspacedb, accessdb, invitationdb, contentdb).
+- **After changing SQL queries** in any `repository/query/` directory, run `make sqlc` to regenerate.
+
+### Tests
+- Use `testify/assert` and `testify/require`.
+- Service tests use fake repos satisfying generated sqlc interfaces.
+- Existing tests: `access/service/`, `platform/middleware/`, `platform/watermark/`.
+
+## Design constraints (must follow in UI code)
+- No generic-SaaS look (no purple gradients, cream/sand, hero-metric, identical card grids).
+- Flat by default; elevation only for state response (hover, modal, dropdown).
+- Machine facts (IDs, hashes, timestamps) always in monospace font.
+- WCAG AA contrast minimum. `prefers-reduced-motion` support. Only 150–250ms state animation.
+- Full details in `web/PRODUCT.md` and `web/DESIGN.md`.
+
+## CI
+- `.github/workflows/` is currently empty — no CI pipeline yet.

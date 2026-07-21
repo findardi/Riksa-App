@@ -57,8 +57,10 @@ export const patch = <T>(path: string, body: unknown, token?: string) =>
 	request<T>('PATCH', path, body, token);
 
 // `del` (not `delete` — reserved word). Backend returns 200 + envelope, not 204.
-export const del = <T>(path: string, token?: string) =>
-	request<T>('DELETE', path, undefined, token);
+// `body` is last so existing two-argument callers keep working; multipart abort
+// is the one DELETE upstream that expects a JSON body.
+export const del = <T>(path: string, token?: string, body?: unknown) =>
+	request<T>('DELETE', path, body, token);
 
 function translateFieldErrors(errs?: FieldError[] | null): Record<string, string> {
 	const out: Record<string, string> = {};

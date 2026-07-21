@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net/http"
 	"net/url"
+	"strconv"
 	"time"
 
 	"github.com/findardi/Riksa-App/server/internal/platform/config"
@@ -15,6 +17,7 @@ import (
 type MinioStorage struct {
 	client *minio.Client
 	bucket string
+	core   *minio.Core
 }
 
 func NewMinio(cfg config.MinioConfig) (*MinioStorage, error) {
@@ -30,6 +33,9 @@ func NewMinio(cfg config.MinioConfig) (*MinioStorage, error) {
 	s := &MinioStorage{
 		client: client,
 		bucket: cfg.BucketName,
+		core: &minio.Core{
+			Client: client,
+		},
 	}
 
 	if err := s.ensureBucket(context.Background()); err != nil {
@@ -109,6 +115,82 @@ func (m *MinioStorage) Put(ctx context.Context, key string, r io.Reader, size in
 		ContentType: contentType,
 	}); err != nil {
 		return fmt.Errorf("put object: %w", err)
+	}
+
+	return nil
+}
+
+func (m *MinioStorage) InitMultipart(ctx context.Context, key string) (string, error) {
+	uploadID, err := m.core.NewMultipartUpload(ctx, m.bucket, key, minio.PutObjectOptions{})
+	if err != nil {
+		return "", fmt.Errorf("init multipart: %w", err)
+	}
+
+	return uploadID, nil
+}
+
+func (m *MinioStorage) PresignPart(ctx context.Context, key, uploadID string, partNumber int, expiry time.Duration) (string, error) {
+	params := url.Values{}
+	params.Set("uploadId", uploadID)
+	params.Set("partNumber", strconv.Itoa(partNumber))
+
+	u, err := m.client.Presign(ctx, http.MethodPut, m.bucket, key, expiry, params)
+	if err != nil {
+		return "", fmt.Errorf("presign part: %w", err)
+	}
+
+	return u.String(), nil
+}
+
+func (m *MinioStorage) ListParts(ctx context.Context, key, uploadID string) ([]Part, error) {
+	out := make([]Part, 0)
+	marker := 0
+
+	for {
+		res, err := m.core.ListObjectParts(ctx, m.bucket, key, uploadID, marker, 1000)
+		if err != nil {
+			return nil, fmt.Errorf("list parts: %w", err)
+		}
+
+		for _, p := range res.ObjectParts {
+			out = append(out, Part{
+				PartNumber: p.PartNumber,
+				ETag:       p.ETag,
+				Size:       p.Size,
+			})
+		}
+
+		if !res.IsTruncated {
+			break
+		}
+
+		marker = res.NextPartNumberMarker
+	}
+
+	return out, nil
+}
+
+func (m *MinioStorage) CompleteMultiPart(ctx context.Context, key, uploadID, contentType string, parts []Part) error {
+	cps := make([]minio.CompletePart, 0, len(parts))
+	for _, p := range parts {
+		cps = append(cps, minio.CompletePart{
+			PartNumber: p.PartNumber,
+			ETag:       p.ETag,
+		})
+	}
+
+	if _, err := m.core.CompleteMultipartUpload(ctx, m.bucket, key, uploadID, cps, minio.PutObjectOptions{
+		ContentType: contentType,
+	}); err != nil {
+		return fmt.Errorf("complete multipart: %w", err)
+	}
+
+	return nil
+}
+
+func (m *MinioStorage) AbortMultipart(ctx context.Context, key, uploadID string) error {
+	if err := m.core.AbortMultipartUpload(ctx, m.bucket, key, uploadID); err != nil {
+		return fmt.Errorf("abort multipart: %w", err)
 	}
 
 	return nil
