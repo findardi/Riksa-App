@@ -88,6 +88,12 @@
 				</button>
 			</header>
 
+			{#if uploadQueue.storageBlocked}
+				<p class="border-b border-base-content/8 px-3 py-2 text-xs text-warning text-pretty">
+					{t('doc.upload.err.noStorage')}
+				</p>
+			{/if}
+
 			{#if uploadQueue.open}
 				<ul class="max-h-72 divide-y divide-base-content/6 overflow-y-auto">
 					{#each items as item (item.id)}

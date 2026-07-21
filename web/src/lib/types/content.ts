@@ -142,6 +142,7 @@ export interface CompleteMultipartPayload {
 	upload_id: string;
 	name: string;
 	storage_key: string;
+	content_type: string;
 	parts: CompletedPart[];
 }
 

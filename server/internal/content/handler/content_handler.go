@@ -195,11 +195,16 @@ func (h *ContentHandler) RequestUploadURL(w http.ResponseWriter, r *http.Request
 	wID := chi.URLParam(r, "workspaceID")
 	fID := chi.URLParam(r, "folderID")
 
-	res, err := h.svc.RequestUploadURL(r.Context(), wID, fID)
+	var req dto.UploadURLRequest
+	_ = json.NewDecoder(http.MaxBytesReader(w, r.Body, MaxBodyBytes)).Decode(&req)
+
+	res, err := h.svc.RequestUploadURL(r.Context(), wID, fID, req.StorageKey)
 	if err != nil {
 		switch {
 		case errors.Is(err, service.ErrFolderNotFound):
 			response.Error(w, http.StatusNotFound, err.Error(), nil)
+		case errors.Is(err, service.ErrInvalidStorageKey):
+			response.Error(w, http.StatusBadRequest, err.Error(), nil)
 		default:
 			log.Printf("request upload url internal error: %v", err)
 			response.Error(w, http.StatusInternalServerError, "internal server error", nil)
@@ -667,6 +672,8 @@ func (h *ContentHandler) InitMultipart(w http.ResponseWriter, r *http.Request) {
 			response.Error(w, http.StatusNotFound, err.Error(), nil)
 		case errors.Is(err, service.ErrUploadTooLarge):
 			response.Error(w, http.StatusRequestEntityTooLarge, err.Error(), nil)
+		case errors.Is(err, service.ErrDocumentNameTaken):
+			response.Error(w, http.StatusConflict, err.Error(), nil)
 		default:
 			log.Printf("init multipart internal error: %v", err)
 			response.Error(w, http.StatusInternalServerError, "internal server error", nil)
@@ -712,7 +719,7 @@ func (h *ContentHandler) MultipartPartURLs(w http.ResponseWriter, r *http.Reques
 }
 
 func (h *ContentHandler) MultipartParts(w http.ResponseWriter, r *http.Request) {
-	req := dto.AbortMultipartRequest{
+	req := dto.ListPartsRequest{
 		WorkspaceID: chi.URLParam(r, "workspaceID"),
 		FolderID:    chi.URLParam(r, "folderID"),
 		UploadID:    r.URL.Query().Get("upload_id"),

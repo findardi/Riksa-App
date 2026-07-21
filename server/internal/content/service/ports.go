@@ -21,6 +21,7 @@ type ContentRepository interface {
 	SetCurrentVersion(ctx context.Context, arg contentdb.SetCurrentVersionParams) error
 	GetNextVersionNo(ctx context.Context, documentID pgtype.UUID) (int32, error)
 	GetDocumentByID(ctx context.Context, id pgtype.UUID) (contentdb.Document, error)
+	GetDocumentByNameInFolder(ctx context.Context, arg contentdb.GetDocumentByNameInFolderParams) (contentdb.Document, error)
 	ListDocumentsByFolder(ctx context.Context, folderID pgtype.UUID) ([]contentdb.ListDocumentsByFolderRow, error)
 	ListVersionByDocument(ctx context.Context, documentID pgtype.UUID) ([]contentdb.DocumentVersion, error)
 	GetVersionByID(ctx context.Context, id pgtype.UUID) (contentdb.DocumentVersion, error)

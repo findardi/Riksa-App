@@ -146,6 +146,32 @@ func (q *Queries) GetDocumentByID(ctx context.Context, id pgtype.UUID) (Document
 	return i, err
 }
 
+const getDocumentByNameInFolder = `-- name: GetDocumentByNameInFolder :one
+select id, workspace_id, folder_id, name, current_version_id, uploaded_by, created_at, updated_at, position from documents where folder_id = $1 and name = $2
+`
+
+type GetDocumentByNameInFolderParams struct {
+	FolderID pgtype.UUID `json:"folder_id"`
+	Name     string      `json:"name"`
+}
+
+func (q *Queries) GetDocumentByNameInFolder(ctx context.Context, arg GetDocumentByNameInFolderParams) (Document, error) {
+	row := q.db.QueryRow(ctx, getDocumentByNameInFolder, arg.FolderID, arg.Name)
+	var i Document
+	err := row.Scan(
+		&i.ID,
+		&i.WorkspaceID,
+		&i.FolderID,
+		&i.Name,
+		&i.CurrentVersionID,
+		&i.UploadedBy,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Position,
+	)
+	return i, err
+}
+
 const getMaxPosition = `-- name: GetMaxPosition :one
 select coalesce(max(position), -1)::int as max_position
 from documents

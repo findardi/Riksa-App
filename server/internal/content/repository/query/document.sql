@@ -70,6 +70,9 @@ select coalesce(max(position), -1)::int as max_position
 from documents
 where folder_id = $1;
 
+-- name: GetDocumentByNameInFolder :one
+select * from documents where folder_id = $1 and name = $2;
+
 -- name: ReindexDocumentSiblings :exec
 with ordered as (
     select d.id as document_id,

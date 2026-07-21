@@ -293,7 +293,10 @@ export const id = {
 	'doc.upload.repick': 'Pilih berkas',
 	'doc.upload.repickOf': 'Pilih {name} lagi untuk melanjutkan unggahannya',
 	'doc.upload.resumed': 'Melanjutkan — bagian yang sudah terkirim dilewati.',
+	'doc.upload.completing': 'Menyelesaikan unggahan…',
 	'doc.upload.err.storage': 'Penyimpanan menolak berkas ini.',
+	'doc.upload.err.noStorage':
+		'Peramban ini memblokir penyimpanan lokal, jadi unggahan tidak bisa dilanjutkan setelah halaman dimuat ulang.',
 	'doc.upload.err.mismatch':
 		'Berkasnya berbeda. Pilih yang tadi Anda mulai — nama dan ukuran harus sama.',
 	'doc.upload.err.incomplete': 'Ada bagian yang belum terkirim. Coba lagi untuk mengirim sisanya.',

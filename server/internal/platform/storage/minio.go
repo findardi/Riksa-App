@@ -170,7 +170,7 @@ func (m *MinioStorage) ListParts(ctx context.Context, key, uploadID string) ([]P
 	return out, nil
 }
 
-func (m *MinioStorage) CompleteMultiPart(ctx context.Context, key, uploadID string, parts []Part) error {
+func (m *MinioStorage) CompleteMultiPart(ctx context.Context, key, uploadID, contentType string, parts []Part) error {
 	cps := make([]minio.CompletePart, 0, len(parts))
 	for _, p := range parts {
 		cps = append(cps, minio.CompletePart{
@@ -179,7 +179,9 @@ func (m *MinioStorage) CompleteMultiPart(ctx context.Context, key, uploadID stri
 		})
 	}
 
-	if _, err := m.core.CompleteMultipartUpload(ctx, m.bucket, key, uploadID, cps, minio.PutObjectOptions{}); err != nil {
+	if _, err := m.core.CompleteMultipartUpload(ctx, m.bucket, key, uploadID, cps, minio.PutObjectOptions{
+		ContentType: contentType,
+	}); err != nil {
 		return fmt.Errorf("complete multipart: %w", err)
 	}
 
