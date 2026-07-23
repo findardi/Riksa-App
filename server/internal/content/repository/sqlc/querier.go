@@ -30,6 +30,9 @@ type Querier interface {
 	ListDocumentsByFolder(ctx context.Context, folderID pgtype.UUID) ([]ListDocumentsByFolderRow, error)
 	ListFolderAccess(ctx context.Context, arg ListFolderAccessParams) ([]ListFolderAccessRow, error)
 	ListVersionByDocument(ctx context.Context, documentID pgtype.UUID) ([]DocumentVersion, error)
+	// `is_current` is the served version, which restore repoints freely, so it is
+	// not necessarily the highest version_no. current_version_id is nullable.
+	ListVersionsWithUploader(ctx context.Context, documentID pgtype.UUID) ([]ListVersionsWithUploaderRow, error)
 	ListVisibleFolders(ctx context.Context, arg ListVisibleFoldersParams) ([]ListVisibleFoldersRow, error)
 	LockWorkspaceStructure(ctx context.Context, workspaceID pgtype.UUID) error
 	MoveDocument(ctx context.Context, arg MoveDocumentParams) error
