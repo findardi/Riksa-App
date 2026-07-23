@@ -50,6 +50,8 @@ var (
 	ErrInvalidPartNumber    = errors.New("invalid part number")
 	ErrTooManyParts         = errors.New("too many parts requested at once")
 	ErrDocumentNameTaken    = errors.New("a document with this name already exists in the folder")
+	ErrVersionNotFound      = errors.New("version not found")
+	ErrAlreadyCurrent       = errors.New("version is already current")
 )
 
 type ContentService struct {

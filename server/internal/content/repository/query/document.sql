@@ -88,3 +88,16 @@ update documents t
 set position = o.rn 
 from ordered o 
 where t.id = o.document_id and t.position <> o.rn;
+
+-- name: ListVersionsWithUploader :many
+-- `is_current` is the served version, which restore repoints freely, so it is
+-- not necessarily the highest version_no. current_version_id is nullable.
+select
+    v.*,
+    coalesce(u.username, u.email)::text as uploaded_by_name,
+    coalesce(d.current_version_id = v.id, false)::bool as is_current
+from document_versions v
+join users u on u.id = v.uploaded_by
+join documents d on d.id = v.document_id
+where v.document_id = $1
+order by v.version_no desc;

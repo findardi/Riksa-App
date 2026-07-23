@@ -23,6 +23,7 @@ type ContentRepository interface {
 	GetDocumentByID(ctx context.Context, id pgtype.UUID) (contentdb.Document, error)
 	GetDocumentByNameInFolder(ctx context.Context, arg contentdb.GetDocumentByNameInFolderParams) (contentdb.Document, error)
 	ListDocumentsByFolder(ctx context.Context, folderID pgtype.UUID) ([]contentdb.ListDocumentsByFolderRow, error)
+	ListVersionsWithUploader(ctx context.Context, documentID pgtype.UUID) ([]contentdb.ListVersionsWithUploaderRow, error)
 	ListVersionByDocument(ctx context.Context, documentID pgtype.UUID) ([]contentdb.DocumentVersion, error)
 	GetVersionByID(ctx context.Context, id pgtype.UUID) (contentdb.DocumentVersion, error)
 	GetCurrentVersion(ctx context.Context, id pgtype.UUID) (contentdb.DocumentVersion, error)

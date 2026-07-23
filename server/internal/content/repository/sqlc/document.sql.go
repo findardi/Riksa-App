@@ -316,6 +316,68 @@ func (q *Queries) ListVersionByDocument(ctx context.Context, documentID pgtype.U
 	return items, nil
 }
 
+const listVersionsWithUploader = `-- name: ListVersionsWithUploader :many
+select
+    v.id, v.document_id, v.version_no, v.mime, v.size, v.storage_key, v.uploaded_by, v.created_at, v.rendition_key, v.page_count,
+    coalesce(u.username, u.email)::text as uploaded_by_name,
+    coalesce(d.current_version_id = v.id, false)::bool as is_current
+from document_versions v
+join users u on u.id = v.uploaded_by
+join documents d on d.id = v.document_id
+where v.document_id = $1
+order by v.version_no desc
+`
+
+type ListVersionsWithUploaderRow struct {
+	ID             pgtype.UUID        `json:"id"`
+	DocumentID     pgtype.UUID        `json:"document_id"`
+	VersionNo      int32              `json:"version_no"`
+	Mime           string             `json:"mime"`
+	Size           int64              `json:"size"`
+	StorageKey     string             `json:"storage_key"`
+	UploadedBy     pgtype.UUID        `json:"uploaded_by"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	RenditionKey   *string            `json:"rendition_key"`
+	PageCount      *int32             `json:"page_count"`
+	UploadedByName string             `json:"uploaded_by_name"`
+	IsCurrent      bool               `json:"is_current"`
+}
+
+// `is_current` is the served version, which restore repoints freely, so it is
+// not necessarily the highest version_no. current_version_id is nullable.
+func (q *Queries) ListVersionsWithUploader(ctx context.Context, documentID pgtype.UUID) ([]ListVersionsWithUploaderRow, error) {
+	rows, err := q.db.Query(ctx, listVersionsWithUploader, documentID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListVersionsWithUploaderRow
+	for rows.Next() {
+		var i ListVersionsWithUploaderRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.DocumentID,
+			&i.VersionNo,
+			&i.Mime,
+			&i.Size,
+			&i.StorageKey,
+			&i.UploadedBy,
+			&i.CreatedAt,
+			&i.RenditionKey,
+			&i.PageCount,
+			&i.UploadedByName,
+			&i.IsCurrent,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const moveDocument = `-- name: MoveDocument :exec
 update documents set folder_id = $2, position = $3, updated_at = now() where id = $1
 `
